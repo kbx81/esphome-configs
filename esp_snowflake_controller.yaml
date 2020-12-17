@@ -1,0 +1,45 @@
+substitutions:
+  node_name: esp_snowflake_controller
+  node_friendly_name: "Snowflake"
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP8266
+  board: esp01_1m
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
+
+switch:
+  - platform: gpio
+    pin: GPIO0
+    name: ${node_friendly_name} Button
+    id: snowflake_button
+  - platform: gpio
+    pin: GPIO1
+    name: ${node_friendly_name} Power
+    id: snowflake_power
+  - platform: template
+    name: ${node_friendly_name} Button Short Press
+    id: snowflake_button_short_press
+    turn_on_action:
+      - switch.turn_on: snowflake_button
+      - delay: 500ms
+      - switch.turn_off: snowflake_button
+  - platform: template
+    name: ${node_friendly_name} Button Long Press
+    id: snowflake_button_long_press
+    turn_on_action:
+      - switch.turn_on: snowflake_button
+      - delay: 2250ms
+      - switch.turn_off: snowflake_button
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO3
+    name: ${node_friendly_name} Button Input
+    id: snowflake_button_input

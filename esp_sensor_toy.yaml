@@ -1,0 +1,52 @@
+substitutions:
+  node_name: esp_sensor_toy
+  node_friendly_name: "Sensor Toy"
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP8266
+  board: esp01_1m
+
+i2c:
+  id: i2c_bus
+  frequency: 400kHz
+  sda: GPIO2
+  scl: GPIO0
+
+sensor:
+  - platform: bme280
+    address: 0x76
+    temperature:
+      id: bme280_temperature
+      name: ${node_friendly_name} BME280 Temperature
+      # filters:
+      #   - offset: -0.5
+    humidity:
+      id: bme280_humidity
+      name: ${node_friendly_name} BME280 Humidity
+    pressure:
+      id: bme280_pressure
+      name: ${node_friendly_name} BME280 Pressure
+    update_interval: 15s
+  - platform: shtcx
+    temperature:
+      id: shtcx_temperature
+      name: ${node_friendly_name} SHTC3 Temperature
+      # filters:
+      #   - offset: -1
+    humidity:
+      id: shtcx_humidity
+      name: ${node_friendly_name} SHTC3 Humidity
+    update_interval: 15s
+  - platform: dht
+    pin: GPIO3
+    model: DHT22
+    temperature:
+      id: dht22_temperature
+      name: ${node_friendly_name} DHT22 Temperature
+    humidity:
+      id: dht22_humidity
+      name: ${node_friendly_name} DHT22 Humidity
+    update_interval: 15s

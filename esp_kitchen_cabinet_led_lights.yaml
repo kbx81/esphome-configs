@@ -1,0 +1,73 @@
+substitutions:
+  node_name: esp_kitchen_cabinet_led_lights
+  node_friendly_name: "Kitchen"
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+binary_sensor:
+  - platform: gpio
+    id: leds_off_button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: kitchen_under_cabinet_east
+        - light.turn_off:
+            id: kitchen_under_cabinet_west
+        - light.turn_off:
+            id: kitchen_uplight
+
+light:
+  - platform: monochromatic
+    id: kitchen_under_cabinet_east
+    name: ${node_friendly_name} Under Cabinet East
+    output: downlight_east_pwm_white_channel
+  - platform: monochromatic
+    id: kitchen_under_cabinet_west
+    name: ${node_friendly_name} Under Cabinet West
+    output: downlight_west_pwm_white_channel
+  - platform: rgbw
+    id: kitchen_uplight
+    name: ${node_friendly_name} Uplight
+    red: uplight_pwm_red_channel
+    green: uplight_pwm_green_channel
+    blue: uplight_pwm_blue_channel
+    white: uplight_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+
+output:
+  - platform: ledc
+    id: uplight_pwm_red_channel
+    pin: GPIO22
+  - platform: ledc
+    id: uplight_pwm_green_channel
+    pin: GPIO23
+  - platform: ledc
+    id: uplight_pwm_blue_channel
+    pin: GPIO21
+  - platform: ledc
+    id: uplight_pwm_white_channel
+    pin: GPIO19
+  - platform: ledc
+    id: downlight_east_pwm_white_channel
+    pin: GPIO18
+  - platform: ledc
+    id: downlight_west_pwm_white_channel
+    pin: GPIO17

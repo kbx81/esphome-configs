@@ -1,0 +1,49 @@
+switch:
+  # patch template switches to phyical switches so control is consistent
+  - platform: template
+    id: esp_thermostat_fan
+    name: ${node_friendly_name} Fan
+    optimistic: true
+  - platform: template
+    id: esp_thermostat_cool_1
+    name: ${node_friendly_name} Cool 1
+    optimistic: true
+    turn_off_action:
+      - switch.turn_off: esp_thermostat_cool_2
+  - platform: template
+    id: esp_thermostat_cool_2
+    name: ${node_friendly_name} Cool 2
+    optimistic: true
+    turn_on_action:
+      - switch.turn_on: esp_thermostat_cool_1
+  - platform: template
+    id: esp_thermostat_heat_1
+    name: ${node_friendly_name} Heat 1
+    optimistic: true
+    turn_off_action:
+      - switch.turn_off: esp_thermostat_heat_2
+  - platform: template
+    id: esp_thermostat_heat_2
+    name: ${node_friendly_name} Heat 2
+    optimistic: true
+    turn_on_action:
+      - switch.turn_on: esp_thermostat_heat_1
+  - platform: template
+    id: esp_thermostat_humidify
+    name: ${node_friendly_name} Humidify
+    optimistic: true
+  # physical switches
+  - platform: gpio
+    id: esp_thermostat_dht22_vcc
+    name: ${node_friendly_name} DHT22 Vcc
+    internal: true
+    pin:
+      number: 25
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_thermistor_vcc
+    name: ${node_friendly_name} Thermistor Vcc
+    internal: true
+    pin:
+      number: 33
+      mode: OUTPUT

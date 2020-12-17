@@ -1,0 +1,399 @@
+esphome:
+  includes: shared/esp_thermostat.h
+  platform: ESP32
+  board: featheresp32
+
+api:
+  services:
+    - service: set_display_page
+      variables:
+        page: int
+      then:
+        - lambda: 'esp32_thermostat::set_display_page(page);'
+    - service: update_humidity
+      variables:
+        current: float
+        bedroom: float
+        boiler_room: float
+        front_room_nook: float
+        front_room_table: float
+      then:
+        - globals.set:
+            id: current_humidity
+            value: !lambda 'return current;'
+        - globals.set:
+            id: bedroom_humidity
+            value: !lambda 'return bedroom;'
+        - globals.set:
+            id: boiler_room_humidity
+            value: !lambda 'return boiler_room;'
+        - globals.set:
+            id: front_room_nook_humidity
+            value: !lambda 'return front_room_nook;'
+        - globals.set:
+            id: front_room_table_humidity
+            value: !lambda 'return front_room_table;'
+        - globals.set:
+            id: missed_update_count
+            value: '0'
+    - service: update_temperature
+      variables:
+        current: float
+        bedroom: float
+        boiler_room: float
+        front_room_nook: float
+        front_room_table: float
+      then:
+        - globals.set:
+            id: current_temperature
+            value: !lambda 'return current;'
+        - globals.set:
+            id: bedroom_temperature
+            value: !lambda 'return bedroom;'
+        - globals.set:
+            id: boiler_room_temperature
+            value: !lambda 'return boiler_room;'
+        - globals.set:
+            id: front_room_nook_temperature
+            value: !lambda 'return front_room_nook;'
+        - globals.set:
+            id: front_room_table_temperature
+            value: !lambda 'return front_room_table;'
+        - globals.set:
+            id: missed_update_count
+            value: '0'
+    - service: update_weather
+      variables:
+        condition: string
+        humidity: float
+        temperature: float
+      then:
+        - globals.set:
+            id: outside_condition
+            value: !lambda 'return condition;'
+        - globals.set:
+            id: outside_humidity
+            value: !lambda 'return humidity;'
+        - globals.set:
+            id: outside_temperature
+            value: !lambda 'return temperature;'
+
+globals:
+  # the temperature/humidity that guides the thermostat controller
+  - id: current_humidity
+    type: float
+    restore_value: yes
+    initial_value: '0'
+  - id: current_temperature
+    type: float
+    restore_value: yes
+    initial_value: '-100'
+  # selected display pages/items
+  - id: selected_display_page
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: selected_display_item
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # last processed encoder value
+  - id: encoder_value
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # number of sensor updates while offline
+  - id: missed_update_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # ancillary humidities we may display
+  - id: bedroom_humidity
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: boiler_room_humidity
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: front_room_nook_humidity
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: front_room_table_humidity
+    type: float
+    restore_value: no
+    initial_value: '0'
+  # ancillary temperatures we may display
+  - id: bedroom_temperature
+    type: float
+    restore_value: no
+    initial_value: '-100'
+  - id: boiler_room_temperature
+    type: float
+    restore_value: no
+    initial_value: '-100'
+  - id: front_room_nook_temperature
+    type: float
+    restore_value: no
+    initial_value: '-100'
+  - id: front_room_table_temperature
+    type: float
+    restore_value: no
+    initial_value: '-100'
+  # weather/outdoor conditions/temperature/humidity
+  - id: outside_condition
+    type: std::string
+    restore_value: no
+    initial_value: '"No data"'
+  - id: outside_humidity
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: outside_temperature
+    type: float
+    restore_value: no
+    initial_value: '-100'
+  # flag to indicate on-board sensor is in use
+  - id: on_board_sensor_active
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  # flag to indicate template sensor is ready
+  - id: sensor_ready
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+script:
+  # display screen management
+  - id: button_press
+    mode: restart
+    then:
+      - script.execute: display_on
+      - delay: 60s
+      - lambda: 'esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);'
+  # display power management
+  - id: display_on
+    mode: restart
+    then:
+      - lambda: 'id(main_lcd)->turn_on();'
+      - delay: 60s
+      - lambda: 'id(main_lcd)->turn_off();'
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+time:
+  - platform: homeassistant
+    id: esptime
+
+i2c:
+  id: i2c_bus
+  frequency: 400kHz
+  sda: 21
+  scl: 22
+  scan: True
+
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+climate:
+  - platform: thermostat
+    id: esp_thermostat
+    name: ${node_friendly_name}
+    sensor: esp_thermostat_temperature_sensor
+    hysteresis: 0.555555555555556
+    visual:
+      min_temperature: 60°F
+      max_temperature: 90°F
+      temperature_step: 1
+    default_target_temperature_low: 72°F
+    default_target_temperature_high: 75°F
+    away_config:
+      default_target_temperature_low: 68°F
+      default_target_temperature_high: 78°F
+    off_mode:
+      - switch.turn_off: esp_thermostat_heat_1
+      - switch.turn_off: esp_thermostat_cool_1
+      - switch.turn_off: esp_thermostat_fan
+      - lambda: |-
+          id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;
+    cool_action:
+      - switch.turn_off: esp_thermostat_heat_1
+      - switch.turn_on: esp_thermostat_fan
+      - lambda: |-
+          if (id(esp_thermostat_temperature_sensor).state - id(esp_thermostat).target_temperature_high < esp32_thermostat::second_stage_activation_delta)
+            id(esp_thermostat_cool_1).turn_on();
+          else
+            id(esp_thermostat_cool_2).turn_on();
+    heat_action:
+      - switch.turn_off: esp_thermostat_cool_1
+      - lambda: |-
+          if (id(esp_thermostat).target_temperature_low - id(esp_thermostat_temperature_sensor).state < esp32_thermostat::second_stage_activation_delta)
+            id(esp_thermostat_heat_1).turn_on();
+          else
+            id(esp_thermostat_heat_2).turn_on();
+    idle_action:
+      - switch.turn_off: esp_thermostat_cool_1
+      - switch.turn_off: esp_thermostat_heat_1
+      - lambda: |-
+          if (id(esp_thermostat).fan_mode == climate::CLIMATE_FAN_AUTO)
+            id(esp_thermostat_fan).turn_off();
+    fan_only_action:
+      - switch.turn_on: esp_thermostat_fan
+      - switch.turn_off: esp_thermostat_cool_1
+      - switch.turn_off: esp_thermostat_heat_1
+    fan_mode_auto_action:
+      # - switch.turn_off: esp_thermostat_fan
+      - lambda: |-
+          if (!id(esp_thermostat_cool_1).state)
+            id(esp_thermostat_fan).turn_off();
+    fan_mode_on_action:
+        - switch.turn_on: esp_thermostat_fan
+
+binary_sensor:
+  - platform: status
+    id: esp_thermostat_api_status
+    name: ${node_friendly_name} API Status
+  # - platform: gpio
+  #   id: esp_thermostat_sd_cd
+  #   name: ${node_friendly_name} SD CD
+  #   pin:
+  #     mcp23017: mcp23017_hub
+  #     number: 14
+  #     mode: INPUT_PULLUP
+  # - platform: gpio
+  #   id: esp_thermostat_tmp117_alert
+  #   name: ${node_friendly_name} TMP117 Alert
+  #   pin:
+  #     mcp23017: mcp23017_hub
+  #     number: 15
+  #     mode: INPUT_PULLUP
+  # - platform: gpio
+  #   id: esp_thermostat_mcp23017_int_a
+  #   name: ${node_friendly_name} MCP23017 Interrupt A
+  #   pin:
+  #     number: GPIO36
+  # - platform: gpio
+  #   id: esp_thermostat_mcp23017_int_b
+  #   name: ${node_friendly_name} MCP23017 Interrupt B
+  #   pin:
+  #     number: GPIO39
+  - platform: gpio
+    id: esp_thermostat_motion_detection
+    name: ${node_friendly_name} Motion Detection
+    pin:
+      number: GPIO27
+    on_state:
+      then:
+        - if:
+            condition:
+              switch.is_on: esp_thermostat_display_on_motion
+            then:
+              - script.execute: display_on
+  - platform: gpio
+    id: esp_thermostat_mode_button
+    name: ${node_friendly_name} Mode Button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - lambda: 'esp32_thermostat::mode_button_click();'
+        - component.update: main_lcd
+        - script.execute: button_press
+  - platform: gpio
+    id: esp_thermostat_encoder_button
+    name: ${node_friendly_name} Encoder Button
+    pin:
+      number: GPIO2
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - lambda: 'esp32_thermostat::encoder_button_click();'
+        - component.update: main_lcd
+        - script.execute: button_press
+
+sensor:
+  # template sensor used for thermostat component
+  - platform: template
+    id: esp_thermostat_temperature_sensor
+    name: ${node_friendly_name} Template Temperature Sensor
+    unit_of_measurement: "°C"
+    lambda: 'return esp32_thermostat::thermostat_sensor_update();'
+    update_interval: 15s
+  # template sensor used for humidity
+  - platform: template
+    id: esp_thermostat_humidity_sensor
+    name: ${node_friendly_name} Template Humidity Sensor
+    unit_of_measurement: "%"
+    lambda: 'return id(esp_thermostat_bme280_humidity).state;'
+    update_interval: 15s
+  # Encoder sensor
+  - platform: rotary_encoder
+    id: esp_thermostat_encoder
+    name: ${node_friendly_name} Encoder
+    pin_a: GPIO18
+    pin_b: GPIO19
+    on_value:
+      then:
+        - lambda: 'esp32_thermostat::encoder_value_change();'
+        - component.update: main_lcd
+        - script.execute: button_press
+
+switch:
+  # display control
+  - platform: template
+    id: esp_thermostat_display
+    name: ${node_friendly_name} Display
+    turn_on_action:
+      - script.execute: display_on
+    turn_off_action:
+      - lambda: 'id(main_lcd)->turn_off();'
+    lambda: 'return id(main_lcd)->is_on();'
+  # display control by motion
+  - platform: template
+    id: esp_thermostat_display_on_motion
+    name: ${node_friendly_name} Display On Motion
+    optimistic: true
+    restore_state: true
+
+# try OpenSansCondensed-Light.ttf
+font:
+  - file: resources/Helvetica.ttf
+    id: thermostat_large
+    size: 24
+  - file: resources/Helvetica.ttf
+    id: thermostat_medium
+    size: 18
+  - file: resources/Helvetica.ttf
+    id: thermostat_small
+    size: 11
+  - file: resources/Helvetica.ttf
+    id: thermostat_tiny
+    size: 9
+
+color:
+  - id: color_mode
+    white: 30%
+  - id: color_action
+    white: 75%
+  - id: color_temp
+    white: 100%
+  - id: color_footer
+    white: 20%
+  - id: color_time
+    white: 8%
+  - id: color_highlight
+    white: 90%
+  - id: color_lowlight
+    white: 8%
