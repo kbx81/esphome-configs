@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_front_room_rf_controller
+  node_name: esp_rc_rf_front_room
   node_friendly_name: "Front Room RF Controller"
 
 packages:
