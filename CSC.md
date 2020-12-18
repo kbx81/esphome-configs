@@ -8,10 +8,13 @@ Note that all of the configurations I've shared here are built for controllers w
 
 This directory contains the YAML configuration files I use at home where I have my controllers installed.
 
-- [esp_thermostat.h](esp_thermostat.h) contains the majority of the controller UI functionality as well as some C++ constants used within the code/lambdas.
+- [esp_thermostat.h](shared/esp_thermostat.h) contains the majority of the controller UI functionality as well as some C++ constants used within the code/lambdas.
 - [esp_thermostat_nook.yaml](esp_thermostat_nook.yaml) is the configuration file I use for the controller that is physically wired/connected to my HVAC system.
 - [esp_thermostat_front_room.yaml](esp_thermostat_front_room.yaml) is a satellite thermostat I keep in my living room area.
 - [esp_thermostat_bedroom.yaml](esp_thermostat_bedroom.yaml) is a satellite thermostat I keep in my bedroom.
+- [esp_thermostat_common_config.yaml](shared/esp_thermostat_common_config.yaml) contains configuration used by all of the thermostat devices.
+- [esp_thermostat_common_controller_config.yaml](shared/esp_thermostat_common_controller_config.yaml) contains configuration used by "controller" thermostat devices.
+- [esp_thermostat_common_satellite_config.yaml](shared/esp_thermostat_common_satellite_config.yaml) contains configuration used by "satellite" thermostat devices.
 
 The beauty here comes in with [Home Assistant's](https://www.home-assistant.io) [automations](https://www.home-assistant.io/docs/automation/). (In my mind, this is where it stops being a thermostat and becomes a "climate control system".) For example, your automation could use different sensors based on time of day -- at night, the bedroom thermostat's sensor is used while during the day, the living room thermostat's sensor is used. If you install into your build(s) either a PIR sensor or the [RCWL-0516 module](https://www.amazon.com/gp/product/B07MTWZDQZ/) I suggested, motion sensing could play a part in this. I have an automation that takes the readings from all of my sensors, performs a simple averaging of them and then feeds this back to the [template sensor](https://esphome.io/components/sensor/template.html) in the configurations. This drives the heating/cooling in my living space. That said, I have a unique situation in that the wall-mounted "nook" controller is on a wall that has behind it a large boiler unit that heats the upstairs areas -- this boiler warms the wall when it runs, skewing the sensor readings of the "nook" controller. Because of this, I've placed one of [these sensor boards](https://github.com/kbx81/TempHumSensWithESP01) in the boiler room and, when the temperature it senses rises above 85 degrees F, my automation discards the reading from the sensors in the wall-mounted "nook" controller and just uses the other two (bedroom and front room). If I don't do this, my living space gets colder than it should be based on the thermostat's setting. (You can probably surmise now why I am _very dependent_ on the remote sensors...particularly in the winter season.)
 
@@ -35,7 +38,7 @@ When the PIR or [RCWL-0516](https://www.amazon.com/gp/product/B07MTWZDQZ/) modul
 
 ## Example YAML Configuration Files for a Sprinkler System
 
-- [esp_sprinkler.h](esp_sprinkler.h) contains the majority of the controller UI functionality as well as some C++ constants used within the code/lambdas.
+- [esp_sprinkler.h](shared/esp_sprinkler.h) contains the majority of the controller UI functionality as well as some C++ constants used within the code/lambdas.
 - [esp_sprinkler_controller.yaml](esp_sprinkler_controller.yaml) is a configuration file that can be used to control electric valves that are a part of a sprinkler/irrigation system.
 
 The [esp_sprinkler_controller.yaml](esp_sprinkler_controller.yaml) configuration implements a simple sprinkler valve controller. It is configured so that "zone 8" (aka `A7`) is a "master valve" (one that controls the water supply to the other individual zone valves). _The master valve is on when any other valve/zone is on_. In this configuration, five other valves/zones are defined. Zone 1 (`A0`) is the parkway zone, zone 2 (`A1`) is the front yard area, zone 3 (`A2`) is one side of the house, zone 4 (`A3`) is the back yard area and zone 5 (`A4`) is the other side of the house.
