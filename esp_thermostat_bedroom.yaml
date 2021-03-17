@@ -116,19 +116,8 @@ display:
         lambda: 'esp32_thermostat::draw_setpoint_screen(&it);'
       - id: mode_screen
         lambda: 'esp32_thermostat::draw_mode_screen(&it);'
-      - id: temps_screen
-        lambda: |-
-          esp32_thermostat::draw_footer(&it, esp32_thermostat::LOCAL_CLIMATE);
-
-          it.printf(0, 0, id(thermostat_small), id(color_highlight), TextAlign::TOP_LEFT, "Front Room:");
-          it.printf(0, 10, id(thermostat_small), id(color_highlight), TextAlign::TOP_LEFT, "Nook:");
-          it.printf(0, 20, id(thermostat_small), id(color_highlight), TextAlign::TOP_LEFT, "Boiler Room:");
-          it.printf(0, 30, id(thermostat_small), id(color_highlight), TextAlign::TOP_LEFT, "Outside:");
-
-          it.printf(it.get_width(), 0, id(thermostat_small), id(color_highlight), TextAlign::TOP_RIGHT, "%.1f°  %.1f%%", id(front_room_table_temperature) * 1.8 + 32, id(front_room_table_humidity));
-          it.printf(it.get_width(), 10, id(thermostat_small), id(color_highlight), TextAlign::TOP_RIGHT, "%.1f°  %.1f%%", id(front_room_nook_temperature) * 1.8 + 32, id(front_room_nook_humidity));
-          it.printf(it.get_width(), 20, id(thermostat_small), id(color_highlight), TextAlign::TOP_RIGHT, "%.1f°  %.1f%%", id(boiler_room_temperature) * 1.8 + 32, id(boiler_room_humidity));
-          it.printf(it.get_width(), 30, id(thermostat_small), id(color_highlight), TextAlign::TOP_RIGHT, "%.1f°  %.1f%%", id(outside_temperature) * 1.8 + 32, id(outside_humidity));
+      - id: rooms_screen
+        lambda: 'esp32_thermostat::draw_rooms_screen(&it);'
       - id: sensors_screen
         lambda: |-
           // esp32_thermostat::draw_footer(&it);

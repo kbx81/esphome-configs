@@ -10,73 +10,51 @@ api:
         page: int
       then:
         - lambda: 'esp32_thermostat::set_display_page(page);'
-    - service: update_humidity
+    - service: update_climate_current_temperature
       variables:
-        current: float
-        bedroom: float
-        boiler_room: float
-        front_room_nook: float
-        front_room_table: float
-      then:
-        - globals.set:
-            id: current_humidity
-            value: !lambda 'return current;'
-        - globals.set:
-            id: bedroom_humidity
-            value: !lambda 'return bedroom;'
-        - globals.set:
-            id: boiler_room_humidity
-            value: !lambda 'return boiler_room;'
-        - globals.set:
-            id: front_room_nook_humidity
-            value: !lambda 'return front_room_nook;'
-        - globals.set:
-            id: front_room_table_humidity
-            value: !lambda 'return front_room_table;'
-        - globals.set:
-            id: missed_update_count
-            value: '0'
-    - service: update_temperature
-      variables:
-        current: float
-        bedroom: float
-        boiler_room: float
-        front_room_nook: float
-        front_room_table: float
-      then:
-        - globals.set:
-            id: current_temperature
-            value: !lambda 'return current;'
-        - globals.set:
-            id: bedroom_temperature
-            value: !lambda 'return bedroom;'
-        - globals.set:
-            id: boiler_room_temperature
-            value: !lambda 'return boiler_room;'
-        - globals.set:
-            id: front_room_nook_temperature
-            value: !lambda 'return front_room_nook;'
-        - globals.set:
-            id: front_room_table_temperature
-            value: !lambda 'return front_room_table;'
-        - globals.set:
-            id: missed_update_count
-            value: '0'
-    - service: update_weather
-      variables:
-        condition: string
-        humidity: float
         temperature: float
       then:
         - globals.set:
-            id: outside_condition
-            value: !lambda 'return condition;'
+            id: current_temperature
+            value: !lambda 'return temperature;'
         - globals.set:
-            id: outside_humidity
+            id: missed_update_count
+            value: '0'
+    - service: update_climate_current_humidity
+      variables:
+        humidity: float
+      then:
+        - globals.set:
+            id: current_humidity
             value: !lambda 'return humidity;'
         - globals.set:
-            id: outside_temperature
-            value: !lambda 'return temperature;'
+            id: missed_update_count
+            value: '0'
+    - service: update_climate_table_name
+      variables:
+        row: int
+        name: string
+      then:
+        - lambda: 'esp32_thermostat::update_climate_table_name(row, name);'
+    - service: update_climate_table_humidity
+      variables:
+        row: int
+        humidity: float
+      then:
+        - lambda: 'esp32_thermostat::update_climate_table_humidity(row, humidity);'
+    - service: update_climate_table_temperature
+      variables:
+        row: int
+        temperature: float
+      then:
+        - lambda: 'esp32_thermostat::update_climate_table_temperature(row, temperature);'
+    - service: update_status
+      variables:
+        message: string
+      then:
+        - globals.set:
+            id: status_string
+            value: !lambda 'return message;'
 
 globals:
   # the temperature/humidity that guides the thermostat controller
@@ -107,53 +85,24 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
-  # ancillary humidities we may display
-  - id: bedroom_humidity
-    type: float
-    restore_value: no
-    initial_value: '0'
-  - id: boiler_room_humidity
-    type: float
-    restore_value: no
-    initial_value: '0'
-  - id: front_room_nook_humidity
-    type: float
-    restore_value: no
-    initial_value: '0'
-  - id: front_room_table_humidity
-    type: float
-    restore_value: no
-    initial_value: '0'
-  # ancillary temperatures we may display
-  - id: bedroom_temperature
-    type: float
-    restore_value: no
-    initial_value: '-100'
-  - id: boiler_room_temperature
-    type: float
-    restore_value: no
-    initial_value: '-100'
-  - id: front_room_nook_temperature
-    type: float
-    restore_value: no
-    initial_value: '-100'
-  - id: front_room_table_temperature
-    type: float
-    restore_value: no
-    initial_value: '-100'
-  # weather/outdoor conditions/temperature/humidity
-  - id: outside_condition
+  # status string
+  - id: status_string
     type: std::string
     restore_value: no
-    initial_value: '"No data"'
-  - id: outside_humidity
-    type: float
+    initial_value: '""'
+  # climate table data
+  - id: climate_table_name
+    type: std::vector<std::string>
     restore_value: no
-    initial_value: '0'
-  - id: outside_temperature
-    type: float
+    initial_value: '{"", "", "", ""}'
+  - id: climate_table_humidity
+    type: std::vector<float>
     restore_value: no
-    initial_value: '-100'
+    initial_value: '{0, 0, 0, 0}'
+  - id: climate_table_temperature
+    type: std::vector<float>
+    restore_value: no
+    initial_value: '{-100, -100, -100, -100}'
   # flag to indicate on-board sensor is in use
   - id: on_board_sensor_active
     type: bool

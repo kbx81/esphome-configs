@@ -8,7 +8,7 @@ namespace esp32_thermostat {
 
   std::vector<displaymode_t> display_pages = {
     {main_screen, 0},
-    {temps_screen, 0},
+    {rooms_screen, 0},
     {setpoint_screen, 2},
     {mode_screen, 2},
     {sensors_screen, 0}
@@ -25,6 +25,7 @@ namespace esp32_thermostat {
       climate::CLIMATE_FAN_ON,
       climate::CLIMATE_FAN_AUTO
   };
+  const uint8_t num_rooms = 4;
   const uint8_t num_modes = supported_modes.size();
   const uint8_t num_fan_modes = supported_fan_modes.size();
   const uint8_t last_page_number = display_pages.size();
@@ -42,12 +43,12 @@ namespace esp32_thermostat {
   enum FooterClimateDisplayItem : uint8_t {
     NO_CLIMATE = 0,
     LOCAL_CLIMATE = 1,
-    WEATHER = 2
+    ROOM_CLIMATE = 2
   };
   // enum for display modes/screens/pages
   enum DisplayPageEnum : uint8_t {
     MAIN_SCREEN = 0,
-    TEMPS_SCREEN = 1,
+    ROOMS_SCREEN = 1,
     SETPOINT_SCREEN = 2,
     MODE_SCREEN = 3,
     SENSORS_SCREEN = 4
@@ -55,7 +56,7 @@ namespace esp32_thermostat {
 
   void refresh_display_pages() {
     display_pages[MAIN_SCREEN].page = main_screen;
-    display_pages[TEMPS_SCREEN].page = temps_screen;
+    display_pages[ROOMS_SCREEN].page = rooms_screen;
     display_pages[SETPOINT_SCREEN].page = setpoint_screen;
     display_pages[MODE_SCREEN].page = mode_screen;
     display_pages[SENSORS_SCREEN].page = sensors_screen;
@@ -266,15 +267,33 @@ float thermostat_sensor_update() {
     }
   }
 
-  void draw_footer(DisplayBuffer* it, FooterClimateDisplayItem climate_display = NO_CLIMATE) {
+  void update_climate_table_name(const int row, const std::string name) {
+    if ((row >= 0) && (row < num_rooms))
+      id(climate_table_name)[row] = name;
+  }
+
+  void update_climate_table_humidity(const int row, const float humidity) {
+    if ((row >= 0) && (row < num_rooms))
+      id(climate_table_humidity)[row] = humidity;
+  }
+
+  void update_climate_table_temperature(const int row, const float temperature) {
+    if ((row >= 0) && (row < num_rooms))
+      id(climate_table_temperature)[row] = temperature;
+  }
+
+  void draw_footer(DisplayBuffer* it, FooterClimateDisplayItem climate_display = NO_CLIMATE, uint8_t room_number = 0) {
     it->strftime(it->get_width(), it->get_height(), thermostat_tiny, color_time, TextAlign::BASELINE_RIGHT, "%I:%M:%S %p", id(esptime).now());
     if (id(esp_thermostat_api_status).state) {
       it->strftime(0, it->get_height(), thermostat_tiny, color_time, TextAlign::BASELINE_LEFT, "%m-%d-%Y", id(esptime).now());
     } else {
       it->print(0, it->get_height(), thermostat_tiny, color_highlight, TextAlign::BASELINE_LEFT, "Offline");
     }
-    // display local data if weather was requested but it is not available
-    if ((climate_display == WEATHER) && (id(outside_condition) == "No data"))
+    // room_number validation & adjustment
+    if ((room_number < 0) || (room_number > num_rooms - 1))
+      room_number = 0;
+    // display local data if a room was requested but it is not available
+    if ((climate_display == ROOM_CLIMATE) && (id(climate_table_name)[room_number].empty()))
       climate_display = LOCAL_CLIMATE;
 
     switch (climate_display) {
@@ -290,12 +309,10 @@ float thermostat_sensor_update() {
           }
         }
         break;
-      
-      case WEATHER:
-        if (id(outside_condition) != "No data") {
-          it->printf(0, it->get_height() - line_height_tiny, thermostat_tiny, color_footer, TextAlign::BASELINE_LEFT, "%s, %.1f°", id(outside_condition).c_str(), id(outside_temperature) * 1.8 + 32);
-          it->printf(it->get_width() - 1, it->get_height() - line_height_tiny, thermostat_tiny, color_footer, TextAlign::BASELINE_RIGHT, "%.1f%% RH", id(outside_humidity));
-        }
+
+      case ROOM_CLIMATE:
+        it->printf(0, it->get_height() - line_height_tiny, thermostat_tiny, color_footer, TextAlign::BASELINE_LEFT, "%s %.1f°", id(climate_table_name)[room_number].c_str(), id(climate_table_temperature)[room_number] * 1.8 + 32);
+        it->printf(it->get_width() - 1, it->get_height() - line_height_tiny, thermostat_tiny, color_footer, TextAlign::BASELINE_RIGHT, "%.1f%% RH", id(climate_table_humidity)[room_number]);
         break;
       
       default:
@@ -315,7 +332,7 @@ float thermostat_sensor_update() {
     if ((id(esptime).now().second % 10) < 5) {
       draw_footer(it, LOCAL_CLIMATE);
     } else {
-      draw_footer(it, WEATHER);
+      draw_footer(it, ROOM_CLIMATE, num_rooms - 1);
     }
 
     if(id(sensor_ready) == false) {
@@ -417,50 +434,6 @@ float thermostat_sensor_update() {
     }
   }
 
-  void draw_setpoint_screen(DisplayBuffer* it) {
-    auto  highlight_cool = color_lowlight, highlight_heat = color_lowlight;
-    float high_set_point = id(esp_thermostat).target_temperature_high * 1.8 + 32,
-          low_set_point  = id(esp_thermostat).target_temperature_low  * 1.8 + 32;
-
-    draw_footer(it);
-
-    it->printf(0, 0, thermostat_small, color_mode, TextAlign::TOP_LEFT, "Adjust setpoint(s):");
-
-    switch (id(esp_thermostat).mode) {
-      case CLIMATE_MODE_OFF:
-      case CLIMATE_MODE_AUTO:
-      case CLIMATE_MODE_DRY:
-        switch (id(selected_display_item)) {
-          case 0:   // heat
-            highlight_heat = color_highlight;
-            break;
-          case 1:   // cool
-            highlight_cool = color_highlight;
-            break;
-          default:
-            break;
-        }
-
-        it->printf(((it->get_width() / 3) * 1) - 10, 20, thermostat_small, highlight_heat, TextAlign::CENTER, "Heat");
-        it->printf(((it->get_width() / 3) * 1) - 10, (it->get_height() / 2) + 5, thermostat_medium, highlight_heat, TextAlign::CENTER, "%.0f°", low_set_point);
-
-        it->printf(((it->get_width() / 3) * 2) + 10, 20, thermostat_small, highlight_cool, TextAlign::CENTER, "Cool");
-        it->printf(((it->get_width() / 3) * 2) + 10, (it->get_height() / 2) + 5, thermostat_medium, highlight_cool, TextAlign::CENTER, "%.0f°", high_set_point);
-        break;
-
-      case CLIMATE_MODE_COOL:
-      case CLIMATE_MODE_FAN_ONLY:
-        it->printf(it->get_width() / 2, 20, thermostat_small, color_highlight, TextAlign::CENTER, "Cool");
-        it->printf(it->get_width() / 2, (it->get_height() / 2) + 5, thermostat_medium, color_highlight, TextAlign::CENTER, "%.0f°", high_set_point);
-        break;
-
-      case CLIMATE_MODE_HEAT:
-        it->printf(it->get_width() / 2, 20, thermostat_small, color_highlight, TextAlign::CENTER, "Heat");
-        it->printf(it->get_width() / 2, (it->get_height() / 2) + 5, thermostat_medium, color_highlight, TextAlign::CENTER, "%.0f°", low_set_point);
-        break;
-    }
-  }
-
   void draw_mode_screen(DisplayBuffer* it) {
     const size_t string_size = 10;
     char fan_mode_string[string_size];
@@ -537,5 +510,61 @@ float thermostat_sensor_update() {
 
     it->printf(((it->get_width() / 3) * 2) + 10, 20, thermostat_small, highlight_fan_mode, TextAlign::CENTER, "Fan Mode");
     it->printf(((it->get_width() / 3) * 2) + 10, (it->get_height() / 2) + 5, thermostat_medium, highlight_fan_mode, TextAlign::CENTER, fan_mode_string);
+  }
+
+  void draw_rooms_screen(DisplayBuffer* it) {
+    draw_footer(it, LOCAL_CLIMATE);
+
+    for (uint8_t i = 0; i < num_rooms; i++) {
+      if (!(id(climate_table_name)[i].empty())) {
+        it->printf(0, i * line_height_small, thermostat_small, color_highlight, TextAlign::TOP_LEFT, "%s", id(climate_table_name)[i].c_str());
+        it->printf(it->get_width() - 36, i * line_height_small, thermostat_small, color_highlight, TextAlign::TOP_RIGHT,  "%.1f°", id(climate_table_temperature)[i] * 1.8 + 32);
+        it->printf(it->get_width() -  0, i * line_height_small, thermostat_small, color_highlight, TextAlign::TOP_RIGHT, "%.1f%%", id(climate_table_humidity)[i]);
+      }
+    }
+  }
+
+  void draw_setpoint_screen(DisplayBuffer* it) {
+    auto  highlight_cool = color_lowlight, highlight_heat = color_lowlight;
+    float high_set_point = id(esp_thermostat).target_temperature_high * 1.8 + 32,
+          low_set_point  = id(esp_thermostat).target_temperature_low  * 1.8 + 32;
+
+    draw_footer(it);
+
+    it->printf(0, 0, thermostat_small, color_mode, TextAlign::TOP_LEFT, "Adjust setpoint(s):");
+
+    switch (id(esp_thermostat).mode) {
+      case CLIMATE_MODE_OFF:
+      case CLIMATE_MODE_AUTO:
+      case CLIMATE_MODE_DRY:
+        switch (id(selected_display_item)) {
+          case 0:   // heat
+            highlight_heat = color_highlight;
+            break;
+          case 1:   // cool
+            highlight_cool = color_highlight;
+            break;
+          default:
+            break;
+        }
+
+        it->printf(((it->get_width() / 3) * 1) - 10, 20, thermostat_small, highlight_heat, TextAlign::CENTER, "Heat");
+        it->printf(((it->get_width() / 3) * 1) - 10, (it->get_height() / 2) + 5, thermostat_medium, highlight_heat, TextAlign::CENTER, "%.0f°", low_set_point);
+
+        it->printf(((it->get_width() / 3) * 2) + 10, 20, thermostat_small, highlight_cool, TextAlign::CENTER, "Cool");
+        it->printf(((it->get_width() / 3) * 2) + 10, (it->get_height() / 2) + 5, thermostat_medium, highlight_cool, TextAlign::CENTER, "%.0f°", high_set_point);
+        break;
+
+      case CLIMATE_MODE_COOL:
+      case CLIMATE_MODE_FAN_ONLY:
+        it->printf(it->get_width() / 2, 20, thermostat_small, color_highlight, TextAlign::CENTER, "Cool");
+        it->printf(it->get_width() / 2, (it->get_height() / 2) + 5, thermostat_medium, color_highlight, TextAlign::CENTER, "%.0f°", high_set_point);
+        break;
+
+      case CLIMATE_MODE_HEAT:
+        it->printf(it->get_width() / 2, 20, thermostat_small, color_highlight, TextAlign::CENTER, "Heat");
+        it->printf(it->get_width() / 2, (it->get_height() / 2) + 5, thermostat_medium, color_highlight, TextAlign::CENTER, "%.0f°", low_set_point);
+        break;
+    }
   }
 }
