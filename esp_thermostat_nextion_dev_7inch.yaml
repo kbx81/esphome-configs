@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_thermostat_dev
+  node_name: esp_thermostat_dev_7inch
   node_friendly_name: "Dev Thermostat"
   home_page_name: "main"
   home_page_number: "1"
@@ -31,9 +31,11 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            id(display_brightness) = clamp(id(adc_sensor_phototransistor).state / 3.9, 0.1, 1);
+            id(display_brightness) = clamp(id(adc_sensor_phototransistor).state / 3.9, 0.05, 1);
             if (main_lcd != nullptr)
               main_lcd->set_backlight_brightness(id(display_brightness));
+            if ((id(currentPage).state == 0) || (isnan(id(currentPage).state)))
+              main_lcd->goto_page("main");
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
@@ -198,7 +200,6 @@ sensor:
 
 display:
   - platform: nextion
-    # test_debug: "true"
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 15s

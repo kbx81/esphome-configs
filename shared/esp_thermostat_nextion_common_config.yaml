@@ -8,7 +8,7 @@ esphome:
     then:
       - delay: 3s
       - lambda: |-
-          main_lcd->goto_page("main");
+          // main_lcd->goto_page("main");
           esp32_thermostat::draw_main_screen(true);
 
 api:
