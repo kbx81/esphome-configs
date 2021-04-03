@@ -148,13 +148,13 @@ switch:
       - switch.turn_off: esp_thermostat_triac_misc_1
     lambda: 'return id(esp_thermostat_triac_misc_1).state;'
   # physical switches
-  - platform: gpio
-    id: esp_thermostat_dht22_vcc
-    name: ${node_friendly_name} DHT22 Vcc
-    internal: true
-    pin:
-      number: 25
-      mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_thermostat_dht22_vcc
+  #   name: ${node_friendly_name} DHT22 Vcc
+  #   internal: true
+  #   pin:
+  #     number: 25
+  #     mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_thermistor_vcc
     name: ${node_friendly_name} Thermistor Vcc
