@@ -27,3 +27,5 @@ api:
 
 ota:
   password: ${ota_password}
+  num_attempts: 3
+

@@ -1,0 +1,36 @@
+script:
+  - id: update_weather
+    then:
+      - lambda: |-
+          id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "\xB0",false,true);
+          id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
+          id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
+          id(nextion_outsidestate).set_state("Currently: " + id(current_outside_condition).state,false,true);
+
+sensor:
+  - platform: homeassistant
+    id: current_outside_temperature
+    entity_id: sensor.current_outside_temperature
+  - platform: homeassistant
+    id: current_outside_humidity
+    entity_id: sensor.current_outside_humidity
+  - platform: homeassistant
+    id: precipitation_probability
+    entity_id: sensor.current_outside_ppercip
+
+text_sensor:
+  - platform: homeassistant
+    id: current_outside_condition
+    entity_id: sensor.current_outside_condition
+  - platform: nextion
+    id: nextion_outsidetemp
+    component_name: txtOutsideTemp
+  - platform: nextion
+    id: nextion_outsidehum
+    component_name: txtOutsideHum
+  - platform: nextion
+    id: nextion_outsidestate
+    component_name: txtOutState
+  - platform: nextion
+    id: nextion_outsideppercip
+    component_name: txtOutPPercip

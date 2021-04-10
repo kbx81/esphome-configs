@@ -299,3 +299,33 @@ switch:
   #     mcp23xxx: mcp23017_hub
   #     number: 15
   #     mode: OUTPUT
+
+color:
+  - id: color_iaq_excellent
+    red_int: 0
+    green_int: 228
+    blue_int: 0
+  - id: color_iaq_good
+    red_int: 156
+    green_int: 208
+    blue_int: 80
+  - id: color_iaq_lightly_polluted
+    red_int: 255
+    green_int: 255
+    blue_int: 0
+  - id: color_iaq_moderately_polluted
+    red_int: 255
+    green_int: 126
+    blue_int: 0
+  - id: color_iaq_heavily_polluted
+    red_int: 255
+    green_int: 0
+    blue_int: 0
+  - id: color_iaq_severely_polluted
+    red_int: 152
+    green_int: 0
+    blue_int: 76
+  - id: color_iaq_extremely_polluted
+    red_int: 102
+    green_int: 51
+    blue_int: 0
