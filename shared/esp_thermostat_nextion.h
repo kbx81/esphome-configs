@@ -129,8 +129,9 @@ void mode_button_click() {
 
 void display_refresh_action() {
   // const char *action_string_color = color_lowlight;
-  Color action_string_color = id(color_control_disabled);
+  Color action_string_color = color_control_disabled;
   std::string action_string = "";
+  uint8_t action_pic = 20;
 
   switch (id(esp_thermostat).action) {
     case CLIMATE_ACTION_OFF:
@@ -143,37 +144,49 @@ void display_refresh_action() {
       break;
     case CLIMATE_ACTION_COOLING:
       // action_string_color = color_highlight;
-      action_string_color = id(color_control_enabled);
+      action_string_color = color_control_enabled;
       if (id(esp_thermostat_cool_2).state == true) {
         action_string = "Cooling x 2";
       } else {
         action_string = "Cooling";
       }
+      action_pic = 21;
       break;
     case CLIMATE_ACTION_HEATING:
       // action_string_color = color_highlight;
-      action_string_color = id(color_control_enabled);
+      action_string_color = color_control_enabled;
       if (id(esp_thermostat_heat_2).state == true) {
         action_string = "Heating x 2";
       } else {
         action_string = "Heating";
       }
+      action_pic = 22;
       break;
     case CLIMATE_ACTION_DRYING:
       // action_string_color = color_highlight;
-      action_string_color = id(color_control_enabled);
+      action_string_color = color_control_enabled;
       action_string = "Drying";
       break;
     case CLIMATE_ACTION_FAN:
       // action_string_color = color_highlight;
-      action_string_color = id(color_control_enabled);
+      action_string_color = color_control_enabled;
       action_string = "Fanning";
+      action_pic = 23;
       break;
   }
-
   // main_lcd->set_component_font_color("textAction", action_string_color);
   id(textAction).set_state(action_string, false, true);
   id(textAction).set_foreground_color(action_string_color);
+  id(main_lcd).set_component_pic("main", action_pic);
+}
+
+uint8_t get_weather_pic(std::string condition) {
+  if (condition == "cloudy")
+    return 27;
+  if (condition == "rainy")
+    return 26;
+
+  return 24;
 }
 
 void update_temp_text() {

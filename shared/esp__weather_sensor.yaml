@@ -2,10 +2,46 @@ script:
   - id: update_weather
     then:
       - lambda: |-
-          id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "\xB0",false,true);
+          id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "°",false,true);
           id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
           id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
           id(nextion_outsidestate).set_state("Currently: " + id(current_outside_condition).state,false,true);
+
+          //Day 0
+          id(nextion_w0_day).set_state( id(weather_f_0_day).state ,false,true);
+          id(nextion_w0_con).set_state( id(weather_f_0_condition).state ,false,true);
+          id(nextion_w0_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_0_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_0_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w0pic",  esp32_thermostat::get_weather_pic(id(weather_f_0_condition).state));
+          //Day 1
+          id(nextion_w1_day).set_state( id(weather_f_1_day).state ,false,true);
+          id(nextion_w1_con).set_state( id(weather_f_1_condition).state ,false,true);
+          id(nextion_w1_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_1_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_1_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w1pic",  esp32_thermostat::get_weather_pic(id(weather_f_1_condition).state));
+          //Day 2
+          id(nextion_w2_day).set_state( id(weather_f_2_day).state ,false,true);
+          id(nextion_w2_con).set_state( id(weather_f_2_condition).state ,false,true);
+          id(nextion_w2_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_2_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_2_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w2pic",  esp32_thermostat::get_weather_pic(id(weather_f_2_condition).state));
+          //Day 3
+          id(nextion_w3_day).set_state( id(weather_f_3_day).state ,false,true);
+          id(nextion_w3_con).set_state( id(weather_f_3_condition).state ,false,true);
+          id(nextion_w3_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_3_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_3_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w3pic",  esp32_thermostat::get_weather_pic(id(weather_f_3_condition).state));
+          //Day 4
+          id(nextion_w4_day).set_state( id(weather_f_4_day).state ,false,true);
+          id(nextion_w4_con).set_state( id(weather_f_4_condition).state ,false,true);
+          id(nextion_w4_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_4_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_4_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w4pic",  esp32_thermostat::get_weather_pic(id(weather_f_4_condition).state));
+          //Day 5
+          id(nextion_w5_day).set_state( id(weather_f_5_day).state ,false,true);
+          id(nextion_w5_con).set_state( id(weather_f_5_condition).state ,false,true);
+          id(nextion_w5_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_5_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_5_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w5pic",  esp32_thermostat::get_weather_pic(id(weather_f_5_condition).state));
+          //Day 6
+          id(nextion_w6_day).set_state( id(weather_f_6_day).state ,false,true);
+          id(nextion_w6_con).set_state( id(weather_f_6_condition).state ,false,true);
+          id(nextion_w6_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_6_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_6_templow).state) + "\xB0" ,false,true);
+          id(main_lcd).set_component_pic("w6pic",  esp32_thermostat::get_weather_pic(id(weather_f_6_condition).state));
 
 sensor:
   - platform: homeassistant
@@ -17,6 +53,111 @@ sensor:
   - platform: homeassistant
     id: precipitation_probability
     entity_id: sensor.current_outside_ppercip
+  - platform: homeassistant
+    id: weather_f_0_datetime
+    entity_id: sensor.weather_f_0_datetime
+  - platform: homeassistant
+    id: weather_f_0_precipitation
+    entity_id: sensor.weather_f_0_precipitation
+  - platform: homeassistant
+    id: weather_f_0_precipitation_probability
+    entity_id: sensor.weather_f_0_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_0_temperature
+    entity_id: sensor.weather_f_0_temperature
+  - platform: homeassistant
+    id: weather_f_0_templow
+    entity_id: sensor.weather_f_0_templow
+  - platform: homeassistant
+    id: weather_f_1_datetime
+    entity_id: sensor.weather_f_1_datetime
+  - platform: homeassistant
+    id: weather_f_1_precipitation
+    entity_id: sensor.weather_f_1_precipitation
+  - platform: homeassistant
+    id: weather_f_1_precipitation_probability
+    entity_id: sensor.weather_f_1_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_1_temperature
+    entity_id: sensor.weather_f_1_temperature
+  - platform: homeassistant
+    id: weather_f_1_templow
+    entity_id: sensor.weather_f_1_templow
+  - platform: homeassistant
+    id: weather_f_2_datetime
+    entity_id: sensor.weather_f_2_datetime
+  - platform: homeassistant
+    id: weather_f_2_precipitation
+    entity_id: sensor.weather_f_2_precipitation
+  - platform: homeassistant
+    id: weather_f_2_precipitation_probability
+    entity_id: sensor.weather_f_2_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_2_temperature
+    entity_id: sensor.weather_f_2_temperature
+  - platform: homeassistant
+    id: weather_f_2_templow
+    entity_id: sensor.weather_f_2_templow
+  - platform: homeassistant
+    id: weather_f_3_datetime
+    entity_id: sensor.weather_f_3_datetime
+  - platform: homeassistant
+    id: weather_f_3_precipitation
+    entity_id: sensor.weather_f_3_precipitation
+  - platform: homeassistant
+    id: weather_f_3_precipitation_probability
+    entity_id: sensor.weather_f_3_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_3_temperature
+    entity_id: sensor.weather_f_3_temperature
+  - platform: homeassistant
+    id: weather_f_3_templow
+    entity_id: sensor.weather_f_3_templow
+  - platform: homeassistant
+    id: weather_f_4_datetime
+    entity_id: sensor.weather_f_4_datetime
+  - platform: homeassistant
+    id: weather_f_4_precipitation
+    entity_id: sensor.weather_f_4_precipitation
+  - platform: homeassistant
+    id: weather_f_4_precipitation_probability
+    entity_id: sensor.weather_f_4_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_4_temperature
+    entity_id: sensor.weather_f_4_temperature
+  - platform: homeassistant
+    id: weather_f_4_templow
+    entity_id: sensor.weather_f_4_templow
+  - platform: homeassistant
+    id: weather_f_5_datetime
+    entity_id: sensor.weather_f_5_datetime
+  - platform: homeassistant
+    id: weather_f_5_precipitation
+    entity_id: sensor.weather_f_5_precipitation
+  - platform: homeassistant
+    id: weather_f_5_precipitation_probability
+    entity_id: sensor.weather_f_5_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_5_temperature
+    entity_id: sensor.weather_f_5_temperature
+  - platform: homeassistant
+    id: weather_f_5_templow
+    entity_id: sensor.weather_f_5_templow
+  - platform: homeassistant
+    id: weather_f_6_datetime
+    entity_id: sensor.weather_f_6_datetime
+  - platform: homeassistant
+    id: weather_f_6_precipitation
+    entity_id: sensor.weather_f_6_precipitation
+  - platform: homeassistant
+    id: weather_f_6_precipitation_probability
+    entity_id: sensor.weather_f_6_precipitation_probability
+  - platform: homeassistant
+    id: weather_f_6_temperature
+    entity_id: sensor.weather_f_6_temperature
+  - platform: homeassistant
+    id: weather_f_6_templow
+    entity_id: sensor.weather_f_6_templow
 
 text_sensor:
   - platform: homeassistant
@@ -34,3 +175,108 @@ text_sensor:
   - platform: nextion
     id: nextion_outsideppercip
     component_name: txtOutPPercip
+  - platform: homeassistant
+    id: weather_f_0_day
+    entity_id: sensor.weather_f_0_day
+  - platform: homeassistant
+    id: weather_f_0_condition
+    entity_id: sensor.weather_f_0_condition
+  - platform: nextion
+    id: nextion_w0_day
+    component_name: weather.w0day
+  - platform: nextion
+    id: nextion_w0_con
+    component_name: weather.w0con
+  - platform: nextion
+    id: nextion_w0_temp
+    component_name: weather.w0temp
+  - platform: homeassistant
+    id: weather_f_1_day
+    entity_id: sensor.weather_f_1_day
+  - platform: homeassistant
+    id: weather_f_1_condition
+    entity_id: sensor.weather_f_1_condition
+  - platform: nextion
+    id: nextion_w1_day
+    component_name: weather.w1day
+  - platform: nextion
+    id: nextion_w1_con
+    component_name: weather.w1con
+  - platform: nextion
+    id: nextion_w1_temp
+    component_name: weather.w1temp
+  - platform: homeassistant
+    id: weather_f_2_day
+    entity_id: sensor.weather_f_2_day
+  - platform: homeassistant
+    id: weather_f_2_condition
+    entity_id: sensor.weather_f_2_condition
+  - platform: nextion
+    id: nextion_w2_day
+    component_name: weather.w2day
+  - platform: nextion
+    id: nextion_w2_con
+    component_name: weather.w2con
+  - platform: nextion
+    id: nextion_w2_temp
+    component_name: weather.w2temp
+  - platform: homeassistant
+    id: weather_f_3_day
+    entity_id: sensor.weather_f_3_day
+  - platform: homeassistant
+    id: weather_f_3_condition
+    entity_id: sensor.weather_f_3_condition
+  - platform: nextion
+    id: nextion_w3_day
+    component_name: weather.w3day
+  - platform: nextion
+    id: nextion_w3_con
+    component_name: weather.w3con
+  - platform: nextion
+    id: nextion_w3_temp
+    component_name: weather.w3temp
+  - platform: homeassistant
+    id: weather_f_4_day
+    entity_id: sensor.weather_f_4_day
+  - platform: homeassistant
+    id: weather_f_4_condition
+    entity_id: sensor.weather_f_4_condition
+  - platform: nextion
+    id: nextion_w4_day
+    component_name: weather.w4day
+  - platform: nextion
+    id: nextion_w4_con
+    component_name: weather.w4con
+  - platform: nextion
+    id: nextion_w4_temp
+    component_name: weather.w4temp
+  - platform: homeassistant
+    id: weather_f_5_day
+    entity_id: sensor.weather_f_5_day
+  - platform: homeassistant
+    id: weather_f_5_condition
+    entity_id: sensor.weather_f_5_condition
+  - platform: nextion
+    id: nextion_w5_day
+    component_name: weather.w5day
+  - platform: nextion
+    id: nextion_w5_con
+    component_name: weather.w5con
+  - platform: nextion
+    id: nextion_w5_temp
+    component_name: weather.w5temp
+  - platform: homeassistant
+    id: weather_f_6_day
+    entity_id: sensor.weather_f_6_day
+  - platform: homeassistant
+    id: weather_f_6_condition
+    entity_id: sensor.weather_f_6_condition
+  - platform: nextion
+    id: nextion_w6_day
+    component_name: weather.w6day
+  - platform: nextion
+    id: nextion_w6_con
+    component_name: weather.w6con
+  - platform: nextion
+    id: nextion_w6_temp
+    component_name: weather.w6temp
