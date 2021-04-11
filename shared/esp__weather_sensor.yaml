@@ -2,47 +2,50 @@ script:
   - id: update_weather
     then:
       - lambda: |-
-          id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "°",false,true);
-          id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
-          id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
-          id(nextion_outsidestate).set_state("Currently: " + id(current_outside_condition).state,false,true);
+          if (id(currentPage).state == ${home_page_number})
+            id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "°",false,true);
+            id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
+            id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
+            id(nextion_outsidestate).set_state("Currently: " + id(current_outside_condition).state,false,true);
+          }
 
-          //Day 0
-          id(nextion_w0_day).set_state( id(weather_f_0_day).state ,false,true);
-          id(nextion_w0_con).set_state( id(weather_f_0_condition).state ,false,true);
-          id(nextion_w0_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_0_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_0_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w0pic",  esp32_thermostat::get_weather_pic(id(weather_f_0_condition).state));
-          //Day 1
-          id(nextion_w1_day).set_state( id(weather_f_1_day).state ,false,true);
-          id(nextion_w1_con).set_state( id(weather_f_1_condition).state ,false,true);
-          id(nextion_w1_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_1_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_1_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w1pic",  esp32_thermostat::get_weather_pic(id(weather_f_1_condition).state));
-          //Day 2
-          id(nextion_w2_day).set_state( id(weather_f_2_day).state ,false,true);
-          id(nextion_w2_con).set_state( id(weather_f_2_condition).state ,false,true);
-          id(nextion_w2_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_2_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_2_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w2pic",  esp32_thermostat::get_weather_pic(id(weather_f_2_condition).state));
-          //Day 3
-          id(nextion_w3_day).set_state( id(weather_f_3_day).state ,false,true);
-          id(nextion_w3_con).set_state( id(weather_f_3_condition).state ,false,true);
-          id(nextion_w3_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_3_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_3_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w3pic",  esp32_thermostat::get_weather_pic(id(weather_f_3_condition).state));
-          //Day 4
-          id(nextion_w4_day).set_state( id(weather_f_4_day).state ,false,true);
-          id(nextion_w4_con).set_state( id(weather_f_4_condition).state ,false,true);
-          id(nextion_w4_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_4_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_4_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w4pic",  esp32_thermostat::get_weather_pic(id(weather_f_4_condition).state));
-          //Day 5
-          id(nextion_w5_day).set_state( id(weather_f_5_day).state ,false,true);
-          id(nextion_w5_con).set_state( id(weather_f_5_condition).state ,false,true);
-          id(nextion_w5_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_5_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_5_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w5pic",  esp32_thermostat::get_weather_pic(id(weather_f_5_condition).state));
-          //Day 6
-          id(nextion_w6_day).set_state( id(weather_f_6_day).state ,false,true);
-          id(nextion_w6_con).set_state( id(weather_f_6_condition).state ,false,true);
-          id(nextion_w6_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_6_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_6_templow).state) + "\xB0" ,false,true);
-          id(main_lcd).set_component_pic("w6pic",  esp32_thermostat::get_weather_pic(id(weather_f_6_condition).state));
-
+          if (id(currentPage).state == ${weatherpage_number}){
+            //Day 0
+            id(nextion_w0_day).set_state( id(weather_f_0_day).state ,false,true);
+            id(nextion_w0_con).set_state( id(weather_f_0_condition).state ,false,true);
+            id(nextion_w0_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_0_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_0_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w0pic",  esp32_thermostat::get_weather_pic(id(weather_f_0_condition).state));
+            //Day 1
+            id(nextion_w1_day).set_state( id(weather_f_1_day).state ,false,true);
+            id(nextion_w1_con).set_state( id(weather_f_1_condition).state ,false,true);
+            id(nextion_w1_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_1_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_1_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w1pic",  esp32_thermostat::get_weather_pic(id(weather_f_1_condition).state));
+            //Day 2
+            id(nextion_w2_day).set_state( id(weather_f_2_day).state ,false,true);
+            id(nextion_w2_con).set_state( id(weather_f_2_condition).state ,false,true);
+            id(nextion_w2_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_2_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_2_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w2pic",  esp32_thermostat::get_weather_pic(id(weather_f_2_condition).state));
+            //Day 3
+            id(nextion_w3_day).set_state( id(weather_f_3_day).state ,false,true);
+            id(nextion_w3_con).set_state( id(weather_f_3_condition).state ,false,true);
+            id(nextion_w3_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_3_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_3_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w3pic",  esp32_thermostat::get_weather_pic(id(weather_f_3_condition).state));
+            //Day 4
+            id(nextion_w4_day).set_state( id(weather_f_4_day).state ,false,true);
+            id(nextion_w4_con).set_state( id(weather_f_4_condition).state ,false,true);
+            id(nextion_w4_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_4_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_4_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w4pic",  esp32_thermostat::get_weather_pic(id(weather_f_4_condition).state));
+            //Day 5
+            id(nextion_w5_day).set_state( id(weather_f_5_day).state ,false,true);
+            id(nextion_w5_con).set_state( id(weather_f_5_condition).state ,false,true);
+            id(nextion_w5_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_5_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_5_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w5pic",  esp32_thermostat::get_weather_pic(id(weather_f_5_condition).state));
+            //Day 6
+            id(nextion_w6_day).set_state( id(weather_f_6_day).state ,false,true);
+            id(nextion_w6_con).set_state( id(weather_f_6_condition).state ,false,true);
+            id(nextion_w6_temp).set_state( esp32_thermostat::round_float_to_string(id(weather_f_6_temperature).state) + "\xB0" + "/" + esp32_thermostat::round_float_to_string(id(weather_f_6_templow).state) + "\xB0" ,false,true);
+            id(main_lcd).set_component_pic("w6pic",  esp32_thermostat::get_weather_pic(id(weather_f_6_condition).state));
+          }
 sensor:
   - platform: homeassistant
     id: current_outside_temperature

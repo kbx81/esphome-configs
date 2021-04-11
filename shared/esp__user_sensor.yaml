@@ -1,0 +1,5 @@
+script:
+  - id: update_user
+    then:
+      - lambda: |-
+          //

@@ -488,6 +488,8 @@ void draw_main_screen(bool fullRefresh = false) {
     display_refresh_mode();
     display_refresh_fan_mode();
     display_refresh_sensor_names();
+    draw_iaq();
+    update_weather();
   }
 }
 
