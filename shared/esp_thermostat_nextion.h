@@ -184,6 +184,8 @@ uint8_t get_weather_pic(std::string condition) {
   if (condition == "cloudy")
     return 27;
   if (condition == "rainy")
+    return 28;
+  if (condition == "pouring")
     return 26;
 
   return 24;
