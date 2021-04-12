@@ -2,14 +2,17 @@ script:
   - id: update_weather
     then:
       - lambda: |-
-          if (id(currentPage).state == ${home_page_number})
+          ESP_LOGD("nextion_weather", "Updating currentPage %f home_page_number %d",id(currentPage).state,${home_page_number});
+          if (id(currentPage).state == ${home_page_number}){
+            ESP_LOGD("nextion_weather", "Updating homepage");
             id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "°",false,true);
             id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
             id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
             id(nextion_outsidestate).set_state("Currently: " + id(current_outside_condition).state,false,true);
           }
 
-          if (id(currentPage).state == ${weatherpage_number}){
+          if (id(currentPage).state == ${weather_page_number}){
+              ESP_LOGD("nextion_weather", "Updating weatherpage");
             //Day 0
             id(nextion_w0_day).set_state( id(weather_f_0_day).state ,false,true);
             id(nextion_w0_con).set_state( id(weather_f_0_condition).state ,false,true);

@@ -1,0 +1,39 @@
+script:
+  - id: update_iaq
+    then:
+      - lambda: |-
+          if  (id(currentPage).state != ${home_page_number} ) {
+              return;
+          }
+
+          Color voc_color;
+          std::string status;
+
+          if (id(esp_thermostat_bme680_iaq).state <= 50) {
+            status = "Excellent";
+            voc_color = id(color_iaq_excellent);
+          } else if (id(esp_thermostat_bme680_iaq).state <= 100) {
+            status = "Good";
+            voc_color = id(color_iaq_good);
+          } else if (id(esp_thermostat_bme680_iaq).state <= 150) {
+            status = "Lightly Polluted";
+            voc_color = id(color_iaq_lightly_polluted);
+          } else if (id(esp_thermostat_bme680_iaq).state <= 200) {
+            status = "Moderately Polluted";
+            voc_color = id(color_iaq_moderately_polluted);
+          } else if (id(esp_thermostat_bme680_iaq).state <= 250) {
+            status = "Heavily Polluted";
+            voc_color = id(color_iaq_heavily_polluted);
+          } else if (id(esp_thermostat_bme680_iaq).state <= 350) {
+            status = "Severely Polluted";
+            voc_color = id(color_iaq_severely_polluted);
+          } else {
+            status = "Extremely\xB0Polluted";
+            voc_color = id(color_iaq_extremely_polluted);
+          }
+
+          status = "Extremely\x0dPolluted";
+          voc_color = id(color_iaq_extremely_polluted);
+
+          id(main_lcd).filled_circle(100, 100, 60, voc_color);
+          id(textIAQ).set_state(status);

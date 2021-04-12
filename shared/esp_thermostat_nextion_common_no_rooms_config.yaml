@@ -3,7 +3,7 @@ esphome:
   platform: ESP32
   board: esp-wrover-kit
   platformio_options:
-    build_flags: -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -DUSING_BSEC
+    build_flags: -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -DUSING_BSEC --param=max-vartrack-size=70000000
     monitor_speed: 115200
     upload_speed: 460800
   on_boot:
@@ -155,7 +155,6 @@ script:
       - delay: 120s
       - lambda: |-
           if (id(currentPage).state != ${home_page_number}){
-            ESP_LOGD("TEST","display_on %f %d",id(currentPage).state,${home_page_number});
             main_lcd->goto_page("main");
           }
       # - lambda: 'esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);'
@@ -174,13 +173,15 @@ script:
     mode: single
     then:
       - lambda: |-
-          ESP_LOGD("TEST","display_page_refresh start %f", id(currentPage).state);
+          ESP_LOGD("no_rooms","display_page_refresh start %f", id(currentPage).state);
           if (id(currentPage).state == ${home_page_number})
             id(main_lcd).update_components_by_prefix("${home_page_name}");
           else if (id(currentPage).state == ${setpoints_page_number})
             id(main_lcd).update_components_by_prefix("${setpoints_page_name}");
           else if (id(currentPage).state == ${sensors_page_number})
             id(main_lcd).update_components_by_prefix("${sensors_page_name}");
+          else if (id(currentPage).state == ${weather_page_number})
+            id(main_lcd).update_components_by_prefix("${weather_page_name}");
   # display refresh coordination
   - id: climate_action_refresh
     mode: restart
@@ -494,6 +495,7 @@ sensor:
     on_value:
       then:
         - script.execute: display_page_refresh
+        - script.execute: update_loop
         - script.execute: button_press
   # template sensor used for thermostat component
   - platform: template

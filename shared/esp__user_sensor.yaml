@@ -1,5 +1,163 @@
+substitutions:
+  user_button_1a_name: ""
+  user_button_1a_id: "1"
+  user_button_1b_name: ""
+  user_button_1b_id: "2"
+  user_button_1c_name: ""
+  user_button_1c_id: "3"
+
+  user_button_2a_name: ""
+  user_button_2a_id: "4"
+  user_button_2b_name: "Office Lights"
+  user_button_2b_id: "5"
+  user_button_2c_name: ""
+  user_button_2c_id: "6"
+
+  user_button_3a_name: ""
+  user_button_3a_id: "7"
+  user_button_3b_name: ""
+  user_button_3b_id: "8"
+  user_button_3c_name: ""
+  user_button_3c_id: "9"
+
 script:
   - id: update_user
     then:
       - lambda: |-
-          //
+          if (id(currentPage).state != ${user_page_number} ) {
+              return;
+          }
+
+          if ( strcmp("${user_button_1a_name}","") == 0 ){
+            id(main_lcd).hide_component("userb1a");
+          }else{
+            id(main_lcd).set_component_text_printf("userb1a","${user_button_1a_name}");
+          }
+
+          if ( strcmp("${user_button_1b_name}","") == 0 ){
+            id(main_lcd).hide_component("userb1b");
+          }else{
+            id(main_lcd).set_component_text_printf("userb1b","${user_button_1b_name}");
+          }
+
+          if ( strcmp("${user_button_1c_name}","") == 0 ){
+            id(main_lcd).hide_component("userb1c");
+          }else{
+            id(main_lcd).set_component_text_printf("userb1c","${user_button_1c_name}");
+          }
+
+           if ( strcmp("${user_button_2a_name}","") == 0 ){
+            id(main_lcd).hide_component("userb2a");
+          }else{
+            id(main_lcd).set_component_text_printf("userb2a","${user_button_2a_name}");
+          }
+
+          if ( strcmp("${user_button_2b_name}","") == 0 ){
+            id(main_lcd).hide_component("userb2b");
+          }else{
+            id(main_lcd).set_component_text_printf("userb2b","${user_button_2b_name}");
+          }
+
+          if ( strcmp("${user_button_2c_name}","") == 0 ){
+            id(main_lcd).hide_component("userb2c");
+          }else{
+            id(main_lcd).set_component_text_printf("userb2c","${user_button_2c_name}");
+          }
+
+           if ( strcmp("${user_button_3a_name}","") == 0 ){
+            id(main_lcd).hide_component("userb3a");
+          }else{
+            id(main_lcd).set_component_text_printf("userb3a","${user_button_3a_name}");
+          }
+
+          if ( strcmp("${user_button_3b_name}","") == 0 ){
+            id(main_lcd).hide_component("userb3b");
+          }else{
+            id(main_lcd).set_component_text_printf("userb3b","${user_button_3b_name}");
+          }
+
+          if ( strcmp("${user_button_3c_name}","") == 0 ){
+            id(main_lcd).hide_component("userb3c");
+          }else{
+            id(main_lcd).set_component_text_printf("userb3c","${user_button_3c_name}");
+          }
+
+
+
+
+
+binary_sensor:
+  - platform: nextion
+    id: nextion_user_1a
+    page_id: ${user_page_number}
+    component_id: ${user_button_1a_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_1b
+    page_id: ${user_page_number}
+    component_id: ${user_button_1b_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_1c
+    page_id: ${user_page_number}
+    component_id: ${user_button_1c_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_2a
+    page_id: ${user_page_number}
+    component_id: ${user_button_2a_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_2b
+    page_id: ${user_page_number}
+    component_id: ${user_button_2b_id}
+    on_press:
+      then:
+        - homeassistant.service:
+            service: homeassistant.toggle
+            data:
+              entity_id: group.officelights
+  - platform: nextion
+    id: nextion_user_2c
+    page_id: ${user_page_number}
+    component_id: ${user_button_2c_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_3a
+    page_id: ${user_page_number}
+    component_id: ${user_button_3a_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_3b
+    page_id: ${user_page_number}
+    component_id: ${user_button_3b_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
+  - platform: nextion
+    id: nextion_user_3c
+    page_id: ${user_page_number}
+    component_id: ${user_button_3c_id}
+    on_press:
+      then:
+        - lambda: |-
+            //
