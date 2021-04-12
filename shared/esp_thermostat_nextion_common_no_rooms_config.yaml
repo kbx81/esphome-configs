@@ -117,34 +117,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: btnModeHeat_Pic_On
-    type: int
-    restore_value: no
-    initial_value: ${btnModeHeat_Pic_On}
-  - id: btnModeHeat_Pic_Off
-    type: int
-    restore_value: no
-    initial_value: ${btnModeHeat_Pic_Off}
-  - id: btnModeCool_Pic_On
-    type: int
-    restore_value: no
-    initial_value: ${btnModeCool_Pic_On}
-  - id: btnModeCool_Pic_Off
-    type: int
-    restore_value: no
-    initial_value: ${btnModeCool_Pic_Off}
-  - id: btnModeFan_Pic_On
-    type: int
-    restore_value: no
-    initial_value: ${btnModeFan_Pic_On}
-  - id: btnModeFan_Pic_Off
-    type: int
-    restore_value: no
-    initial_value: ${btnModeFan_Pic_Off}
-  - id: btnModeFan_Pic_Auto
-    type: int
-    restore_value: no
-    initial_value: ${btnModeFan_Pic_Auto}
 
 script:
   # display screen management
@@ -289,11 +261,10 @@ climate:
       - lambda: |-
           if (!id(esp_thermostat_cool_1).state)
             id(esp_thermostat_fan).turn_off();
-          esp32_thermostat::display_refresh_fan_mode();
+              display_refresh_fan_mode->execute();
     fan_mode_on_action:
       - switch.turn_on: esp_thermostat_fan
-      - lambda: |-
-          esp32_thermostat::display_refresh_fan_mode();
+      - script.execute: display_refresh_fan_mode
 
 binary_sensor:
   - platform: status
@@ -356,7 +327,7 @@ binary_sensor:
             id(esp_thermostat).fan_mode = CLIMATE_FAN_AUTO;
             id(esp_thermostat).refresh();
             esp32_thermostat::display_refresh_mode();
-            esp32_thermostat::display_refresh_fan_mode();
+        - script.execute: display_refresh_fan_mode
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_mode_fan
@@ -414,7 +385,7 @@ binary_sensor:
         - lambda: |-
             id(esp_thermostat).fan_mode = CLIMATE_FAN_ON;
             id(esp_thermostat).refresh();
-            esp32_thermostat::display_refresh_fan_mode();
+        - script.execute: display_refresh_fan_mode
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_fan_mode_auto
@@ -426,7 +397,7 @@ binary_sensor:
         - lambda: |-
             id(esp_thermostat).fan_mode = CLIMATE_FAN_AUTO;
             id(esp_thermostat).refresh();
-            esp32_thermostat::display_refresh_fan_mode();
+        - script.execute: display_refresh_fan_mode
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_down_cool

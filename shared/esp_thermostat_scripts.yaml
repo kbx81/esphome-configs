@@ -54,3 +54,43 @@ script:
           id(textAction).set_state(action_string, false, true);
           id(textAction).set_foreground_color(action_string_color);
           id(main_lcd).set_component_pic("main", action_background_pic);
+  - id: display_refresh_fan_mode
+    then:
+      - lambda: |-
+          int btnModeFan_Pic = ${btnModeFan_Pic_Off};
+
+          switch (id(esp_thermostat).fan_mode) {
+          case CLIMATE_FAN_ON:
+            btnModeFan_Pic = ${btnModeFan_Pic_On};
+            // btnFanModeOn_color = color_highlight;
+            break;
+          case CLIMATE_FAN_OFF:
+            // btnFanModeOff_color = color_highlight;
+            break;
+          case CLIMATE_FAN_AUTO:
+            btnModeFan_Pic = ${btnModeFan_Pic_Auto};
+            // btnFanModeAuto_color = color_highlight;
+            break;
+          case CLIMATE_FAN_LOW:
+            // btnFanModeLow_color = color_highlight;
+            break;
+          case CLIMATE_FAN_MEDIUM:
+            // btnFanModeMedium_color = color_highlight;
+            break;
+          case CLIMATE_FAN_HIGH:
+            // btnFanModeHigh_color = color_highlight;
+            break;
+          case CLIMATE_FAN_MIDDLE:
+            // btnFanModeMiddle_color = color_highlight;
+            break;
+          case CLIMATE_FAN_FOCUS:
+            // btnFanModeFocus_color = color_highlight;
+            break;
+          case CLIMATE_FAN_DIFFUSE:
+            // btnFanModeDiffuse_color = color_highlight;
+            break;
+          }
+
+          id(main_lcd).set_component_pic(
+              id(nextion_touch_mode_fan).get_variable_name().c_str(), btnModeFan_Pic);
+
