@@ -16,24 +16,21 @@ script:
             status = "Good";
             voc_color = id(color_iaq_good);
           } else if (id(esp_thermostat_bme680_iaq).state <= 150) {
-            status = "Lightly Polluted";
+            status = "Lightly\\rPolluted";
             voc_color = id(color_iaq_lightly_polluted);
           } else if (id(esp_thermostat_bme680_iaq).state <= 200) {
-            status = "Moderately Polluted";
+            status = "Moderately\\rPolluted";
             voc_color = id(color_iaq_moderately_polluted);
           } else if (id(esp_thermostat_bme680_iaq).state <= 250) {
-            status = "Heavily Polluted";
+            status = "Heavily\\rPolluted";
             voc_color = id(color_iaq_heavily_polluted);
           } else if (id(esp_thermostat_bme680_iaq).state <= 350) {
-            status = "Severely Polluted";
+            status = "Severely\\rPolluted";
             voc_color = id(color_iaq_severely_polluted);
           } else {
-            status = "Extremely\xB0Polluted";
+            status = "Extremely\\rPolluted";
             voc_color = id(color_iaq_extremely_polluted);
           }
-
-          status = "Extremely\x0dPolluted";
-          voc_color = id(color_iaq_extremely_polluted);
 
           id(main_lcd).filled_circle(100, 100, 60, voc_color);
           id(textIAQ).set_state(status);

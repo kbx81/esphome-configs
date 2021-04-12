@@ -7,6 +7,10 @@ substitutions:
   setpoints_page_number: "0"
   sensors_page_name: "sensors"
   sensors_page_number: "3"
+  weather_page_number: "5"
+  weather_page_name: "weather"
+  user_page_number: "1"
+  user_page_name: "user"
   touch_down_cool: "19"
   touch_up_cool: "18"
   touch_down_heat: "16"
@@ -15,31 +19,46 @@ substitutions:
   touch_up_hum: "0"
   btnModeOff: "22"
   btnModeHeat: "25"
-  btnModeHeat_Pic_On: "16"
-  btnModeHeat_Pic_Off: "15"
+  btnModeHeat_Pic_On: "17"
+  btnModeHeat_Pic_Off: "16"
   btnModeCool: "24"
-  btnModeCool_Pic_On: "14"
-  btnModeCool_Pic_Off: "13"
+  btnModeCool_Pic_On: "12"
+  btnModeCool_Pic_Off: "11"
   btnModeFan: "23"
-  btnModeFan_Pic_On: "11"
-  btnModeFan_Pic_Off: "10"
-  btnModeFan_Pic_Auto: "12"
+  btnModeFan_Pic_On: "15"
+  btnModeFan_Pic_Off: "14"
+  btnModeFan_Pic_Auto: "13"
+  main_background_off_pic: "1"
+  main_background_cool_pic: "4"
+  main_background_heat_pic: "3"
+  main_background_fan_pic: "2"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
   esp_thermostat_common: !include shared/esp_thermostat_nextion_common_no_rooms_config.yaml
   esp_thermostat_common_controller: !include shared/esp_thermostat_common_controller_config.yaml
   esp__weather_sensor: !include shared/esp__weather_sensor.yaml
+  esp__iaq_sensor: !include shared/esp__iaq_sensor.yaml
+  esp__user_sensor: !include shared/esp__user_sensor.yaml
+  esp_thermostat_scripts: !include shared/esp_thermostat_scripts.yaml
 
 
 # BME680 BSEC sensor
 bme680_bsec:
   address: 0x76
 
+
 interval:
-  - interval: 1min
+  - interval: 5min
     then:
       - script.execute: update_weather
+
+script:
+  - id: update_loop
+    then:
+      - script.execute: update_user
+      - script.execute: update_weather
+      - script.execute: update_iaq
 
 sensor:
   # Phototransistor ADC sensor
@@ -60,8 +79,6 @@ sensor:
             id(display_brightness) = clamp(id(adc_sensor_phototransistor).state / 3.9, 0.05, 1);
             if (main_lcd != nullptr)
               main_lcd->set_backlight_brightness(id(display_brightness));
-            // if ((id(currentPage).state == 0) || (isnan(id(currentPage).state)))
-            //   main_lcd->goto_page("main");
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
@@ -100,6 +117,7 @@ sensor:
   # BME680 BSEC sensor
   - platform: bme680_bsec
     temperature:
+      #sample_rate: LP
       id: esp_thermostat_bme680_temperature
       name: ${node_friendly_name} BME680 Temperature
       filters:
@@ -143,8 +161,8 @@ sensor:
           - lambda: |-
               std::string iaq_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_iaq).state);
               id(textSensor1e).set_state(iaq_string, false, true);
-              if (id(currentPage).state == ${home_page_number})
-                esp32_thermostat::draw_iaq();
+              id(update_iaq).execute();
+
     co2_equivalent:
       id: esp_thermostat_bme680_eco2
       name: ${node_friendly_name} BME680 eCO2
@@ -208,7 +226,13 @@ display:
   - platform: nextion
     id: main_lcd
     uart_id: nextion_uart
-    update_interval: 15s
+    update_interval: 1s
+    touch_sleep_timeout: 60
+    auto_wake_on_touch: "true"
+    on_setup:
+      - script.execute: update_loop
     # tft_url: https://www.kbx81.net/download/public/NX8048K070.tft
     tft_url: http://nextionfw.thebakkers.com/Climate7.tft
-#    lambda: 'esp32_thermostat::draw_main_screen();'
+    lambda: |-
+      ESP_LOGD("nextion_lambda","Start");
+      esp32_thermostat::draw_main_screen();

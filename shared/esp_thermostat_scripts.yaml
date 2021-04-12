@@ -1,0 +1,56 @@
+
+
+script:
+  - id: display_refresh_action
+    then:
+      - lambda: |-
+          // const char *action_string_color = color_lowlight;
+          Color action_string_color = color_control_disabled;
+          std::string action_string = "";
+          uint8_t action_background_pic = ${main_background_off_pic};
+
+          switch (id(esp_thermostat).action) {
+          case CLIMATE_ACTION_OFF:
+            // action_string_color = color_lowlight;
+            action_string = "Off";
+            break;
+          case CLIMATE_ACTION_IDLE:
+            // action_string_color = color_lowlight;
+            action_string = "Idle";
+            break;
+          case CLIMATE_ACTION_COOLING:
+            // action_string_color = color_highlight;
+            action_string_color = color_control_enabled;
+            if (id(esp_thermostat_cool_2).state == true) {
+              action_string = "Cooling x 2";
+            } else {
+              action_string = "Cooling";
+            }
+            action_background_pic = ${main_background_cool_pic};
+            break;
+          case CLIMATE_ACTION_HEATING:
+            // action_string_color = color_highlight;
+            action_string_color = color_control_enabled;
+            if (id(esp_thermostat_heat_2).state == true) {
+              action_string = "Heating x 2";
+            } else {
+              action_string = "Heating";
+            }
+            action_background_pic = ${main_background_heat_pic};
+            break;
+          case CLIMATE_ACTION_DRYING:
+            // action_string_color = color_highlight;
+            action_string_color = color_control_enabled;
+            action_string = "Drying";
+            break;
+          case CLIMATE_ACTION_FAN:
+            // action_string_color = color_highlight;
+            action_string_color = color_control_enabled;
+            action_string = "Fanning";
+            action_background_pic = ${main_background_fan_pic};
+            break;
+          }
+          // main_lcd->set_component_font_color("textAction", action_string_color);
+          id(textAction).set_state(action_string, false, true);
+          id(textAction).set_foreground_color(action_string_color);
+          id(main_lcd).set_component_pic("main", action_background_pic);

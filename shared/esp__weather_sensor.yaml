@@ -5,14 +5,18 @@ script:
           ESP_LOGD("nextion_weather", "Updating currentPage %f home_page_number %d",id(currentPage).state,${home_page_number});
           if (id(currentPage).state == ${home_page_number}){
             ESP_LOGD("nextion_weather", "Updating homepage");
-            id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "°",false,true);
+            id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "\xB0",false,true);
             id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
             id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
             id(nextion_outsidestate).set_state("Currently: " + id(current_outside_condition).state,false,true);
+
           }
 
           if (id(currentPage).state == ${weather_page_number}){
-              ESP_LOGD("nextion_weather", "Updating weatherpage");
+            id(weather_txtwName).set_state( id(forecast_name).state,false,true);
+
+            id(weather_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "\xB0",false,true);
+
             //Day 0
             id(nextion_w0_day).set_state( id(weather_f_0_day).state ,false,true);
             id(nextion_w0_con).set_state( id(weather_f_0_condition).state ,false,true);
@@ -169,18 +173,24 @@ text_sensor:
   - platform: homeassistant
     id: current_outside_condition
     entity_id: sensor.current_outside_condition
+  - platform: homeassistant
+    id: forecast_name
+    entity_id: sensor.forecast_name
   - platform: nextion
     id: nextion_outsidetemp
-    component_name: txtOutsideTemp
+    component_name: ${home_page_name}.txtOutsideTemp
+  - platform: nextion
+    id: weather_outsidetemp
+    component_name: ${weather_page_name}.txtOutsideTemp
   - platform: nextion
     id: nextion_outsidehum
-    component_name: txtOutsideHum
+    component_name: ${home_page_name}.txtOutsideHum
   - platform: nextion
     id: nextion_outsidestate
-    component_name: txtOutState
+    component_name: ${home_page_name}.txtOutState
   - platform: nextion
     id: nextion_outsideppercip
-    component_name: txtOutPPercip
+    component_name: ${home_page_name}.txtOutPPercip
   - platform: homeassistant
     id: weather_f_0_day
     entity_id: sensor.weather_f_0_day
@@ -189,13 +199,13 @@ text_sensor:
     entity_id: sensor.weather_f_0_condition
   - platform: nextion
     id: nextion_w0_day
-    component_name: weather.w0day
+    component_name: ${weather_page_name}.w0day
   - platform: nextion
     id: nextion_w0_con
-    component_name: weather.w0con
+    component_name: ${weather_page_name}.w0con
   - platform: nextion
     id: nextion_w0_temp
-    component_name: weather.w0temp
+    component_name: ${weather_page_name}.w0temp
   - platform: homeassistant
     id: weather_f_1_day
     entity_id: sensor.weather_f_1_day
@@ -204,13 +214,13 @@ text_sensor:
     entity_id: sensor.weather_f_1_condition
   - platform: nextion
     id: nextion_w1_day
-    component_name: weather.w1day
+    component_name: ${weather_page_name}.w1day
   - platform: nextion
     id: nextion_w1_con
-    component_name: weather.w1con
+    component_name: ${weather_page_name}.w1con
   - platform: nextion
     id: nextion_w1_temp
-    component_name: weather.w1temp
+    component_name: ${weather_page_name}.w1temp
   - platform: homeassistant
     id: weather_f_2_day
     entity_id: sensor.weather_f_2_day
@@ -219,13 +229,13 @@ text_sensor:
     entity_id: sensor.weather_f_2_condition
   - platform: nextion
     id: nextion_w2_day
-    component_name: weather.w2day
+    component_name: ${weather_page_name}.w2day
   - platform: nextion
     id: nextion_w2_con
-    component_name: weather.w2con
+    component_name: ${weather_page_name}.w2con
   - platform: nextion
     id: nextion_w2_temp
-    component_name: weather.w2temp
+    component_name: ${weather_page_name}.w2temp
   - platform: homeassistant
     id: weather_f_3_day
     entity_id: sensor.weather_f_3_day
@@ -234,13 +244,13 @@ text_sensor:
     entity_id: sensor.weather_f_3_condition
   - platform: nextion
     id: nextion_w3_day
-    component_name: weather.w3day
+    component_name: ${weather_page_name}.w3day
   - platform: nextion
     id: nextion_w3_con
-    component_name: weather.w3con
+    component_name: ${weather_page_name}.w3con
   - platform: nextion
     id: nextion_w3_temp
-    component_name: weather.w3temp
+    component_name: ${weather_page_name}.w3temp
   - platform: homeassistant
     id: weather_f_4_day
     entity_id: sensor.weather_f_4_day
@@ -249,13 +259,13 @@ text_sensor:
     entity_id: sensor.weather_f_4_condition
   - platform: nextion
     id: nextion_w4_day
-    component_name: weather.w4day
+    component_name: ${weather_page_name}.w4day
   - platform: nextion
     id: nextion_w4_con
-    component_name: weather.w4con
+    component_name: ${weather_page_name}.w4con
   - platform: nextion
     id: nextion_w4_temp
-    component_name: weather.w4temp
+    component_name: ${weather_page_name}.w4temp
   - platform: homeassistant
     id: weather_f_5_day
     entity_id: sensor.weather_f_5_day
@@ -264,13 +274,13 @@ text_sensor:
     entity_id: sensor.weather_f_5_condition
   - platform: nextion
     id: nextion_w5_day
-    component_name: weather.w5day
+    component_name: ${weather_page_name}.w5day
   - platform: nextion
     id: nextion_w5_con
-    component_name: weather.w5con
+    component_name: ${weather_page_name}.w5con
   - platform: nextion
     id: nextion_w5_temp
-    component_name: weather.w5temp
+    component_name: ${weather_page_name}.w5temp
   - platform: homeassistant
     id: weather_f_6_day
     entity_id: sensor.weather_f_6_day
@@ -279,10 +289,13 @@ text_sensor:
     entity_id: sensor.weather_f_6_condition
   - platform: nextion
     id: nextion_w6_day
-    component_name: weather.w6day
+    component_name: ${weather_page_name}.w6day
   - platform: nextion
     id: nextion_w6_con
-    component_name: weather.w6con
+    component_name: ${weather_page_name}.w6con
   - platform: nextion
     id: nextion_w6_temp
-    component_name: weather.w6temp
+    component_name: ${weather_page_name}.w6temp
+  - platform: nextion
+    id: weather_txtwName
+    component_name: ${weather_page_name}.txtwName

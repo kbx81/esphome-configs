@@ -187,7 +187,7 @@ script:
     mode: restart
     then:
       - delay: 1s
-      - lambda: 'esp32_thermostat::display_refresh_action();'
+      - script.execute: display_refresh_action
 
 status_led:
   pin:
