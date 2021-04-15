@@ -93,4 +93,62 @@ script:
 
           id(main_lcd).set_component_pic(
               id(nextion_touch_mode_fan).get_variable_name().c_str(), btnModeFan_Pic);
+  - id: display_refresh_mode
+    then:
+      lambda: |-
+        Color btnControlCool_color = id(color_control_disabled), btnControlHeat_color = id(color_control_disabled),
+              btnControlHum_color = id(color_control_disabled);
 
+        int btnModeHeat_Pic = ${btnModeHeat_Pic_Off};
+        int btnModeCool_Pic = ${btnModeCool_Pic_Off};
+        int btnModeFan_Pic = ${btnModeFan_Pic_Off};
+
+        esp32_thermostat::update_temp_text();
+
+        switch (id(esp_thermostat).mode) {
+          case CLIMATE_MODE_OFF:
+            btnControlHum_color = id(color_control_disabled);
+            break;
+
+          case CLIMATE_MODE_AUTO:
+            btnControlCool_color = id(color_control_enabled);
+            btnControlHeat_color = id(color_control_enabled);
+            btnModeCool_Pic =  ${btnModeCool_Pic_On};
+            btnModeHeat_Pic =  ${btnModeHeat_Pic_On};
+            break;
+
+          case CLIMATE_MODE_COOL:
+            btnControlCool_color = id(color_control_enabled);
+            btnModeCool_Pic =  ${btnModeCool_Pic_On};
+            break;
+
+          case CLIMATE_MODE_HEAT:
+            btnControlHeat_color = id(color_control_enabled);
+            btnModeHeat_Pic =  ${btnModeHeat_Pic_On};
+            break;
+
+          case CLIMATE_MODE_FAN_ONLY:
+            btnControlCool_color = id(color_control_enabled);
+            btnModeFan_Pic = ${btnModeFan_Pic_On};
+            break;
+
+          case CLIMATE_MODE_DRY:
+            break;
+        }
+
+        id(nextion_touch_down_cool).set_foreground_color(btnControlCool_color);
+        id(nextion_touch_up_cool).set_foreground_color(btnControlCool_color);
+        id(textTempCool).set_foreground_color(btnControlCool_color);
+
+        id(main_lcd).set_component_pic(id(nextion_touch_mode_cool).get_variable_name().c_str(), btnModeCool_Pic);
+        id(main_lcd).set_component_pic(id(nextion_touch_mode_heat).get_variable_name().c_str(), btnModeHeat_Pic);
+        id(main_lcd).set_component_pic(id(nextion_touch_mode_fan).get_variable_name().c_str(), btnModeFan_Pic);
+
+        id(nextion_touch_down_heat).set_foreground_color(btnControlHeat_color);
+        id(nextion_touch_up_heat).set_foreground_color(btnControlHeat_color);
+        id(textTempHeat).set_foreground_color(btnControlHeat_color);
+
+        // humidity controls
+        id(nextion_touch_down_hum).set_foreground_color(btnControlHum_color);
+        id(nextion_touch_up_hum).set_foreground_color(btnControlHum_color);
+        id(textHumSet).set_foreground_color(btnControlHum_color);

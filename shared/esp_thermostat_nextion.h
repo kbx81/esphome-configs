@@ -8,11 +8,6 @@ namespace esp32_thermostat {
 
 static const char *TAG = "esp32_thermostat";
 
-// const Color color_control_enabled {255, 255, 255, 0};
-// const Color color_control_disabled {76, 76, 76, 0};
-// const Color color_control_enabled {1.0, 1.0, 1.0, 0};
-// const Color color_control_disabled {0.3, 0.3, 0.3, 0};
-
 const std::vector<climate::ClimateMode> supported_modes = {climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_AUTO,
                                                            climate::CLIMATE_MODE_COOL, climate::CLIMATE_MODE_HEAT,
                                                            climate::CLIMATE_MODE_FAN_ONLY};
@@ -21,9 +16,7 @@ const uint8_t num_modes = supported_modes.size();
 const uint8_t max_missed_online_updates = 60 * (60 / 15);
 const uint8_t max_missed_offline_updates = 2 * (60 / 15);
 const uint8_t encoder_step_size = 1;
-// const char    color_lowlight[] = "16904";
-// const char    color_medlight[] = "50712";
-// const char    color_highlight[] = "65535";
+
 const float lower_temp_boundary = (61 - 32) * 5 / 9;
 const float upper_temp_boundary = (90 - 32) * 5 / 9;
 const float second_stage_activation_delta = 2 * 5 / 9;
@@ -102,17 +95,6 @@ std::string round_float_to_string(float value, uint8_t precision = 1) {
   return formatted_str;
 }
 
-// void set_display_page(uint8_t page) {
-//   if (page < esp32_thermostat::last_page_number) {
-//     id(selected_display_page) = page;
-//     // if any page in the array is set to nullptr, refresh them to get valid
-//     pointers if (display_pages[id(selected_display_page)].page == nullptr)
-//       refresh_display_pages();
-//     // finally, set/show the new page
-//     id(main_lcd).show_page(display_pages[id(selected_display_page)].page);
-//   }
-// }
-
 void mode_button_click() {
   // if (id(main_lcd).is_on()) {
   uint8_t mode_selected = 0;
@@ -124,21 +106,31 @@ void mode_button_click() {
   // increment mode_selected, resetting it if it overflowed
   if (++mode_selected >= num_modes)
     mode_selected = 0;
+
   // set the new climate mode and refresh the thermostat to fire triggers
   id(esp_thermostat).mode = supported_modes[mode_selected];
   id(esp_thermostat).refresh();
-  // }
 }
 
 uint8_t get_weather_pic(std::string condition) {
-  if (condition == "cloudy")
+  ESP_LOGD("get_weather_pic", "checking %s", condition.c_str());
+  if (condition == "Partlycloudy")
+    return 31;
+  if (condition == "Cloudy")
     return 27;
-  if (condition == "rainy")
-    return 28;
-  if (condition == "pouring")
-    return 26;
+  if (condition == "Rainy")
+    return 25;
+  if (condition == "Pouring")
+    return 23;
 
-  return 24;
+  return 28;
+}
+
+std::string fix_up_weather_cond(std::string condition) {
+  if (condition == "Partlycloudy") {
+    return "Partly\\rCloudy";
+  }
+  return condition;
 }
 
 void update_temp_text() {
@@ -151,114 +143,6 @@ void update_temp_text() {
     id(textTempCool).set_state(high_set_point_string, false, true);
     id(textTempHeat).set_state(low_set_point_string, false, true);
   }
-}
-
-void display_refresh_mode() {
-  Color btnControlCool_color = id(color_control_disabled), btnControlHeat_color = id(color_control_disabled),
-        btnControlHum_color = id(color_control_disabled);
-
-  int btnModeHeat_Pic = id(btnModeHeat_Pic_Off);
-  int btnModeCool_Pic = id(btnModeCool_Pic_Off);
-  int btnModeFan_Pic = id(btnModeFan_Pic_Off);
-
-  // const char *btnControlCool_color = color_lowlight,
-  //            *btnModeCool_color = color_lowlight,
-  //            *btnModeFan_color = color_lowlight,
-  //            *btnControlHeat_color = color_lowlight,
-  //            *btnModeHeat_color = color_lowlight,
-  //            *btnModeOff_color = color_lowlight,
-  //            *btnControlHum_color = color_highlight;
-
-  update_temp_text();
-
-  switch (id(esp_thermostat).mode) {
-    case CLIMATE_MODE_OFF:
-      // btnModeOff_color = id(color_control_enabled);
-      btnControlHum_color = id(color_control_disabled);
-      // btnModeOff_color = color_highlight;
-      // btnControlHum_color = color_lowlight;
-      break;
-
-    case CLIMATE_MODE_AUTO:
-      btnControlCool_color = id(color_control_enabled);
-      // btnModeCool_color = id(color_control_enabled);
-      btnControlHeat_color = id(color_control_enabled);
-      // btnModeHeat_color = id(color_control_enabled);
-      btnModeCool_Pic = id(btnModeCool_Pic_On);
-      btnModeHeat_Pic = id(btnModeHeat_Pic_On);
-      // btnControlCool_color = color_highlight;
-      // btnModeCool_color = color_highlight;
-      // btnControlHeat_color = color_highlight;
-      // btnModeHeat_color = color_highlight;
-      break;
-
-    case CLIMATE_MODE_COOL:
-      btnControlCool_color = id(color_control_enabled);
-      btnModeCool_Pic = id(btnModeCool_Pic_On);
-      // btnControlCool_color = color_highlight;
-      // btnModeCool_color = color_highlight;
-      break;
-
-    case CLIMATE_MODE_HEAT:
-      btnControlHeat_color = id(color_control_enabled);
-      btnModeHeat_Pic = id(btnModeHeat_Pic_On);
-      // btnControlHeat_color = color_highlight;
-      // btnModeHeat_color = color_highlight;
-      break;
-
-    case CLIMATE_MODE_FAN_ONLY:
-      btnControlCool_color = id(color_control_enabled);
-      btnModeFan_Pic = id(btnModeFan_Pic_On);
-      // btnControlCool_color = color_highlight;
-      // btnModeFan_color = color_highlight;
-      break;
-
-    case CLIMATE_MODE_DRY:
-      // btnModeDry_color = color_highlight;
-      break;
-  }
-
-  // cool button and setpoint controls
-
-  id(nextion_touch_down_cool).set_foreground_color(btnControlCool_color);
-  id(nextion_touch_up_cool).set_foreground_color(btnControlCool_color);
-  id(textTempCool).set_foreground_color(btnControlCool_color);
-  // main_lcd->set_component_font_color("btnModeCool", btnModeCool_color);
-  // main_lcd->set_component_font_color("btnDownCool", btnControlCool_color);
-  // main_lcd->set_component_font_color("btnUpCool", btnControlCool_color);
-  // main_lcd->set_component_font_color("textTempCool", btnControlCool_color);
-  // heat button and setpoint controls
-
-  // id(nextion_touch_mode_heat).set_foreground_color(btnModeHeat_color);
-
-  // id(nextion_touch_mode_cool).set_foreground_color(btnModeCool_color);
-
-  id(main_lcd).set_component_pic(id(nextion_touch_mode_cool).get_variable_name().c_str(), btnModeCool_Pic);
-  id(main_lcd).set_component_pic(id(nextion_touch_mode_heat).get_variable_name().c_str(), btnModeHeat_Pic);
-  id(main_lcd).set_component_pic(id(nextion_touch_mode_fan).get_variable_name().c_str(), btnModeFan_Pic);
-
-  // id(nextion_touch_mode_fan).set_foreground_color(btnModeFan_color);
-  // id(nextion_touch_mode_off).set_foreground_color(btnModeOff_color);
-
-  id(nextion_touch_down_heat).set_foreground_color(btnControlHeat_color);
-  id(nextion_touch_up_heat).set_foreground_color(btnControlHeat_color);
-  id(textTempHeat).set_foreground_color(btnControlHeat_color);
-
-  // main_lcd->set_component_font_color("btnModeHeat", btnModeHeat_color);
-  // main_lcd->set_component_font_color("btnDownHeat", btnControlHeat_color);
-  // main_lcd->set_component_font_color("btnUpHeat", btnControlHeat_color);
-  // main_lcd->set_component_font_color("textTempHeat", btnControlHeat_color);
-  // the rest of it
-
-  // main_lcd->set_component_font_color("btnModeFan", btnModeFan_color);
-  // main_lcd->set_component_font_color("btnModeOff", btnModeOff_color);
-  // humidity controls
-  id(nextion_touch_down_hum).set_foreground_color(btnControlHum_color);
-  id(nextion_touch_up_hum).set_foreground_color(btnControlHum_color);
-  id(textHumSet).set_foreground_color(btnControlHum_color);
-  // main_lcd->set_component_font_color("btnDownHum", btnControlHum_color);
-  // main_lcd->set_component_font_color("btnUpHum", btnControlHum_color);
-  // main_lcd->set_component_font_color("textHumSet", btnControlHum_color);
 }
 
 void display_refresh_sensor_names() {
@@ -349,18 +233,16 @@ void draw_main_screen(bool fullRefresh = false) {
   // only do a full refresh once per hour (and at start-up)
   if (id(display_last_full_refresh) != dateTime.hour) {
     id(display_last_full_refresh) = dateTime.hour;
-    // main_lcd->set_touch_sleep_timeout(60);
     main_lcd->set_nextion_rtc_time(dateTime);
   }
-  // ESP_LOGD("********** HEAP **********", " Free: %d", ESP.getFreeHeap());
-  // ESP_LOGD("********** HEAP **********", "Total: %d", ESP.getHeapSize());
 
   update_temp_text();
+  update_status();
 
   if (fullRefresh) {
     update_status();
     display_refresh_action->execute();
-    display_refresh_mode();
+    display_refresh_mode->execute();
     display_refresh_fan_mode->execute();
     display_refresh_sensor_names();
   }

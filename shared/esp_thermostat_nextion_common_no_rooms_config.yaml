@@ -6,12 +6,12 @@ esphome:
     build_flags: -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -DUSING_BSEC --param=max-vartrack-size=70000000
     monitor_speed: 115200
     upload_speed: 460800
-  on_boot:
-    then:
-      - delay: 3s
-      - lambda: |-
-          main_lcd->goto_page("main");
-          esp32_thermostat::draw_main_screen(true);
+  # on_boot:
+  #   then:
+  #     - delay: 3s
+  #     - lambda: |-
+  #         main_lcd->goto_page("main");
+  #         esp32_thermostat::draw_main_screen(true);
 
 api:
   services:
@@ -169,6 +169,7 @@ status_led:
 time:
   - platform: homeassistant
     id: esptime
+    timezone: ${time_zone}
 
 i2c:
   id: i2c_bus
@@ -210,23 +211,23 @@ climate:
       - lambda: |-
           id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;
           ESP_LOGD("TEST","Mode changed off_mode");
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: display_refresh_mode
     auto_mode:
       - lambda: |-
           ESP_LOGD("TEST","Mode changed auto_mode");
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: display_refresh_mode
     cool_mode:
       - lambda: |-
           ESP_LOGD("TEST","Mode changed cool_mode");
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: display_refresh_mode
     heat_mode:
       - lambda: |-
           ESP_LOGD("TEST","Mode changed heat_mode");
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: display_refresh_mode
     fan_only_mode:
       - lambda: |-
           ESP_LOGD("TEST","Mode changed fan_only_mode");
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: display_refresh_mode
     cool_action:
       - switch.turn_off: esp_thermostat_heat_1
       - switch.turn_on: esp_thermostat_fan
@@ -326,7 +327,7 @@ binary_sensor:
             id(esp_thermostat).mode = CLIMATE_MODE_OFF;
             id(esp_thermostat).fan_mode = CLIMATE_FAN_AUTO;
             id(esp_thermostat).refresh();
-            esp32_thermostat::display_refresh_mode();
+        - script.execute: display_refresh_mode
         - script.execute: display_refresh_fan_mode
         - script.execute: button_press
   - platform: nextion
@@ -339,7 +340,7 @@ binary_sensor:
         - lambda: |-
             id(esp_thermostat).mode = CLIMATE_MODE_FAN_ONLY;
             id(esp_thermostat).refresh();
-            esp32_thermostat::display_refresh_mode();
+        - script.execute: display_refresh_mode
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_mode_heat
@@ -356,7 +357,7 @@ binary_sensor:
             else
               id(esp_thermostat).mode = CLIMATE_MODE_HEAT;
             id(esp_thermostat).refresh();
-            esp32_thermostat::display_refresh_mode();
+        - script.execute: display_refresh_mode
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_mode_cool
@@ -373,7 +374,7 @@ binary_sensor:
             else
               id(esp_thermostat).mode = CLIMATE_MODE_COOL;
             id(esp_thermostat).refresh();
-            esp32_thermostat::display_refresh_mode();
+        - script.execute: display_refresh_mode
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_fan_mode_on
