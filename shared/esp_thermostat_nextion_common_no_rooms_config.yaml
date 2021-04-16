@@ -3,7 +3,7 @@ esphome:
   platform: ESP32
   board: esp-wrover-kit
   platformio_options:
-    build_flags: -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -DUSING_BSEC --param=max-vartrack-size=70000000
+    build_flags: -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -DUSING_BSEC --param=max-vartrack-size=80000000
     monitor_speed: 115200
     upload_speed: 460800
   # on_boot:
@@ -132,12 +132,15 @@ script:
       # - lambda: 'esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);'
   # display power management
   - id: display_on
-    mode: restart
+    mode: single
     then:
-      # - lambda: 'id(main_lcd)->turn_on();'
-      # - lambda: 'id(display_brightness) = 100;'
-      - component.update: main_lcd
-      - delay: 120s
+      - lambda: |-
+          if (id(main_lcd)->is_sleeping())
+              id(main_lcd)->sleep(false);
+      #- script.execute: display_page_refresh
+      #- lambda: 'id(main_lcd)->set_backlight_brightness(100);'
+      #- component.update: main_lcd
+      # - delay: 120s
       # - lambda: 'id(main_lcd)->turn_off();'
       # - lambda: 'id(display_brightness) = 0;'
   # display refresh - everything on current page
@@ -148,8 +151,8 @@ script:
           ESP_LOGD("no_rooms","display_page_refresh start %f", id(currentPage).state);
           if (id(currentPage).state == ${home_page_number})
             id(main_lcd).update_components_by_prefix("${home_page_name}");
-          else if (id(currentPage).state == ${setpoints_page_number})
-            id(main_lcd).update_components_by_prefix("${setpoints_page_name}");
+          //else if (id(currentPage).state == ${setpoints_page_number})
+          //  id(main_lcd).update_components_by_prefix("${setpoints_page_name}");
           else if (id(currentPage).state == ${sensors_page_number})
             id(main_lcd).update_components_by_prefix("${sensors_page_name}");
           else if (id(currentPage).state == ${weather_page_number})
@@ -177,11 +180,6 @@ i2c:
   sda: 21
   scl: 22
   scan: True
-
-# spi:
-#   clk_pin: GPIO14
-#   mosi_pin: GPIO13
-#   miso_pin: GPIO12
 
 uart:
   id: nextion_uart
@@ -377,30 +375,6 @@ binary_sensor:
         - script.execute: display_refresh_mode
         - script.execute: button_press
   - platform: nextion
-    id: nextion_touch_fan_mode_on
-    page_id: ${setpoints_page_number}
-    component_id: 5
-    component_name: ${setpoints_page_name}.btnFanModeOn
-    on_press:
-      then:
-        - lambda: |-
-            id(esp_thermostat).fan_mode = CLIMATE_FAN_ON;
-            id(esp_thermostat).refresh();
-        - script.execute: display_refresh_fan_mode
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_fan_mode_auto
-    page_id: ${setpoints_page_number}
-    component_id: 6
-    component_name: ${setpoints_page_name}.btnFanModeAuto
-    on_press:
-      then:
-        - lambda: |-
-            id(esp_thermostat).fan_mode = CLIMATE_FAN_AUTO;
-            id(esp_thermostat).refresh();
-        - script.execute: display_refresh_fan_mode
-        - script.execute: button_press
-  - platform: nextion
     id: nextion_touch_down_cool
     page_id: ${setpoints_page_number}
     component_id: ${touch_down_cool}
@@ -495,10 +469,6 @@ sensor:
 text_sensor:
   - platform: nextion
     nextion_id: main_lcd
-    id: textAction
-    component_name: ${home_page_name}.textAction
-  - platform: nextion
-    nextion_id: main_lcd
     id: textStatus
     component_name: ${home_page_name}.textStatus
   - platform: nextion
@@ -513,10 +483,10 @@ text_sensor:
     nextion_id: main_lcd
     id: textTempHeat
     component_name: ${setpoints_page_name}.textTempHeat
-  - platform: nextion
-    nextion_id: main_lcd
-    id: textHumSet
-    component_name: ${setpoints_page_name}.textHumSet
+  # - platform: nextion
+  #   nextion_id: main_lcd
+  #   id: textHumSet
+  #   component_name: ${setpoints_page_name}.textHumSet
   - platform: nextion
     nextion_id: main_lcd
     id: humCurrent
@@ -694,13 +664,30 @@ switch:
   - platform: nextion
     id: func_changemode
     component_name: func.changemode
-
+  - platform: nextion
+    id: nextion_touch_fan_mode_on
+    component_name: ${setpoints_page_name}.swFanMode
+    on_turn_on:
+      - lambda: |-
+            id(esp_thermostat).fan_mode = CLIMATE_FAN_ON;
+            id(esp_thermostat).refresh();
+      - script.execute: display_refresh_fan_mode
+      - script.execute: button_press
+    on_turn_off:
+      - lambda: |-
+            id(esp_thermostat).fan_mode = CLIMATE_FAN_AUTO;
+            id(esp_thermostat).refresh();
+      - script.execute: display_refresh_fan_mode
+      - script.execute: button_press
   - platform: template
     id: kbx81_favorite_switch
     name: ${node_friendly_name} Upgrade TFT
     turn_on_action:
       - lambda: |-
           id(main_lcd)->upload_tft();
+  - platform: restart
+    name: ${node_friendly_name} Restart
+
   # display power
   - platform: gpio
     id: esp_thermostat_display_power

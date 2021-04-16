@@ -1,0 +1,16 @@
+mqtt:
+  broker: ${mqtt_broker}
+  username: ${mqtt_username}
+  password: ${mqtt_password}
+  discovery: False
+  reboot_timeout: 0s
+
+text_sensor:
+  - platform: mqtt_subscribe
+    name: ${node_friendly_name} + " User Config"
+    id: user_config
+    topic: ${node_name}/set/user
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGD("mqtt", "${node_name}/set/user received %s", x.c_str());

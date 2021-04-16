@@ -1,0 +1,4 @@
+text_sensor:
+  - platform: homeassistant
+    name: "${node_friendly_name} User Config"
+    entity_id: sensor.mqtt_${node_name}_user_config

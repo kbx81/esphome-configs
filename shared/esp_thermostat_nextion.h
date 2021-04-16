@@ -223,12 +223,20 @@ void update_status() {
   if (status_message.empty() == false)
     status_message[0] = toupper(status_message[0]);
 
-  ESP_LOGD("TEST", "Sending textStatus \"%s\"", status_message.c_str());
   id(textStatus).set_state(status_message, false, true);
 }
 
+bool weather_set = false;
+uint32_t weather_update = 0;
 void draw_main_screen(bool fullRefresh = false) {
-  ESP_LOGD(TAG, "draw_main_screen start fullRefresh : %s", TRUEFALSE(fullRefresh));
+  if (weather_update == 0) {
+    weather_update = millis();
+  }
+  if (!weather_set && (millis() - weather_update) > 5000) {
+    weather_set = true;
+    update_weather->execute();
+  }
+
   auto dateTime = id(esptime).now();
   // only do a full refresh once per hour (and at start-up)
   if (id(display_last_full_refresh) != dateTime.hour) {

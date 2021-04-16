@@ -1,0 +1,307 @@
+script:
+  # output protection scripts -- ensures we don't switch things on/off too quickly!
+  - id: fan_output_protector
+    then:
+      - delay: 15s
+  - id: cooling_output_protector
+    then:
+      - delay: 120s
+  - id: heating_output_protector
+    then:
+      - delay: 30s
+  # output management scripts -- keeps outputs in sync with template switches based on protection timings
+  - id: fan_output_manager
+    mode: restart
+    then:
+      - delay: 100ms
+      - script.wait: fan_output_protector
+      - if:
+          condition:
+            switch.is_on: esp_thermostat_fan
+          then:
+            - switch.turn_on: esp_thermostat_triac_fan
+          else:
+            - switch.turn_off: esp_thermostat_triac_fan
+      - script.execute: fan_output_protector
+  - id: cooling_output_manager
+    mode: restart
+    then:
+      - delay: 100ms
+      - script.wait: cooling_output_protector
+      - if:
+          condition:
+            switch.is_on: esp_thermostat_cool_1
+          then:
+            - switch.turn_off: esp_thermostat_heat_1
+            - switch.turn_on: esp_thermostat_triac_cool_1
+            - script.execute: cooling_output_second_stage
+          else:
+            - switch.turn_off: esp_thermostat_triac_cool_1
+            - switch.turn_off: esp_thermostat_triac_cool_2
+            - script.stop: cooling_output_second_stage
+      - if:
+          condition:
+            switch.is_on: esp_thermostat_cool_2
+          then:
+            - switch.turn_on: esp_thermostat_triac_cool_2
+          else:
+            - switch.turn_off: esp_thermostat_triac_cool_2
+      - script.execute: cooling_output_protector
+  - id: cooling_output_second_stage
+    then:
+      - if:
+          condition:
+            switch.is_off: esp_thermostat_cool_2
+          then:
+            - delay: 600s
+            - switch.turn_on: esp_thermostat_cool_2
+  - id: heating_output_manager
+    mode: restart
+    then:
+      - delay: 100ms
+      - script.wait: heating_output_protector
+      - if:
+          condition:
+            switch.is_on: esp_thermostat_heat_1
+          then:
+            - switch.turn_off: esp_thermostat_cool_1
+            - switch.turn_on: esp_thermostat_triac_heat_1
+            - script.execute: heating_output_second_stage
+          else:
+            - switch.turn_off: esp_thermostat_triac_heat_1
+            - switch.turn_off: esp_thermostat_triac_heat_2
+            - script.stop: heating_output_second_stage
+      - if:
+          condition:
+            switch.is_on: esp_thermostat_heat_2
+          then:
+            - switch.turn_on: esp_thermostat_triac_heat_2
+          else:
+            - switch.turn_off: esp_thermostat_triac_heat_2
+      - script.execute: heating_output_protector
+  - id: heating_output_second_stage
+    then:
+      - if:
+          condition:
+            switch.is_off: esp_thermostat_heat_2
+          then:
+            - delay: 600s
+            - switch.turn_on: esp_thermostat_heat_2
+
+mcp23017:
+  - id: mcp23017_hub
+    address: 0x20
+    # open_drain_interrupt: 'true'
+
+switch:
+  # patch template switches to phyical switches so control is consistent
+  - platform: template
+    id: esp_thermostat_fan
+    name: ${node_friendly_name} Fan
+    optimistic: true
+    turn_on_action:
+      - script.execute: fan_output_manager
+    turn_off_action:
+      - script.execute: fan_output_manager
+  - platform: template
+    id: esp_thermostat_cool_1
+    name: ${node_friendly_name} Cool 1
+    optimistic: true
+    turn_on_action:
+      - script.execute: cooling_output_manager
+    turn_off_action:
+      - switch.turn_off: esp_thermostat_cool_2
+      # - script.execute: cooling_output_manager
+  - platform: template
+    id: esp_thermostat_cool_2
+    name: ${node_friendly_name} Cool 2
+    optimistic: true
+    turn_on_action:
+      - switch.turn_on: esp_thermostat_cool_1
+      # - script.execute: cooling_output_manager
+    turn_off_action:
+      - script.execute: cooling_output_manager
+  - platform: template
+    id: esp_thermostat_heat_1
+    name: ${node_friendly_name} Heat 1
+    optimistic: true
+    turn_on_action:
+      - script.execute: heating_output_manager
+    turn_off_action:
+      - switch.turn_off: esp_thermostat_heat_2
+      # - script.execute: heating_output_manager
+  - platform: template
+    id: esp_thermostat_heat_2
+    name: ${node_friendly_name} Heat 2
+    optimistic: true
+    turn_on_action:
+      - switch.turn_on: esp_thermostat_heat_1
+      # - script.execute: heating_output_manager
+    turn_off_action:
+      - script.execute: heating_output_manager
+  - platform: template
+    id: esp_thermostat_humidify
+    name: ${node_friendly_name} Humidify
+    turn_on_action:
+      - switch.turn_on: esp_thermostat_triac_misc_1
+    turn_off_action:
+      - switch.turn_off: esp_thermostat_triac_misc_1
+    lambda: 'return id(esp_thermostat_triac_misc_1).state;'
+  # physical switches
+  - platform: gpio
+    id: esp_thermostat_dht22_vcc
+    name: ${node_friendly_name} DHT22 Vcc
+    internal: true
+    pin:
+      number: 25
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_thermistor_vcc
+    name: ${node_friendly_name} Thermistor Vcc
+    internal: true
+    pin:
+      number: 33
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_mcp23017_reset
+    name: ${node_friendly_name} MCP23017 Reset
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      number: 4
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    id: esp_thermostat_triac_fan
+    name: ${node_friendly_name} TRIAC Fan
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 0
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_cool_1
+    name: ${node_friendly_name} TRIAC Cool 1
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 1
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_cool_2
+    name: ${node_friendly_name} TRIAC Cool 2
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 2
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_heat_1
+    name: ${node_friendly_name} TRIAC Heat 1
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 3
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_heat_2
+    name: ${node_friendly_name} TRIAC Heat 2
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 4
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_misc_1
+    name: ${node_friendly_name} TRIAC Misc 1
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 5
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_misc_2
+    name: ${node_friendly_name} TRIAC Misc 2
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 6
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_misc_3
+    name: ${node_friendly_name} TRIAC Misc 3
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 7
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_to_1
+    name: ${node_friendly_name} Test Output 1
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 11
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_to_2
+    name: ${node_friendly_name} Test Output 2
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 12
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_to_3
+    name: ${node_friendly_name} Test Output 3
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 13
+      mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_thermostat_to_4
+  #   name: ${node_friendly_name} Test Output 4
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 14
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_thermostat_to_5
+  #   name: ${node_friendly_name} Test Output 5
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 15
+  #     mode: OUTPUT
+
+color:
+  - id: color_iaq_excellent
+    red_int: 0
+    green_int: 228
+    blue_int: 0
+  - id: color_iaq_good
+    red_int: 156
+    green_int: 208
+    blue_int: 80
+  - id: color_iaq_lightly_polluted
+    red_int: 255
+    green_int: 255
+    blue_int: 0
+  - id: color_iaq_moderately_polluted
+    red_int: 255
+    green_int: 126
+    blue_int: 0
+  - id: color_iaq_heavily_polluted
+    red_int: 255
+    green_int: 0
+    blue_int: 0
+  - id: color_iaq_severely_polluted
+    red_int: 152
+    green_int: 0
+    blue_int: 76
+  - id: color_iaq_extremely_polluted
+    red_int: 102
+    green_int: 51
+    blue_int: 0

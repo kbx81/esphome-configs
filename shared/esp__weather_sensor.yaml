@@ -2,7 +2,7 @@ script:
   - id: update_weather
     then:
       - lambda: |-
-          ESP_LOGD("nextion_weather", "Updating currentPage %f home_page_number %d",id(currentPage).state,${home_page_number});
+          ESP_LOGD("nextion_weather", "Updating Weather currentPage %f weather_page_number %d",id(currentPage).state,${weather_page_number});
           if (id(currentPage).state == ${home_page_number}){
             ESP_LOGD("nextion_weather", "Updating homepage");
             id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "\xB0",false,true);
@@ -65,9 +65,6 @@ sensor:
     id: precipitation_probability
     entity_id: sensor.current_outside_ppercip
   - platform: homeassistant
-    id: weather_f_0_datetime
-    entity_id: sensor.weather_f_0_datetime
-  - platform: homeassistant
     id: weather_f_0_precipitation
     entity_id: sensor.weather_f_0_precipitation
   - platform: homeassistant
@@ -79,9 +76,6 @@ sensor:
   - platform: homeassistant
     id: weather_f_0_templow
     entity_id: sensor.weather_f_0_templow
-  - platform: homeassistant
-    id: weather_f_1_datetime
-    entity_id: sensor.weather_f_1_datetime
   - platform: homeassistant
     id: weather_f_1_precipitation
     entity_id: sensor.weather_f_1_precipitation
@@ -95,9 +89,6 @@ sensor:
     id: weather_f_1_templow
     entity_id: sensor.weather_f_1_templow
   - platform: homeassistant
-    id: weather_f_2_datetime
-    entity_id: sensor.weather_f_2_datetime
-  - platform: homeassistant
     id: weather_f_2_precipitation
     entity_id: sensor.weather_f_2_precipitation
   - platform: homeassistant
@@ -109,9 +100,6 @@ sensor:
   - platform: homeassistant
     id: weather_f_2_templow
     entity_id: sensor.weather_f_2_templow
-  - platform: homeassistant
-    id: weather_f_3_datetime
-    entity_id: sensor.weather_f_3_datetime
   - platform: homeassistant
     id: weather_f_3_precipitation
     entity_id: sensor.weather_f_3_precipitation
@@ -125,9 +113,6 @@ sensor:
     id: weather_f_3_templow
     entity_id: sensor.weather_f_3_templow
   - platform: homeassistant
-    id: weather_f_4_datetime
-    entity_id: sensor.weather_f_4_datetime
-  - platform: homeassistant
     id: weather_f_4_precipitation
     entity_id: sensor.weather_f_4_precipitation
   - platform: homeassistant
@@ -140,9 +125,6 @@ sensor:
     id: weather_f_4_templow
     entity_id: sensor.weather_f_4_templow
   - platform: homeassistant
-    id: weather_f_5_datetime
-    entity_id: sensor.weather_f_5_datetime
-  - platform: homeassistant
     id: weather_f_5_precipitation
     entity_id: sensor.weather_f_5_precipitation
   - platform: homeassistant
@@ -154,9 +136,6 @@ sensor:
   - platform: homeassistant
     id: weather_f_5_templow
     entity_id: sensor.weather_f_5_templow
-  - platform: homeassistant
-    id: weather_f_6_datetime
-    entity_id: sensor.weather_f_6_datetime
   - platform: homeassistant
     id: weather_f_6_precipitation
     entity_id: sensor.weather_f_6_precipitation
@@ -171,6 +150,27 @@ sensor:
     entity_id: sensor.weather_f_6_templow
 
 text_sensor:
+  # - platform: homeassistant
+  #   id: weather_f_0_datetime
+  #   entity_id: sensor.weather_f_0_datetime
+  # - platform: homeassistant
+  #   id: weather_f_1_datetime
+  #   entity_id: sensor.weather_f_1_datetime
+  # - platform: homeassistant
+  #   id: weather_f_2_datetime
+  #   entity_id: sensor.weather_f_2_datetime
+  # - platform: homeassistant
+  #   id: weather_f_3_datetime
+  #   entity_id: sensor.weather_f_3_datetime
+  # - platform: homeassistant
+  #   id: weather_f_4_datetime
+  #   entity_id: sensor.weather_f_4_datetime
+  # - platform: homeassistant
+  #   id: weather_f_5_datetime
+  #   entity_id: sensor.weather_f_5_datetime
+  # - platform: homeassistant
+  #   id: weather_f_6_datetime
+  #   entity_id: sensor.weather_f_6_datetime
   - platform: homeassistant
     id: current_outside_condition
     entity_id: sensor.current_outside_condition

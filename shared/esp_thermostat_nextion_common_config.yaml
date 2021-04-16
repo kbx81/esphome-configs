@@ -126,8 +126,8 @@ script:
       - script.execute: display_on
       - delay: 120s
       - lambda: |-
-          if (id(currentPage).state != ${home_page_number})
-            main_lcd->goto_page("main");
+          //if (id(currentPage).state != ${home_page_number})
+            //main_lcd->goto_page("main");
       # - lambda: 'esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);'
   # display power management
   - id: display_on
