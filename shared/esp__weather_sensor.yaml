@@ -5,11 +5,12 @@ script:
           ESP_LOGD("nextion_weather", "Updating Weather currentPage %f weather_page_number %d",id(currentPage).state,${weather_page_number});
           if (id(currentPage).state == ${home_page_number}){
             ESP_LOGD("nextion_weather", "Updating homepage");
+            int wpic = esp32_thermostat::get_weather_pic(id(weather_f_0_condition).state);
+            id(main_lcd).set_component_pic("${home_page_name}.pCurrent", wpic );
             id(nextion_outsidetemp).set_state(esp32_thermostat::round_float_to_string(id(current_outside_temperature).state) + "\xB0",false,true);
             id(nextion_outsidehum).set_state(esp32_thermostat::round_float_to_string(id(current_outside_humidity).state) + "%",false,true);
             id(nextion_outsideppercip).set_state(esp32_thermostat::round_float_to_string(id(precipitation_probability).state) + "%",false,true);
             id(nextion_outsidestate).set_state(esp32_thermostat::fix_up_weather_cond(id(current_outside_condition).state,true),false,true);
-            id(main_lcd).set_component_pic("${home_page_name}.pCurrent",  esp32_thermostat::get_weather_pic(id(weather_f_0_condition).state));
           }
 
           if (id(currentPage).state == ${weather_page_number}){
