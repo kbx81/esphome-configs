@@ -8,9 +8,10 @@ namespace esp32_thermostat {
 
 static const char *TAG = "esp32_thermostat";
 
-const std::vector<climate::ClimateMode> supported_modes = {climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_AUTO,
-                                                           climate::CLIMATE_MODE_COOL, climate::CLIMATE_MODE_HEAT,
-                                                           climate::CLIMATE_MODE_FAN_ONLY};
+const std::vector<climate::ClimateMode> supported_modes = {
+    climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_AUTO,
+    climate::CLIMATE_MODE_COOL, climate::CLIMATE_MODE_HEAT,
+    climate::CLIMATE_MODE_FAN_ONLY};
 const uint8_t num_rooms = 8;
 const uint8_t num_modes = supported_modes.size();
 const uint8_t max_missed_online_updates = 60 * (60 / 15);
@@ -87,9 +88,11 @@ nextion::NextionTextSensor *humidity_ts(int row) {
 std::string round_float_to_string(float value, uint8_t precision = 1) {
   std::stringstream strstr;
   if (precision == 0) {
-    strstr << std::fixed << std::setprecision(precision) << std::noshowpoint << value;
+    strstr << std::fixed << std::setprecision(precision) << std::noshowpoint
+           << value;
   } else {
-    strstr << std::fixed << std::setprecision(precision) << std::showpoint << value;
+    strstr << std::fixed << std::setprecision(precision) << std::showpoint
+           << value;
   }
   std::string formatted_str = strstr.str();
   return formatted_str;
@@ -126,8 +129,10 @@ uint8_t get_weather_pic(std::string condition) {
   return 28;
 }
 
-std::string fix_up_weather_cond(std::string condition) {
+std::string fix_up_weather_cond(std::string condition, bool use_space = false) {
   if (condition == "Partlycloudy") {
+    if (use_space)
+      return "Partly Cloudy";
     return "Partly\\rCloudy";
   }
   return condition;
@@ -136,9 +141,13 @@ std::string fix_up_weather_cond(std::string condition) {
 void update_temp_text() {
   if (main_lcd != nullptr) {
     std::string low_set_point_string =
-        round_float_to_string(id(esp_thermostat).target_temperature_low * 1.8 + 32, 0) + "\xB0";
+        round_float_to_string(
+            id(esp_thermostat).target_temperature_low * 1.8 + 32, 0) +
+        "\xB0";
     std::string high_set_point_string =
-        round_float_to_string(id(esp_thermostat).target_temperature_high * 1.8 + 32, 0) + "\xB0";
+        round_float_to_string(
+            id(esp_thermostat).target_temperature_high * 1.8 + 32, 0) +
+        "\xB0";
 
     id(textTempCool).set_state(high_set_point_string, false, true);
     id(textTempHeat).set_state(low_set_point_string, false, true);
@@ -147,23 +156,26 @@ void update_temp_text() {
 
 void display_refresh_sensor_names() {
   id(textSensor1).set_state("BME680:", false, true);
-  id(textSensor2).set_state("BME280:", false, true);
+  // id(textSensor2).set_state("BME280:", false, true);
   id(textSensor3).set_state("SHTC3:", false, true);
   id(textSensor4).set_state("TMP117:", false, true);
-  id(textSensor5).set_state("DHT22:", false, true);
+  // id(textSensor5).set_state("DHT22:", false, true);
   id(textSensor6).set_state("Thermistor 1:", false, true);
-  id(textSensor7).set_state("Thermistor 2:", false, true);
+  // id(textSensor7).set_state("Thermistor 2:", false, true);
   id(textSensor8).set_state("SGP40:", false, true);
 }
 
 void update_climate_current_temperature(float temperature) {
   std::string temperature_string =
-      round_float_to_string(id(esp_thermostat_temperature_sensor).state * 1.8 + 32) + "\xB0";
+      round_float_to_string(id(esp_thermostat_temperature_sensor).state * 1.8 +
+                            32) +
+      "\xB0";
   id(tempCurrent).set_state(temperature_string, false, true);
 }
 
 void update_climate_current_humidity(float humidity) {
-  std::string humidity_string = round_float_to_string(id(esp_thermostat_humidity_sensor).state) + "% RH";
+  std::string humidity_string =
+      round_float_to_string(id(esp_thermostat_humidity_sensor).state) + "% RH";
   id(humCurrent).set_state(humidity_string, false, true);
 }
 
@@ -181,7 +193,8 @@ void update_climate_table_humidity(int row, float humidity) {
   if ((row >= 0) && (row < num_rooms)) {
     if (room_humidity[row] != humidity) {
       room_humidity[row] = humidity;
-      humidity_ts(row)->set_state(round_float_to_string(humidity) + "%", false, true);
+      humidity_ts(row)->set_state(round_float_to_string(humidity) + "%", false,
+                                  true);
     }
   }
 }
@@ -190,7 +203,8 @@ void update_climate_table_temperature(int row, float temperature) {
   if ((row >= 0) && (row < num_rooms)) {
     if (room_temperature[row] != temperature) {
       room_temperature[row] = temperature;
-      temperature_ts(row)->set_state(round_float_to_string(temperature * 1.8 + 32) + "\xB0", false, true);
+      temperature_ts(row)->set_state(
+          round_float_to_string(temperature * 1.8 + 32) + "\xB0", false, true);
     }
   }
 }
@@ -206,7 +220,8 @@ void update_status() {
   std::string status_message;
   // std::string status_message = id(status_string);
 
-  if (id(esp_thermostat_api_status).state == false && id(on_board_sensor_active) == true) {
+  if (id(esp_thermostat_api_status).state == false &&
+      id(on_board_sensor_active) == true) {
     status_message = offline_message + " - " + sensor_message;
   } else if (id(esp_thermostat_api_status).state == false) {
     status_message = offline_message;
@@ -257,7 +272,8 @@ void draw_main_screen(bool fullRefresh = false) {
 }
 
 float adjust_high_set_point(float adjustment) {
-  float high_set_point = id(esp_thermostat).target_temperature_high += adjustment,
+  float high_set_point = id(esp_thermostat).target_temperature_high +=
+      adjustment,
         low_set_point = id(esp_thermostat).target_temperature_low;
 
   if (high_set_point < esp32_thermostat::lower_temp_boundary + temp_step_size)
@@ -281,7 +297,8 @@ float adjust_low_set_point(float adjustment) {
 
   if (low_set_point < esp32_thermostat::lower_temp_boundary)
     low_set_point = esp32_thermostat::lower_temp_boundary;
-  else if (low_set_point > esp32_thermostat::upper_temp_boundary - temp_step_size)
+  else if (low_set_point >
+           esp32_thermostat::upper_temp_boundary - temp_step_size)
     low_set_point = esp32_thermostat::upper_temp_boundary - temp_step_size;
   if (low_set_point >= high_set_point)
     id(esp_thermostat).target_temperature_high = low_set_point + temp_step_size;
@@ -294,8 +311,9 @@ float adjust_low_set_point(float adjustment) {
 }
 
 float thermostat_sensor_update() {
-  bool template_sensor_valid = (id(current_temperature) >= esp32_thermostat::lower_temp_boundary) &&
-                               (id(current_temperature) <= esp32_thermostat::upper_temp_boundary);
+  bool template_sensor_valid =
+      (id(current_temperature) >= esp32_thermostat::lower_temp_boundary) &&
+      (id(current_temperature) <= esp32_thermostat::upper_temp_boundary);
   float sensor_value = id(esp_thermostat_bme680_temperature).state;
   int max_missed_updates = esp32_thermostat::max_missed_offline_updates;
 
@@ -321,12 +339,14 @@ float thermostat_sensor_update() {
   id(esp_thermostat_thermistor_vcc).turn_off();
 
   if (id(esp_thermostat_cool_1).state &&
-      (id(esp_thermostat_temperature_sensor).state - id(esp_thermostat).target_temperature_high >=
+      (id(esp_thermostat_temperature_sensor).state -
+           id(esp_thermostat).target_temperature_high >=
        esp32_thermostat::second_stage_activation_delta))
     id(esp_thermostat_cool_2).turn_on();
 
   if (id(esp_thermostat_heat_1).state &&
-      (id(esp_thermostat).target_temperature_low - id(esp_thermostat_temperature_sensor).state >=
+      (id(esp_thermostat).target_temperature_low -
+           id(esp_thermostat_temperature_sensor).state >=
        esp32_thermostat::second_stage_activation_delta))
     id(esp_thermostat_heat_2).turn_on();
 
@@ -336,11 +356,13 @@ float thermostat_sensor_update() {
       id(current_temperature) = sensor_value;
       return sensor_value;
     } else {
-      return (id(esp_thermostat).target_temperature_low + id(esp_thermostat).target_temperature_high) / 2;
+      return (id(esp_thermostat).target_temperature_low +
+              id(esp_thermostat).target_temperature_high) /
+             2;
     }
   } else {
     id(sensor_ready) = true;
     return id(current_temperature);
   }
 }
-}  // namespace esp32_thermostat
+} // namespace esp32_thermostat

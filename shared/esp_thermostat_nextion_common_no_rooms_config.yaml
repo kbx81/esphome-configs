@@ -135,8 +135,11 @@ script:
     mode: single
     then:
       - lambda: |-
-          if (id(main_lcd)->is_sleeping())
-              id(main_lcd)->sleep(false);
+          ESP_LOGD("display_on","display_on is_sleeping %s", TRUEFALSE( id(main_lcd)->is_sleeping() ) );
+          if (id(main_lcd)->is_sleeping()){
+            id(main_lcd)->sleep(false);
+            display_page_refresh->execute();
+          }
       #- script.execute: display_page_refresh
       #- lambda: 'id(main_lcd)->set_backlight_brightness(100);'
       #- component.update: main_lcd
@@ -256,14 +259,16 @@ climate:
       - switch.turn_off: esp_thermostat_heat_1
       - script.execute: climate_action_refresh
     fan_mode_auto_action:
-      # - switch.turn_off: esp_thermostat_fan
-      - lambda: |-
-          if (!id(esp_thermostat_cool_1).state)
-            id(esp_thermostat_fan).turn_off();
-              display_refresh_fan_mode->execute();
+      - switch.turn_off: esp_thermostat_fan
+      # - lambda: |-
+      #     if (!id(esp_thermostat_cool_1).state)
+      #       id(esp_thermostat_fan).turn_off();
+      - script.execute: display_refresh_fan_mode
+      - script.execute: climate_action_refresh
     fan_mode_on_action:
       - switch.turn_on: esp_thermostat_fan
       - script.execute: display_refresh_fan_mode
+      - script.execute: climate_action_refresh
 
 binary_sensor:
   - platform: status
@@ -713,6 +718,7 @@ switch:
     name: ${node_friendly_name} Display On Motion
     optimistic: true
     restore_state: true
+    assumed_state: true
 
 color:
   - id: color_control_enabled
