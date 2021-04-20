@@ -346,6 +346,14 @@ binary_sensor:
         - script.execute: display_refresh_mode
         - script.execute: button_press
   - platform: nextion
+    id: nextion_touch_mode_update
+    page_id: ${sensors_page_number}
+    component_id: ${btnModeUpdate}
+    on_press:
+      then:
+        - lambda: |-
+            id(main_lcd)->upload_tft();
+  - platform: nextion
     id: nextion_touch_mode_heat
     page_id: ${setpoints_page_number}
     component_id: ${btnModeHeat}
