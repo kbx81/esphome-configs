@@ -1,0 +1,62 @@
+script:
+  - id: update_wifi
+    then:
+      - lambda: |-
+          ESP_LOGD("update_wifi", "Updating WiFi currentPage %f weather_page_number %d",id(currentPage).state,${sensors_page_number});
+          if (id(currentPage).state == ${sensors_page_number}){
+            ESP_LOGD("update_wifi","wifsignal %s",to_string(id(wifsignal).state).c_str());
+            ESP_LOGD("update_wifi","wifissid %s",id(wifissid).state.c_str());
+            ESP_LOGD("update_wifi","wifiip %s",id(wifiip).state.c_str());
+            ESP_LOGD("update_wifi","wifimac %s",id(wifimac).state.c_str());
+
+            //id(nextion_wifisignal).set_state(to_string(id(wifsignal).state), false, true);
+            // id(nextion_wifissid).set_state(id(wifissid).state, false, true);
+            // id(nextion_wifiip).set_state(id(wifiip).state, false, true);
+            // id(nextion_wifimac).set_state(id(wifimac).state, false, true);
+          }
+
+sensor:
+  - platform: wifi_signal
+    name: ${node_friendly_name} WiFi Signal Sensor
+    id: wifsignal
+    update_interval: 60s
+    on_value:
+        then:
+          - lambda: |-
+              id(nextion_wifisignal).set_state(to_string(x), false, true);
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: wifiip
+      name: ${node_friendly_name} IP
+      # on_value:
+      #   then:
+      #     - lambda: |-
+      #         id(nextion_wifiip).set_state(x, false, true);
+    ssid:
+      name: ${node_friendly_name} SSID
+      id: wifissid
+      # on_value:
+      #   then:
+      #     - lambda: |-
+      #         id(nextion_wifissid).set_state(x, false, true);
+    mac_address:
+      name: ${node_friendly_name} Mac Wifi Address
+      id: wifimac
+      # on_value:
+      #   then:
+      #     - lambda: |-
+      #         id(nextion_wifimac).set_state(x, false, true);
+  - platform: nextion
+    id: nextion_wifissid
+    component_name: ${sensors_page_name}.wifissid
+  - platform: nextion
+    id: nextion_wifisignal
+    component_name: ${sensors_page_name}.wifsignal
+  - platform: nextion
+    id: nextion_wifiip
+    component_name: ${sensors_page_name}.wifiip
+  - platform: nextion
+    id: nextion_wifimac
+    component_name: ${sensors_page_name}.wifimac
