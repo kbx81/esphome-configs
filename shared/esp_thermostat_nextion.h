@@ -204,7 +204,7 @@ void update_climate_table_temperature(int row, float temperature) {}
 
 void update_status() {
   std::string offline_message = "offline";
-  std::string sensor_message = "on-board sensor in use";
+  std::string sensor_message = "Online";
   std::string status_message;
   // std::string status_message = id(status_string);
 

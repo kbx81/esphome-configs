@@ -4,15 +4,15 @@ script:
       - lambda: |-
           ESP_LOGD("update_wifi", "Updating WiFi currentPage %f weather_page_number %d",id(currentPage).state,${sensors_page_number});
           if (id(currentPage).state == ${sensors_page_number}){
-            ESP_LOGD("update_wifi","wifsignal %s",to_string(id(wifsignal).state).c_str());
-            ESP_LOGD("update_wifi","wifissid %s",id(wifissid).state.c_str());
-            ESP_LOGD("update_wifi","wifiip %s",id(wifiip).state.c_str());
-            ESP_LOGD("update_wifi","wifimac %s",id(wifimac).state.c_str());
+            //ESP_LOGD("update_wifi","wifsignal %s",esp32_thermostat::round_float_to_string(id(wifsignal).state).c_str());
+            //ESP_LOGD("update_wifi","wifissid %s",id(wifissid).state.c_str());
+            //ESP_LOGD("update_wifi","wifiip %s",id(wifiip).state.c_str());
+            //ESP_LOGD("update_wifi","wifimac %s",id(wifimac).state.c_str());
 
-            //id(nextion_wifisignal).set_state(to_string(id(wifsignal).state), false, true);
-            // id(nextion_wifissid).set_state(id(wifissid).state, false, true);
-            // id(nextion_wifiip).set_state(id(wifiip).state, false, true);
-            // id(nextion_wifimac).set_state(id(wifimac).state, false, true);
+            id(nextion_wifisignal).set_state(esp32_thermostat::round_float_to_string(id(wifsignal).state), false, true);
+            id(nextion_wifissid).set_state(id(wifissid).state, false, true);
+            id(nextion_wifiip).set_state(id(wifiip).state, false, true);
+            id(nextion_wifimac).set_state(id(wifimac).state, false, true);
           }
 
 sensor:
