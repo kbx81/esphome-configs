@@ -9,7 +9,6 @@ esphome:
   platform: ESP32
   board: featheresp32
 
-
 status_led:
   pin:
     number: GPIO13

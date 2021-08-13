@@ -1,0 +1,170 @@
+substitutions:
+  node_name: esp_rc_ir_bedroom
+  node_friendly_name: "Bedroom IR Controller"
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+  platformio_options:
+    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
+
+status_led:
+  pin:
+    # inverted: true
+    number: GPIO13
+
+remote_receiver:
+  id: ir_rx
+  # dump: [ samsung, toshibaac ]
+  dump: toshiba_ac
+  # dump: all
+  # dump: raw
+  pin:
+    inverted: true
+    number: GPIO34
+
+remote_transmitter:
+  - id: ir_tx
+    pin: GPIO12
+    carrier_duty_percent: 50%
+  # - pin: GPIO15
+  #   id: rf_tx
+  #   carrier_duty_percent: 100%
+
+binary_sensor:
+  - platform: gpio
+    id: gpio_0
+    # name: ${node_friendly_name} IO0 Button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      - min_length: 50ms
+        max_length: 500ms
+        then:
+          - switch.turn_on: air_cleaner_power
+
+switch:
+  # - platform: template
+  #   id: nixie_a
+  #   name: Nixie A
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FD
+  #         command: 0x906F
+  # - platform: template
+  #   id: nixie_b
+  #   name: Nixie B
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FD
+  #         command: 0x50AF
+  # - platform: template
+  #   id: nixie_c
+  #   name: Nixie C
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FD
+  #         command: 0x10EF
+  # - platform: template
+  #   id: nixie_d
+  #   name: Nixie D
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FD
+  #         command: 0xB04F
+  # - platform: template
+  #   id: nixie_e
+  #   name: Nixie E
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FD
+  #         command: 0x609F
+  # - platform: template
+  #   id: nixie_u
+  #   name: Nixie U
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FD
+  #         command: 0xA05F
+  - platform: template
+    id: air_cleaner_power
+    name: Air Cleaner Power
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0xB04F
+  - platform: template
+    id: air_cleaner_sleep
+    name: Air Cleaner Sleep
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0x50AF
+  - platform: template
+    id: air_cleaner_fan_down
+    name: Air Cleaner Fan Down
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0xE01F
+  - platform: template
+    id: air_cleaner_fan_up
+    name: Air Cleaner Fan Up
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0x20DF
+  - platform: template
+    id: air_cleaner_purify_down
+    name: Air Cleaner Purify Down
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0xF807
+  - platform: template
+    id: air_cleaner_purify_up
+    name: Air Cleaner Purify Up
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0x08F7
+  - platform: template
+    id: air_cleaner_anion
+    name: Air Cleaner Anion
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0xA05F
+  - platform: template
+    id: air_cleaner_sterilize
+    name: Air Cleaner Sterilize
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0x40BF
+  - platform: template
+    id: air_cleaner_time_set
+    name: Air Cleaner Time/Set
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0x10EF

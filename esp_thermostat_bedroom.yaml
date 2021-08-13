@@ -38,7 +38,7 @@ sensor:
     name: ${node_friendly_name} NTC Thermistor Resistance
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
-    reference_voltage: 0.84V
+    reference_voltage: 0.87V
     resistor: 10kOhm
     internal: true
   # NTC thermistor sensor
@@ -111,13 +111,13 @@ display:
     reset_pin: GPIO17
     pages:
       - id: main_screen
-        lambda: 'esp32_thermostat::draw_main_screen(&it);'
+        lambda: "esp32_thermostat::draw_main_screen(&it);"
       - id: setpoint_screen
-        lambda: 'esp32_thermostat::draw_setpoint_screen(&it);'
+        lambda: "esp32_thermostat::draw_setpoint_screen(&it);"
       - id: mode_screen
-        lambda: 'esp32_thermostat::draw_mode_screen(&it);'
+        lambda: "esp32_thermostat::draw_mode_screen(&it);"
       - id: rooms_screen
-        lambda: 'esp32_thermostat::draw_rooms_screen(&it);'
+        lambda: "esp32_thermostat::draw_rooms_screen(&it);"
       - id: sensors_screen
         lambda: |-
           // esp32_thermostat::draw_footer(&it);

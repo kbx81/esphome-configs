@@ -14,6 +14,22 @@ status_led:
     number: GPIO5
     inverted: true
 
+remote_receiver:
+  id: ir_rx
+  dump: nec
+  pin:
+    inverted: true
+    number: GPIO36
+  on_nec:
+    then:
+      lambda: |-
+        if (x.command == 0x02FD) {
+          auto call1 = id(printer_led_lights).toggle();
+          auto call2 = id(filament_led_lights).toggle();
+          call1.perform();
+          call2.perform();
+        }
+
 binary_sensor:
   - platform: gpio
     id: leds_off_button
@@ -31,7 +47,7 @@ binary_sensor:
   - platform: gpio
     id: printer_led_on_button
     pin:
-      number: GPIO36
+      number: GPIO35
       inverted: true
     on_click:
       min_length: 50ms
@@ -47,7 +63,7 @@ binary_sensor:
   - platform: gpio
     id: filament_led_on_button
     pin:
-      number: GPIO39
+      number: GPIO34
       inverted: true
     on_click:
       min_length: 50ms
@@ -60,6 +76,16 @@ binary_sensor:
             green: 0.933
             blue: 0.753
             white: 1.0
+  # - platform: remote_receiver
+  #   id: led_remote_power
+  #   # name: "LED Remote Power"
+  #   nec:
+  #     address: 0x00FF
+  #     command: 0x02FD
+  #   on_press:
+  #     then:
+  #       - light.toggle: printer_led_lights
+  #       - light.toggle: filament_led_lights
 
 light:
   - platform: rgbw

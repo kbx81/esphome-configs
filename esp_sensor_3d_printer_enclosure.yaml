@@ -11,11 +11,23 @@ esphome:
 
 i2c:
   id: i2c_bus
-  frequency: 400kHz
+  frequency: 200kHz
   sda: GPIO2
   scl: GPIO0
 
 sensor:
+  - platform: sgp30
+    eco2:
+      name: ${node_friendly_name} SGP30 eCO2
+      accuracy_decimals: 1
+    tvoc:
+      name: ${node_friendly_name} SGP30 TVOC
+      accuracy_decimals: 1
+    compensation:
+      temperature_source: shtcx_temperature
+      humidity_source: shtcx_humidity
+    address: 0x58
+    update_interval: 1s
   - platform: bme280
     address: 0x76
     temperature:
@@ -40,11 +52,3 @@ sensor:
       id: shtcx_humidity
       name: ${node_friendly_name} SHTC3 Humidity
     update_interval: 15s
-  # - platform: dht
-  #   pin: GPIO2
-  #   model: DHT22
-  #   temperature:
-  #     name: ${node_friendly_name} Temperature
-  #   humidity:
-  #     name: ${node_friendly_name} Humidity
-  #   update_interval: 15s

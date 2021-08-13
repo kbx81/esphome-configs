@@ -10,20 +10,51 @@ esphome:
   board: featheresp32
 
 script:
-  # motion actiavte light
-  - id: motion_activate
+  # motion actiavte lower light
+  - id: motion_activate_lower
     mode: restart
     then:
       if:
         condition:
           - binary_sensor.is_on: bathroom_vanity_api_status
+        # if the API is connected, just switch the light on
+        then:
+          - light.turn_on:
+              id: bathroom_vanity_downlight
+              transition_length: 1s
+        # if the API is NOT connected, switch the light on but also set it to 100% and to white
+        #  since we can't otherwise control the brightness or color right now
+        else:
+          - light.turn_on:
+              id: bathroom_vanity_downlight
+              transition_length: 1s
+              brightness: 1.0
+              red: 1.0
+              green: 0.675
+              blue: 0.06
+              white: 1.0
+  # motion deactiavte lower light -- switch off light after delay
+  - id: motion_deactivate_lower
+    mode: restart
+    then:
+      - delay: 180s
+      - light.turn_off:
+          id: bathroom_vanity_downlight
+          transition_length: 1s
+  # motion actiavte upper light
+  - id: motion_activate_upper
+    mode: restart
+    then:
+      if:
+        condition:
+          - binary_sensor.is_on: bathroom_vanity_api_status
+        # if the API is connected, just switch the light on
         then:
           - light.turn_on:
               id: bathroom_vanity_uplight
               transition_length: 1s
-          - light.turn_on:
-              id: bathroom_vanity_downlight
-              transition_length: 1s
+        # if the API is NOT connected, switch the light on but also set it to 100% and to white
+        #  since we can't control the brightness or color right now
         else:
           - light.turn_on:
               id: bathroom_vanity_uplight
@@ -33,24 +64,13 @@ script:
               green: 0.675
               blue: 0.06
               white: 1.0
-          - light.turn_on:
-              id: bathroom_vanity_downlight
-              transition_length: 1s
-              brightness: 1.0
-              red: 1.0
-              green: 0.675
-              blue: 0.06
-              white: 1.0
-  # motion deactiavte light
-  - id: motion_deactivate
+  # motion deactiavte upper light -- switch off light after delay
+  - id: motion_deactivate_upper
     mode: restart
     then:
       - delay: 180s
       - light.turn_off:
           id: bathroom_vanity_uplight
-          transition_length: 1s
-      - light.turn_off:
-          id: bathroom_vanity_downlight
           transition_length: 1s
 
 status_led:
@@ -59,30 +79,50 @@ status_led:
     inverted: true
 
 binary_sensor:
+  # API status sensor
   - platform: status
     id: bathroom_vanity_api_status
     name: ${node_friendly_name} API Status
     internal: true
+  # motion sensor (PIR or RCWL-0516 nodule)
   - platform: gpio
     id: bathroom_vanity_motion_detection
     name: ${node_friendly_name} Motion Detection
     pin:
       number: GPIO2
+    # stop the motion deactivation script and trigger the motion activation script when motion is sensed
     on_press:
       then:
-        if:
-          condition:
-            lambda: 'return id(bathroom_vanity_motion_activation).state || !id(bathroom_vanity_api_status).state;'
-          then:
-            - script.stop: motion_deactivate
-            - script.execute: motion_activate
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.stop: motion_deactivate_lower
+              - script.execute: motion_activate_lower
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.stop: motion_deactivate_upper
+              - script.execute: motion_activate_upper
+    # trigger the motion deactivation script (delay -> off) when motion is no longer sensed
     on_release:
       then:
-        if:
-          condition:
-            lambda: 'return id(bathroom_vanity_motion_activation).state || !id(bathroom_vanity_api_status).state;'
-          then:
-            - script.execute: motion_deactivate
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.execute: motion_deactivate_lower
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.execute: motion_deactivate_upper
+  # sensors for buttons for manual control of lights
   - platform: gpio
     id: bathroom_lights_off_button
     pin:
@@ -130,10 +170,15 @@ binary_sensor:
             white: 1.0
 
 switch:
-  # motion activated lights enabler
+  # template switches to enable/disable motion activation of lights
   - platform: template
-    id: bathroom_vanity_motion_activation
-    name: ${node_friendly_name} Motion Activation
+    id: bathroom_vanity_motion_activation_lower
+    name: ${node_friendly_name} Motion Activation Lower
+    optimistic: true
+    restore_state: true
+  - platform: template
+    id: bathroom_vanity_motion_activation_upper
+    name: ${node_friendly_name} Motion Activation Upper
     optimistic: true
     restore_state: true
 

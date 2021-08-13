@@ -9,82 +9,82 @@ api:
       variables:
         page: int
       then:
-        - lambda: 'esp32_thermostat::set_display_page(page);'
+        - lambda: "esp32_thermostat::set_display_page(page);"
     - service: update_climate_current_temperature
       variables:
         temperature: float
       then:
         - globals.set:
             id: current_temperature
-            value: !lambda 'return temperature;'
+            value: !lambda "return temperature;"
         - globals.set:
             id: missed_update_count
-            value: '0'
+            value: "0"
     - service: update_climate_current_humidity
       variables:
         humidity: float
       then:
         - globals.set:
             id: current_humidity
-            value: !lambda 'return humidity;'
+            value: !lambda "return humidity;"
         - globals.set:
             id: missed_update_count
-            value: '0'
+            value: "0"
     - service: update_climate_table_name
       variables:
         row: int
         name: string
       then:
-        - lambda: 'esp32_thermostat::update_climate_table_name(row, name);'
+        - lambda: "esp32_thermostat::update_climate_table_name(row, name);"
     - service: update_climate_table_humidity
       variables:
         row: int
         humidity: float
       then:
-        - lambda: 'esp32_thermostat::update_climate_table_humidity(row, humidity);'
+        - lambda: "esp32_thermostat::update_climate_table_humidity(row, humidity);"
     - service: update_climate_table_temperature
       variables:
         row: int
         temperature: float
       then:
-        - lambda: 'esp32_thermostat::update_climate_table_temperature(row, temperature);'
+        - lambda: "esp32_thermostat::update_climate_table_temperature(row, temperature);"
     - service: update_status
       variables:
         message: string
       then:
         - globals.set:
             id: status_string
-            value: !lambda 'return message;'
+            value: !lambda "return message;"
 
 globals:
   # the temperature/humidity that guides the thermostat controller
   - id: current_humidity
     type: float
     restore_value: yes
-    initial_value: '0'
+    initial_value: "0"
   - id: current_temperature
     type: float
     restore_value: yes
-    initial_value: '-100'
+    initial_value: "-100"
   # selected display pages/items
   - id: selected_display_page
     type: int
     restore_value: no
-    initial_value: '0'
+    initial_value: "0"
   - id: selected_display_item
     type: int
     restore_value: no
-    initial_value: '0'
+    initial_value: "0"
   # last processed encoder value
   - id: encoder_value
     type: int
     restore_value: no
-    initial_value: '0'
+    initial_value: "0"
   # number of sensor updates while offline
   - id: missed_update_count
     type: int
     restore_value: no
-    initial_value: '0'
+    initial_value: "0"
   # status string
   - id: status_string
     type: std::string
@@ -98,21 +98,21 @@ globals:
   - id: climate_table_humidity
     type: std::vector<float>
     restore_value: no
-    initial_value: '{0, 0, 0, 0}'
+    initial_value: "{0, 0, 0, 0}"
   - id: climate_table_temperature
     type: std::vector<float>
     restore_value: no
-    initial_value: '{-100, -100, -100, -100}'
+    initial_value: "{-100, -100, -100, -100}"
   # flag to indicate on-board sensor is in use
   - id: on_board_sensor_active
     type: bool
     restore_value: no
-    initial_value: 'true'
+    initial_value: "true"
   # flag to indicate template sensor is ready
   - id: sensor_ready
     type: bool
     restore_value: no
-    initial_value: 'false'
+    initial_value: "false"
 
 script:
   # display screen management
@@ -121,14 +121,14 @@ script:
     then:
       - script.execute: display_on
       - delay: 60s
-      - lambda: 'esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);'
+      - lambda: "esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);"
   # display power management
   - id: display_on
     mode: restart
     then:
-      - lambda: 'id(main_lcd)->turn_on();'
+      - lambda: "id(main_lcd)->turn_on();"
       - delay: 60s
-      - lambda: 'id(main_lcd)->turn_off();'
+      - lambda: "id(main_lcd)->turn_off();"
 
 status_led:
   pin:
@@ -156,54 +156,70 @@ climate:
     id: esp_thermostat
     name: ${node_friendly_name}
     sensor: esp_thermostat_temperature_sensor
-    hysteresis: 0.555555555555556
+    startup_delay: true
+    supplemental_cooling_delta: 2.222222222222222
+    cool_deadband: 0.5556
+    cool_overrun: 0.5556
+    min_cooling_off_time: 300s
+    min_cooling_run_time: 300s
+    max_cooling_run_time: 600s
+    supplemental_heating_delta: 2.222222222222222
+    heat_deadband: 0.5556
+    heat_overrun: 0.5556
+    min_heating_off_time: 300s
+    min_heating_run_time: 300s
+    max_heating_run_time: 600s
+    min_fan_mode_switching_time: 30s
+    # min_fanning_off_time: 30s
+    # min_fanning_run_time: 30s
+    min_idle_time: 30s
+    set_point_minimum_differential: 0.5556
+    fan_only_action_uses_fan_mode_timer: true
+    fan_only_cooling: true
+    fan_with_cooling: true
+    # fan_with_heating: true
     visual:
       min_temperature: 60°F
       max_temperature: 90°F
-      temperature_step: 1
+      temperature_step: 0.1
+    # default_mode: auto
     default_target_temperature_low: 72°F
     default_target_temperature_high: 75°F
     away_config:
       default_target_temperature_low: 68°F
       default_target_temperature_high: 78°F
     off_mode:
-      - switch.turn_off: esp_thermostat_heat_1
-      - switch.turn_off: esp_thermostat_cool_1
-      - switch.turn_off: esp_thermostat_fan
       - lambda: |-
           id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;
     cool_action:
+      - switch.turn_off: esp_thermostat_heat_2
       - switch.turn_off: esp_thermostat_heat_1
-      - switch.turn_on: esp_thermostat_fan
-      - lambda: |-
-          if (id(esp_thermostat_temperature_sensor).state - id(esp_thermostat).target_temperature_high < esp32_thermostat::second_stage_activation_delta)
-            id(esp_thermostat_cool_1).turn_on();
-          else
-            id(esp_thermostat_cool_2).turn_on();
+      - switch.turn_on: esp_thermostat_cool_1
+    supplemental_cooling_action:
+      - switch.turn_on: esp_thermostat_cool_2
     heat_action:
+      - switch.turn_off: esp_thermostat_cool_2
       - switch.turn_off: esp_thermostat_cool_1
-      - lambda: |-
-          if (id(esp_thermostat).target_temperature_low - id(esp_thermostat_temperature_sensor).state < esp32_thermostat::second_stage_activation_delta)
-            id(esp_thermostat_heat_1).turn_on();
-          else
-            id(esp_thermostat_heat_2).turn_on();
+      - switch.turn_on: esp_thermostat_heat_1
+    supplemental_heating_action:
+      - switch.turn_on: esp_thermostat_heat_2
     idle_action:
+      - switch.turn_off: esp_thermostat_cool_2
       - switch.turn_off: esp_thermostat_cool_1
+      - switch.turn_off: esp_thermostat_heat_2
       - switch.turn_off: esp_thermostat_heat_1
       - lambda: |-
           if (id(esp_thermostat).fan_mode == climate::CLIMATE_FAN_AUTO)
             id(esp_thermostat_fan).turn_off();
     fan_only_action:
       - switch.turn_on: esp_thermostat_fan
-      - switch.turn_off: esp_thermostat_cool_1
-      - switch.turn_off: esp_thermostat_heat_1
     fan_mode_auto_action:
-      # - switch.turn_off: esp_thermostat_fan
       - lambda: |-
-          if (!id(esp_thermostat_cool_1).state)
+          if ((id(esp_thermostat).action != climate::CLIMATE_ACTION_COOLING)
+           && (id(esp_thermostat).action != climate::CLIMATE_ACTION_FAN))
             id(esp_thermostat_fan).turn_off();
     fan_mode_on_action:
-        - switch.turn_on: esp_thermostat_fan
+      - switch.turn_on: esp_thermostat_fan
 
 binary_sensor:
   - platform: status
@@ -255,7 +271,7 @@ binary_sensor:
       min_length: 50ms
       max_length: 500ms
       then:
-        - lambda: 'esp32_thermostat::mode_button_click();'
+        - lambda: "esp32_thermostat::mode_button_click();"
         - component.update: main_lcd
         - script.execute: button_press
   - platform: gpio
@@ -265,12 +281,16 @@ binary_sensor:
       number: GPIO2
       inverted: true
     on_click:
-      min_length: 50ms
-      max_length: 500ms
-      then:
-        - lambda: 'esp32_thermostat::encoder_button_click();'
-        - component.update: main_lcd
-        - script.execute: button_press
+      - min_length: 50ms
+        max_length: 500ms
+        then:
+          - lambda: "esp32_thermostat::encoder_button_click();"
+          - component.update: main_lcd
+          - script.execute: button_press
+      - min_length: 501ms
+        max_length: 1500ms
+        then:
+          - switch.toggle: esp_thermostat_display_on_motion
 
 sensor:
   # template sensor used for thermostat component
@@ -278,14 +298,14 @@ sensor:
     id: esp_thermostat_temperature_sensor
     name: ${node_friendly_name} Template Temperature Sensor
     unit_of_measurement: "°C"
-    lambda: 'return esp32_thermostat::thermostat_sensor_update();'
+    lambda: "return esp32_thermostat::thermostat_sensor_update();"
     update_interval: 15s
   # template sensor used for humidity
   - platform: template
     id: esp_thermostat_humidity_sensor
     name: ${node_friendly_name} Template Humidity Sensor
     unit_of_measurement: "%"
-    lambda: 'return id(esp_thermostat_bme280_humidity).state;'
+    lambda: "return id(esp_thermostat_bme280_humidity).state;"
     update_interval: 15s
   # Encoder sensor
   - platform: rotary_encoder
@@ -295,7 +315,7 @@ sensor:
     pin_b: GPIO19
     on_value:
       then:
-        - lambda: 'esp32_thermostat::encoder_value_change();'
+        - lambda: "esp32_thermostat::encoder_value_change();"
         - component.update: main_lcd
         - script.execute: button_press
 
@@ -307,8 +327,8 @@ switch:
     turn_on_action:
       - script.execute: display_on
     turn_off_action:
-      - lambda: 'id(main_lcd)->turn_off();'
-    lambda: 'return id(main_lcd)->is_on();'
+      - lambda: "id(main_lcd)->turn_off();"
+    lambda: "return id(main_lcd)->is_on();"
   # display control by motion
   - platform: template
     id: esp_thermostat_display_on_motion
