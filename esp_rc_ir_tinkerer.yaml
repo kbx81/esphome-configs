@@ -73,11 +73,17 @@ api:
             id: toshiba_ac_rc_code_2
             value: !lambda 'return std::stoull(rc_code_2, id(pos), 0);'
         - switch.turn_on: transmit_toshiba_ac
-    - service: set_toshiba_ac_code_1_only
+    - service: set_toshiba_ac_codes_by_parts
       variables:
         rc_code_1a: int
         rc_code_1b: int
         rc_code_1c: int
+        rc_code_2a: int
+        rc_code_2b: int
+        rc_code_2c: int
+        rc_code_2d: int
+        rc_code_2e: int
+        rc_code_2f: int
       then:
         - globals.set:
             id: toshiba_ac_rc_code_1a
@@ -88,7 +94,25 @@ api:
         - globals.set:
             id: toshiba_ac_rc_code_1c
             value: !lambda 'return rc_code_1c;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - globals.set:
+            id: toshiba_ac_rc_code_2a
+            value: !lambda 'return rc_code_2a;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2b
+            value: !lambda 'return rc_code_2b;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2c
+            value: !lambda 'return rc_code_2c;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2d
+            value: !lambda 'return rc_code_2d;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2e
+            value: !lambda 'return rc_code_2e;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2f
+            value: !lambda 'return rc_code_2f;'
+        - script.execute: toshiba_send_from_parts
     ### Code increment/decrement services -- NEC ###
     - service: increment_nec_address
       then:
@@ -158,37 +182,37 @@ api:
         - globals.set:
             id: toshiba_ac_rc_code_1a
             value: !lambda 'return id(toshiba_ac_rc_code_1a) + 1;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - script.execute: toshiba_send_from_parts
     - service: decrement_toshiba_ac_rc_code_1a
       then:
         - globals.set:
             id: toshiba_ac_rc_code_1a
             value: !lambda 'return id(toshiba_ac_rc_code_1a) - 1;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - script.execute: toshiba_send_from_parts
     - service: increment_toshiba_ac_rc_code_1b
       then:
         - globals.set:
             id: toshiba_ac_rc_code_1b
             value: !lambda 'return id(toshiba_ac_rc_code_1b) + 1;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - script.execute: toshiba_send_from_parts
     - service: decrement_toshiba_ac_rc_code_1b
       then:
         - globals.set:
             id: toshiba_ac_rc_code_1b
             value: !lambda 'return id(toshiba_ac_rc_code_1b) - 1;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - script.execute: toshiba_send_from_parts
     - service: increment_toshiba_ac_rc_code_1c
       then:
         - globals.set:
             id: toshiba_ac_rc_code_1c
             value: !lambda 'return id(toshiba_ac_rc_code_1c) + 1;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - script.execute: toshiba_send_from_parts
     - service: decrement_toshiba_ac_rc_code_1c
       then:
         - globals.set:
             id: toshiba_ac_rc_code_1c
             value: !lambda 'return id(toshiba_ac_rc_code_1c) - 1;'
-        - script.execute: toshiba_rc_code_1_send_from_parts
+        - script.execute: toshiba_send_from_parts
 
 script:
   - id: nec_send_from_parts
@@ -202,7 +226,7 @@ script:
           id(nec_address) = address;
           id(nec_command) = command;
       - switch.turn_on: transmit_nec
-  - id: toshiba_rc_code_1_send_from_parts
+  - id: toshiba_send_from_parts
     mode: restart
     then:
       - lambda: |-
@@ -213,7 +237,18 @@ script:
           code = (code << 8) | id(toshiba_ac_rc_code_1c);
           code = (code << 8) | static_cast<uint8_t>(~id(toshiba_ac_rc_code_1c));
           id(toshiba_ac_rc_code_1) = code;
-          id(toshiba_ac_rc_code_2) = 0;
+          code = id(toshiba_ac_rc_code_2a);
+          code = (code << 8) | id(toshiba_ac_rc_code_2b);
+          code = (code << 8) | id(toshiba_ac_rc_code_2c);
+          code = (code << 8) | id(toshiba_ac_rc_code_2d);
+          code = (code << 8) | id(toshiba_ac_rc_code_2e);
+          if (id(toshiba_ac_rc_code_2f) == 0) {
+            uint8_t checksum = id(toshiba_ac_rc_code_2a) + id(toshiba_ac_rc_code_2b) + id(toshiba_ac_rc_code_2c) + id(toshiba_ac_rc_code_2d) + id(toshiba_ac_rc_code_2e);
+            code = (code << 8) | checksum;
+          } else {
+            code = (code << 8) | id(toshiba_ac_rc_code_2f);
+          }
+          id(toshiba_ac_rc_code_2) = code;
       - switch.turn_on: transmit_toshiba_ac
 
 globals:
@@ -272,6 +307,30 @@ globals:
     restore_value: yes
     initial_value: '0'
   - id: toshiba_ac_rc_code_1c
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2a
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2b
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2c
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2d
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2e
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2f
     type: uint8_t
     restore_value: yes
     initial_value: '0'
@@ -448,7 +507,7 @@ switch:
       - globals.set:
           id: toshiba_ac_rc_code_1a
           value: !lambda 'return id(toshiba_ac_rc_code_1a) + 1;'
-      - script.execute: toshiba_rc_code_1_send_from_parts
+      - script.execute: toshiba_send_from_parts
   - platform: template
     id: decrement_toshiba_ac_rc_code_1a
     name: Toshiba AC Code 1a Decrement
@@ -456,7 +515,7 @@ switch:
       - globals.set:
           id: toshiba_ac_rc_code_1a
           value: !lambda 'return id(toshiba_ac_rc_code_1a) - 1;'
-      - script.execute: toshiba_rc_code_1_send_from_parts
+      - script.execute: toshiba_send_from_parts
   - platform: template
     id: increment_toshiba_ac_rc_code_1b
     name: Toshiba AC Code 1b Increment
@@ -464,7 +523,7 @@ switch:
       - globals.set:
           id: toshiba_ac_rc_code_1b
           value: !lambda 'return id(toshiba_ac_rc_code_1b) + 1;'
-      - script.execute: toshiba_rc_code_1_send_from_parts
+      - script.execute: toshiba_send_from_parts
   - platform: template
     id: decrement_toshiba_ac_rc_code_1b
     name: Toshiba AC Code 1b Decrement
@@ -472,7 +531,7 @@ switch:
       - globals.set:
           id: toshiba_ac_rc_code_1b
           value: !lambda 'return id(toshiba_ac_rc_code_1b) - 1;'
-      - script.execute: toshiba_rc_code_1_send_from_parts
+      - script.execute: toshiba_send_from_parts
   - platform: template
     id: increment_toshiba_ac_rc_code_1c
     name: Toshiba AC Code 1c Increment
@@ -480,7 +539,7 @@ switch:
       - globals.set:
           id: toshiba_ac_rc_code_1c
           value: !lambda 'return id(toshiba_ac_rc_code_1c) + 1;'
-      - script.execute: toshiba_rc_code_1_send_from_parts
+      - script.execute: toshiba_send_from_parts
   - platform: template
     id: decrement_toshiba_ac_rc_code_1c
     name: Toshiba AC Code 1c Decrement
@@ -488,4 +547,4 @@ switch:
       - globals.set:
           id: toshiba_ac_rc_code_1c
           value: !lambda 'return id(toshiba_ac_rc_code_1c) - 1;'
-      - script.execute: toshiba_rc_code_1_send_from_parts
+      - script.execute: toshiba_send_from_parts

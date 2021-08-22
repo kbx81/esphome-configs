@@ -38,7 +38,7 @@ sensor:
     name: ${node_friendly_name} NTC Thermistor Resistance
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
-    reference_voltage: 0.74V
+    reference_voltage: 0.8V
     resistor: 10kOhm
     internal: true
   # NTC thermistor sensor
