@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_3ch_psu_controller
+  node_name: esp-3ch-psu-controller
   node_friendly_name: "3 Channel PSU"
 
 packages:

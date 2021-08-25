@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_rc_ir_tinkerer
+  node_name: esp-rc-ir-tinkerer
   node_friendly_name: "IR Tinkerer"
 
 packages:

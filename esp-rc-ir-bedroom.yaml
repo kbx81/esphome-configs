@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_rc_ir_bedroom
+  node_name: esp-rc-ir-bedroom
   node_friendly_name: "Bedroom IR Controller"
 
 packages:
@@ -99,6 +99,12 @@ switch:
   - platform: template
     id: air_cleaner_power
     name: Air Cleaner Power
+    optimistic: true
+    turn_off_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0x00FF
+          command: 0xB04F
     turn_on_action:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx

@@ -9,9 +9,9 @@ Note that all of the configurations I've shared here are built for controllers w
 This directory contains the YAML configuration files I use at home where I have my controllers installed.
 
 - [esp_thermostat.h](shared/esp_thermostat.h) contains the majority of the controller UI functionality as well as some C++ constants used within the code/lambdas.
-- [esp_thermostat_nook.yaml](esp_thermostat_nook.yaml) is the configuration file I use for the controller that is physically wired/connected to my HVAC system.
-- [esp_thermostat_front_room.yaml](esp_thermostat_front_room.yaml) is a satellite thermostat I keep in my living room area.
-- [esp_thermostat_bedroom.yaml](esp_thermostat_bedroom.yaml) is a satellite thermostat I keep in my bedroom.
+- [esp-thermostat-nook.yaml](esp-thermostat-nook.yaml) is the configuration file I use for the controller that is physically wired/connected to my HVAC system.
+- [esp-thermostat-front-room.yaml](esp-thermostat-front-room.yaml) is a satellite thermostat I keep in my living room area.
+- [esp-thermostat-bedroom.yaml](esp-thermostat-bedroom.yaml) is a satellite thermostat I keep in my bedroom.
 - [esp_thermostat_common_config.yaml](shared/esp_thermostat_common_config.yaml) contains configuration used by all of the thermostat devices.
 - [esp_thermostat_common_controller_config.yaml](shared/esp_thermostat_common_controller_config.yaml) contains configuration used by "controller" thermostat devices.
 - [esp_thermostat_common_satellite_config.yaml](shared/esp_thermostat_common_satellite_config.yaml) contains configuration used by "satellite" thermostat devices.
@@ -39,9 +39,9 @@ When the PIR or [RCWL-0516](https://www.amazon.com/gp/product/B07MTWZDQZ/) modul
 ## Example YAML Configuration Files for a Sprinkler System
 
 - [esp_sprinkler.h](shared/esp_sprinkler.h) contains the majority of the controller UI functionality as well as some C++ constants used within the code/lambdas.
-- [esp_sprinkler_controller.yaml](esp_sprinkler_controller.yaml) is a configuration file that can be used to control electric valves that are a part of a sprinkler/irrigation system.
+- [esp-sprinkler-controller.yaml](esp-sprinkler-controller.yaml) is a configuration file that can be used to control electric valves that are a part of a sprinkler/irrigation system.
 
-The [esp_sprinkler_controller.yaml](esp_sprinkler_controller.yaml) configuration implements a simple sprinkler valve controller. It is configured so that "zone 8" (aka `A7`) is a "master valve" (one that controls the water supply to the other individual zone valves). _The master valve is on when any other valve/zone is on_. In this configuration, five other valves/zones are defined. Zone 1 (`A0`) is the parkway zone, zone 2 (`A1`) is the front yard area, zone 3 (`A2`) is one side of the house, zone 4 (`A3`) is the back yard area and zone 5 (`A4`) is the other side of the house.
+The [esp-sprinkler-controller.yaml](esp-sprinkler-controller.yaml) configuration implements a simple sprinkler valve controller. It is configured so that "zone 8" (aka `A7`) is a "master valve" (one that controls the water supply to the other individual zone valves). _The master valve is on when any other valve/zone is on_. In this configuration, five other valves/zones are defined. Zone 1 (`A0`) is the parkway zone, zone 2 (`A1`) is the front yard area, zone 3 (`A2`) is one side of the house, zone 4 (`A3`) is the back yard area and zone 5 (`A4`) is the other side of the house.
 
 This configuration also doubles as a garage door monitor and controller. Relay 1 is configured as a virtual "button"; there is a template switch which turns this relay on for one second and then shuts it off again. This is to simulate a button press which is commonly used to trigger an electric garage door opener to open and close. In addition, pin `B5` on the MCP23017 is configured as a `binary_sensor` which may be used to monitor the state of the garage door (open/closed). A reed switch and magnet mounted to the door are commonly used for this purpose; in this case, the reed switch should short the `B5` pin to ground when the door is (fully) closed.
 
@@ -62,9 +62,9 @@ For this configuration, you'll want to install all of the jumpers on `J2`. Power
 
 ### Usage
 
-Default run durations for each sprinkler/valve zone are determined by global variables defined near the top of the [configuration file](esp_sprinkler_controller.yaml). A multiplier is also available to extend or reduce the run time for all zones. All of these values may be adjusted arbitrarily through the API (also defined in the configuration) from within [Home Assistant](https://www.home-assistant.io).
+Default run durations for each sprinkler/valve zone are determined by global variables defined near the top of the [configuration file](esp-sprinkler-controller.yaml). A multiplier is also available to extend or reduce the run time for all zones. All of these values may be adjusted arbitrarily through the API (also defined in the configuration) from within [Home Assistant](https://www.home-assistant.io).
 
-The [configuration](esp_sprinkler_controller.yaml) defines a switch for each zone, a switch to "enable" each zone, a switch for the master valve, an "auto-advance" switch and an "auto-start" switch. (At this time the various other sensors are also present; remove them if you like as they are not necessary.)
+The [configuration](esp-sprinkler-controller.yaml) defines a switch for each zone, a switch to "enable" each zone, a switch for the master valve, an "auto-advance" switch and an "auto-start" switch. (At this time the various other sensors are also present; remove them if you like as they are not necessary.)
 
 Enabling "auto-start" will cause the controller to begin a cycle at the configured time. This time may be arbitrarily changed via the API; it defaults to 5 am. The controller's behavior is as described below.
 

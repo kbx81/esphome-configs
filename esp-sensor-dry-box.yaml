@@ -1,6 +1,6 @@
 substitutions:
-  node_name: esp_sensor_furnace_intake
-  node_friendly_name: "Furnace Intake"
+  node_name: esp-sensor-dry-box
+  node_friendly_name: "Dry Box"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
@@ -11,30 +11,18 @@ esphome:
 
 i2c:
   id: i2c_bus
-  frequency: 200kHz
+  frequency: 400kHz
   sda: GPIO2
   scl: GPIO0
 
 sensor:
-  - platform: sgp30
-    eco2:
-      name: ${node_friendly_name} SGP30 eCO2
-      accuracy_decimals: 1
-    tvoc:
-      name: ${node_friendly_name} SGP30 TVOC
-      accuracy_decimals: 1
-    compensation:
-      temperature_source: shtcx_temperature
-      humidity_source: shtcx_humidity
-    address: 0x58
-    update_interval: 1s
   - platform: bme280
     address: 0x76
     temperature:
       id: bme280_temperature
       name: ${node_friendly_name} BME280 Temperature
       filters:
-        - offset: -0.4
+        - offset: -0.5
     humidity:
       id: bme280_humidity
       name: ${node_friendly_name} BME280 Humidity
@@ -47,8 +35,16 @@ sensor:
       id: shtcx_temperature
       name: ${node_friendly_name} SHTC3 Temperature
       filters:
-        - offset: -1.2
+        - offset: -1
     humidity:
       id: shtcx_humidity
       name: ${node_friendly_name} SHTC3 Humidity
     update_interval: 15s
+  # - platform: dht
+  #   pin: GPIO2
+  #   model: DHT22
+  #   temperature:
+  #     name: ${node_friendly_name} Temperature
+  #   humidity:
+  #     name: ${node_friendly_name} Humidity
+  #   update_interval: 15s

@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_rc_ir_front_room
+  node_name: esp-rc-ir-front-room
   node_friendly_name: "Front Room IR Controller"
 
 packages:

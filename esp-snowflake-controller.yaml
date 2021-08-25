@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_snowflake_controller
+  node_name: esp-snowflake-controller
   node_friendly_name: "Snowflake"
 
 packages:
@@ -21,8 +21,20 @@ switch:
     id: snowflake_button
   - platform: gpio
     pin: GPIO1
+    name: ${node_friendly_name} Power Enable
+    id: snowflake_power_enable
+  - platform: template
     name: ${node_friendly_name} Power
+    optimistic: true
     id: snowflake_power
+    turn_off_action:
+      - switch.turn_on: snowflake_button
+      - delay: 2250ms
+      - switch.turn_off: snowflake_button
+    turn_on_action:
+      - switch.turn_on: snowflake_button
+      - delay: 500ms
+      - switch.turn_off: snowflake_button
   - platform: template
     name: ${node_friendly_name} Button Short Press
     id: snowflake_button_short_press

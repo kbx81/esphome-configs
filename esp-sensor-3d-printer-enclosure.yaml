@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_sensor_3d_printer_enclosure
+  node_name: esp-sensor-3d-printer-enclosure
   node_friendly_name: "3D Printer Enclosure"
 
 packages:

@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_thermostat_dev
+  node_name: esp-thermostat-dev
   node_friendly_name: "Dev Thermostat"
 
 packages:

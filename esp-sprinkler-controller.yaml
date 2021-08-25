@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_sprinkler_controller
+  node_name: esp-sprinkler-controller
   node_friendly_name: "Sprinkler Controller"
 
 packages:

@@ -1,6 +1,6 @@
 substitutions:
-  node_name: esp_sensor_boiler_room
-  node_friendly_name: "Boiler Room"
+  node_name: esp-sensor-furnace-intake
+  node_friendly_name: "Furnace Intake"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
@@ -47,7 +47,7 @@ sensor:
       id: shtcx_temperature
       name: ${node_friendly_name} SHTC3 Temperature
       filters:
-        - offset: -1
+        - offset: -1.2
     humidity:
       id: shtcx_humidity
       name: ${node_friendly_name} SHTC3 Humidity

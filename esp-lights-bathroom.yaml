@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_lights_bathroom
+  node_name: esp-lights-bathroom
   node_friendly_name: "Bathroom Vanity"
 
 packages:

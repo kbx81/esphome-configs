@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_lights_3d_printer
+  node_name: esp-lights-3d-printer
   node_friendly_name: "3D Printer"
 
 packages:

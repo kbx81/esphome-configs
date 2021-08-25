@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp_thermostat_nook
+  node_name: esp-thermostat-nook
   node_friendly_name: "Nook Thermostat"
 
 packages:
