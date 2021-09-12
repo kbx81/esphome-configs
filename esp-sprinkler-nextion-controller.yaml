@@ -1,0 +1,1532 @@
+substitutions:
+  node_name: esp-sprinkler-controller
+  node_friendly_name: "Sprinkler Controller"
+  home_page_name: "main"
+  home_page_number: "1"
+  zones_page_name: "zones"
+  zones_page_number: "2"
+  sensors_page_name: "sensors"
+  sensors_page_number: "3"
+  controls_page_name: "main"
+  controls_page_number: "1"
+  controls_page_name_2: "zones"
+  controls_page_number_2: "2"
+  weather_page_name: "main"
+  weather_page_number: "1"
+  button_off_id: "1"
+  button_off_objname: "btnOff"
+  button_run_id: "2"
+  button_run_objname: "btnRun"
+  button_auto_id: "3"
+  button_auto_objname: "btnAuto"
+  button_dir_id: "4"
+  button_dir_objname: "btnDir"
+  button_next_id: "5"
+  button_next_objname: "btnNext"
+  button_previous_id: "6"
+  button_previous_objname: "btnPrev"
+  button_door_id: "7"
+  button_door_objname: "btnGarageDoor"
+  button_valve1_id: "11"
+  button_valve1_objname: "btnZone1Power"
+  button_valve2_id: "12"
+  button_valve2_objname: "btnZone2Power"
+  button_valve3_id: "13"
+  button_valve3_objname: "btnZone3Power"
+  button_valve4_id: "14"
+  button_valve4_objname: "btnZone4Power"
+  button_valve5_id: "15"
+  button_valve5_objname: "btnZone5Power"
+  button_valve6_id: "16"
+  button_valve6_objname: "btnZone6Power"
+  button_valve7_id: "17"
+  button_valve7_objname: "btnZone7Power"
+  button_valve8_id: "18"
+  button_valve8_objname: "btnZone8Power"
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+  includes: shared/esp_sprinkler_nextion.h
+  platformio_options:
+    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768 -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue
+  # on_boot:
+  #   priority: 500
+    # then:
+    #   - script.execute: display_on
+
+# Enable Home Assistant API and define services
+api:
+  services:
+    - service: update_nextion
+      then:
+        - lambda: "main_lcd->upload_tft();"
+    # - service: set_display_page
+    #   variables:
+    #     page: int
+    #   then:
+    #     - lambda: 'esp_sprinkler::set_display_page(page);'
+    - service: set_start_time
+      variables:
+        hour: int
+        minute: int
+      then:
+        - globals.set:
+            id: start_hour
+            value: !lambda 'return hour;'
+        - globals.set:
+            id: start_minute
+            value: !lambda 'return minute;'
+        - lambda: 'esp_sprinkler::validate_start_time();'
+    - service: set_run_times
+      variables:
+        zone_1: int
+        zone_2: int
+        zone_3: int
+        zone_4: int
+        zone_5: int
+      then:
+        - lambda: |-
+            id(sprinkler_ctrlr).set_valve_run_duration(0, zone_1);
+            id(sprinkler_ctrlr).set_valve_run_duration(1, zone_2);
+            id(sprinkler_ctrlr).set_valve_run_duration(2, zone_3);
+            id(sprinkler_ctrlr).set_valve_run_duration(3, zone_4);
+            id(sprinkler_ctrlr).set_valve_run_duration(4, zone_5);
+    - service: set_run_time_multiplier
+      variables:
+        multiplier: float
+      then:
+        - lambda: "id(sprinkler_ctrlr).set_multiplier(multiplier);"
+    - service: update_weather_data
+      variables:
+        condition: string
+        humidity: float
+        temperature: float
+        temperature_high: float
+        temperature_low: float
+      then:
+        - lambda: |-
+            if (id(weather_condition) != condition) {
+              id(weather_condition) = condition;
+              esp_sprinkler::display_refresh_weather_cond();
+            }
+            if (id(weather_humidity) != humidity) {
+              id(weather_humidity) = humidity;
+              esp_sprinkler::display_refresh_sensor_pair(id(weather_humidity), esp_sprinkler::DS_WEATHER_HUM);
+            }
+            if (id(weather_temperature) != temperature) {
+              id(weather_temperature) = temperature;
+              esp_sprinkler::display_refresh_sensor_pair(id(weather_temperature), esp_sprinkler::DS_WEATHER_TEMP);
+            }
+            if (id(weather_temperature_high) != temperature_high) {
+              id(weather_temperature_high) = temperature_high;
+              esp_sprinkler::display_refresh_sensor_pair(id(weather_temperature_high), esp_sprinkler::DS_WEATHER_TEMPHIGH);
+            }
+            if (id(weather_temperature_low) != temperature_low) {
+              id(weather_temperature_low) = temperature_low;
+              esp_sprinkler::display_refresh_sensor_pair(id(weather_temperature_low), esp_sprinkler::DS_WEATHER_TEMPLOW);
+            }
+
+globals:
+  # start time
+  - id: start_hour
+    type: int
+    restore_value: yes
+    initial_value: '5'
+  - id: start_minute
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  # display brightness (as calculated by ADC/phototransistor)
+  - id: display_brightness
+    type: float
+    restore_value: no
+    initial_value: "50"
+  # last hour display was fully refreshed
+  - id: display_last_full_refresh
+    type: int
+    restore_value: no
+    initial_value: "-1"
+  # status string
+  - id: status_string
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # weather condition, temperature, humidity
+  - id: weather_air_quality
+    type: float
+    restore_value: yes
+    initial_value: "0"
+  - id: weather_condition
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: weather_humidity
+    type: float
+    restore_value: yes
+    initial_value: "0"
+  - id: weather_temperature
+    type: float
+    restore_value: yes
+    initial_value: "-100"
+  - id: weather_temperature_high
+    type: float
+    restore_value: no
+    initial_value: "-100"
+  - id: weather_temperature_low
+    type: float
+    restore_value: no
+    initial_value: "-100"
+
+script:
+  # display screen management
+  - id: button_press
+    mode: restart
+    then:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+      - script.execute: display_on
+      - delay: 120s
+      - lambda: |-
+          if (id(currentPage).state != ${home_page_number})
+            main_lcd->goto_page("main");
+      # - lambda: 'esp_sprinkler::set_display_page(esp_sprinkler::DisplayPageEnum::MAIN_SCREEN);'
+  # display power management
+  - id: display_on
+    mode: restart
+    then:
+      # - lambda: 'id(main_lcd)->turn_on();'
+      # - lambda: 'id(display_brightness) = 100;'
+      - component.update: main_lcd
+      - delay: 120s
+      # - lambda: 'id(main_lcd)->turn_off();'
+      # - lambda: 'id(display_brightness) = 0;'
+  # display refresh - everything on current page
+  - id: display_page_refresh
+    mode: restart
+    then:
+      - lambda: |-
+          if (id(currentPage).state == ${home_page_number})
+            id(main_lcd).update_components_by_prefix("${home_page_name}");
+          else if (id(currentPage).state == ${zones_page_number})
+            id(main_lcd).update_components_by_prefix("${zones_page_name}");
+          else if (id(currentPage).state == ${sensors_page_number})
+            id(main_lcd).update_components_by_prefix("${sensors_page_name}");
+  # creates the door opener button pulse
+  - id: pulse_door_opener_relay
+    mode: restart
+    then:
+      - switch.turn_on: esp_sprinkler_controller_relay_1
+      - delay: 1s
+      - switch.turn_off: esp_sprinkler_controller_relay_1
+
+mcp23017:
+  - id: mcp23017_hub
+    address: 0x20
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+time:
+  - platform: homeassistant
+    id: esptime
+
+i2c:
+  id: i2c_bus
+  frequency: 400kHz
+  sda: 21
+  scl: 22
+  scan: false
+
+# spi:
+#   clk_pin: GPIO14
+#   mosi_pin: GPIO13
+#   miso_pin: GPIO12
+
+uart:
+  id: nextion_uart
+  tx_pin: GPIO19
+  rx_pin: GPIO18
+  baud_rate: 115200
+
+binary_sensor:
+  - platform: status
+    id: esp_sprinkler_controller_api_status
+    name: ${node_friendly_name} API Status
+    on_state:
+      then:
+        - lambda: "esp_sprinkler::display_refresh_status();"
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_tmp117_alert
+  #   name: ${node_friendly_name} TMP117 Alert
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 15
+  #     mode: INPUT_PULLUP
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_mcp23017_int_a
+  #   name: ${node_friendly_name} MCP23017 Interrupt A
+  #   pin:
+  #     number: GPIO36
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_mcp23017_int_b
+  #   name: ${node_friendly_name} MCP23017 Interrupt B
+  #   pin:
+  #     number: GPIO39
+  - platform: gpio
+    id: esp_sprinkler_controller_motion_detection
+    name: ${node_friendly_name} Motion Detection
+    pin:
+      number: GPIO27
+    on_state:
+      then:
+        - if:
+            condition:
+              switch.is_on: esp_sprinkler_controller_display_on_motion
+            then:
+              - script.execute: display_on
+  - platform: gpio
+    id: esp_sprinkler_controller_door_sensor
+    name: ${node_friendly_name} Door Sensor
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 13
+      mode: INPUT_PULLUP
+    filters:
+      delayed_on_off: 25ms
+    on_state:
+      then:
+        - lambda: "esp_sprinkler::display_refresh_door_state();"
+  - platform: gpio
+    id: esp_sprinkler_controller_mode_button
+    name: ${node_friendly_name} Mode Button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - sprinkler.shutdown: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_garage_door
+    page_id: ${controls_page_number}
+    component_id: ${button_door_id}
+    component_name: ${controls_page_name}.${button_door_objname}
+    on_press:
+      then:
+        - script.execute: pulse_door_opener_relay
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_off
+    page_id: ${controls_page_number}
+    component_id: ${button_off_id}
+    component_name: ${controls_page_name}.${button_off_objname}
+    on_press:
+      then:
+        - sprinkler.shutdown: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_run
+    page_id: ${controls_page_number}
+    component_id: ${button_run_id}
+    component_name: ${controls_page_name}.${button_run_objname}
+    on_press:
+      then:
+        - sprinkler.start_full_cycle: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_next
+    page_id: ${controls_page_number}
+    component_id: ${button_next_id}
+    component_name: ${controls_page_name}.${button_next_objname}
+    on_press:
+      then:
+        - sprinkler.next_valve: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_previous
+    page_id: ${controls_page_number}
+    component_id: ${button_previous_id}
+    component_name: ${controls_page_name}.${button_previous_objname}
+    on_press:
+      then:
+        - sprinkler.previous_valve: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_auto_adv
+    page_id: ${controls_page_number}
+    component_id: ${button_auto_id}
+    component_name: ${controls_page_name}.${button_auto_objname}
+    on_press:
+      then:
+        - lambda: |-
+            id(sprinkler_ctrlr).set_auto_advance(!id(sprinkler_ctrlr).auto_advance());
+            id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_reverse
+    page_id: ${controls_page_number}
+    component_id: ${button_dir_id}
+    component_name: ${controls_page_name}.${button_dir_objname}
+    on_press:
+      then:
+        - lambda: |-
+            id(sprinkler_ctrlr).set_reverse(!id(sprinkler_ctrlr).reverse());
+            id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_garage_door_2
+    page_id: ${zones_page_number}
+    component_id: ${button_door_id}
+    component_name: ${controls_page_name}.${button_door_objname}
+    on_press:
+      then:
+        - script.execute: pulse_door_opener_relay
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_off_2
+    page_id: ${zones_page_number}
+    component_id: ${button_off_id}
+    component_name: ${zones_page_name}.${button_off_objname}
+    on_press:
+      then:
+        - sprinkler.shutdown: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_run_2
+    page_id: ${zones_page_number}
+    component_id: ${button_run_id}
+    component_name: ${zones_page_name}.${button_run_objname}
+    on_press:
+      then:
+        - sprinkler.start_full_cycle: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_next_2
+    page_id: ${zones_page_number}
+    component_id: ${button_next_id}
+    component_name: ${zones_page_name}.${button_next_objname}
+    on_press:
+      then:
+        - sprinkler.next_valve: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_previous_2
+    page_id: ${zones_page_number}
+    component_id: ${button_previous_id}
+    component_name: ${zones_page_name}.${button_previous_objname}
+    on_press:
+      then:
+        - sprinkler.previous_valve: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_auto_adv_2
+    page_id: ${zones_page_number}
+    component_id: ${button_auto_id}
+    component_name: ${zones_page_name}.${button_auto_objname}
+    on_press:
+      then:
+        - lambda: |-
+            id(sprinkler_ctrlr).set_auto_advance(!id(sprinkler_ctrlr).auto_advance());
+            id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_reverse_2
+    page_id: ${zones_page_number}
+    component_id: ${button_dir_id}
+    component_name: ${zones_page_name}.${button_dir_objname}
+    on_press:
+      then:
+        - lambda: |-
+            id(sprinkler_ctrlr).set_reverse(!id(sprinkler_ctrlr).reverse());
+            id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_1
+    page_id: ${zones_page_number}
+    component_id: ${button_valve1_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(0);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_2
+    page_id: ${zones_page_number}
+    component_id: ${button_valve2_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(1);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_3
+    page_id: ${zones_page_number}
+    component_id: ${button_valve3_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(2);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_4
+    page_id: ${zones_page_number}
+    component_id: ${button_valve4_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(3);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_5
+    page_id: ${zones_page_number}
+    component_id: ${button_valve5_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(4);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_6
+    page_id: ${zones_page_number}
+    component_id: ${button_valve6_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(5);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_7
+    page_id: ${zones_page_number}
+    component_id: ${button_valve7_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(6);"
+        - script.execute: button_press
+  - platform: nextion
+    id: nextion_touch_sprinkler_zone_8
+    page_id: ${zones_page_number}
+    component_id: ${button_valve8_id}
+    component_name: ${zones_page_name}.${button_valve1_objname}
+    on_press:
+      then:
+        - lambda: "id(sprinkler_ctrlr).start_single_valve(7);"
+        - script.execute: button_press
+
+sprinkler:
+  id: sprinkler_ctrlr
+  pump: esp_sprinkler_controller_triac_master
+  valve_open_delay: 5s
+  valves:
+    - name: "Parkway"
+      run_duration: 1800s
+      enable_switch: esp_sprinkler_controller_zone_1_enable
+      valve_switch: esp_sprinkler_controller_triac_zone_1
+    - name: "Front yard"
+      run_duration: 3600s
+      enable_switch: esp_sprinkler_controller_zone_2_enable
+      valve_switch: esp_sprinkler_controller_triac_zone_2
+    - name: "East side"
+      run_duration: 900s
+      enable_switch: esp_sprinkler_controller_zone_3_enable
+      valve_switch: esp_sprinkler_controller_triac_zone_3
+    - name: "Back yard"
+      run_duration: 5400s
+      enable_switch: esp_sprinkler_controller_zone_4_enable
+      valve_switch: esp_sprinkler_controller_triac_zone_4
+    - name: "West side"
+      run_duration: 2700s
+      enable_switch: esp_sprinkler_controller_zone_5_enable
+      valve_switch: esp_sprinkler_controller_triac_zone_5
+
+switch:
+  # display power
+  - platform: gpio
+    id: esp_sprinkler_controller_display_power
+    name: ${node_friendly_name} Display Power
+    restore_mode: ALWAYS_ON
+    pin:
+      number: 25
+      mode: OUTPUT
+  # display control
+  - platform: template
+    id: esp_sprinkler_controller_display
+    name: ${node_friendly_name} Display
+    turn_on_action:
+      - script.execute: display_on
+    turn_off_action:
+      # - lambda: 'id(main_lcd)->turn_off();'
+      - lambda: "id(display_brightness) = 0;"
+    # lambda: 'return id(main_lcd)->is_on();'
+    lambda: "return id(display_brightness) > 0;"
+  # display control by motion
+  - platform: template
+    id: esp_sprinkler_controller_display_on_motion
+    name: ${node_friendly_name} Display On Motion
+    optimistic: true
+    restore_state: true
+  # garage door opener "button"
+  - platform: template
+    id: esp_sprinkler_controller_opener_button
+    name: ${node_friendly_name} Door Opener Button
+    turn_on_action:
+      - script.execute: pulse_door_opener_relay
+    lambda: 'return id(esp_sprinkler_controller_relay_1).state;'
+  # zone auto-advance -- enables automatic advancing to the next zone until all zone enablers are "off"
+  - platform: template
+    id: sprinkler_activate
+    name: "Activate"
+    turn_on_action:
+      - sprinkler.start_full_cycle: sprinkler_ctrlr
+    turn_off_action:
+      - sprinkler.shutdown: sprinkler_ctrlr
+    lambda: 'return id(sprinkler_ctrlr).is_a_valid_valve(id(sprinkler_ctrlr).active_valve());'
+  # zone auto-advance -- enables automatic advancing to the next zone until all zone enablers are "off"
+  - platform: template
+    id: sprinkler_auto_adv
+    name: "Auto Advance"
+    turn_on_action:
+      - lambda: |-
+          id(sprinkler_ctrlr).set_auto_advance(true);
+          id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
+    turn_off_action:
+      - lambda: |-
+          id(sprinkler_ctrlr).set_auto_advance(false);
+          id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
+    lambda: 'return id(sprinkler_ctrlr).auto_advance();'
+  # zone reverse -- iterates through zones in reverse/descending order when enabled
+  - platform: template
+    id: sprinkler_reverse
+    name: "Reverse"
+    turn_on_action:
+      - lambda: |-
+          id(sprinkler_ctrlr).set_reverse(true);
+          id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+    turn_off_action:
+      - lambda: |-
+          id(sprinkler_ctrlr).set_reverse(false);
+          id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+    lambda: 'return id(sprinkler_ctrlr).reverse();'
+  # enables scheduled start at the time configured
+  - platform: template
+    id: esp_sprinkler_controller_scheduled_start
+    name: ${node_friendly_name} Scheduled Start
+    optimistic: true
+    restore_state: true
+  # zone enablers -- 'on' means a zone will run in the cycle, 'off' means it will not
+  - platform: template
+    id: esp_sprinkler_controller_zone_1_enable
+    name: ${node_friendly_name} Enable Zone 1
+    optimistic: true
+    restore_state: true
+    turn_on_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone1Enabled).set_state(id(esp_sprinkler_controller_zone_1_enable).state);'
+    turn_off_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone1Enabled).set_state(id(esp_sprinkler_controller_zone_1_enable).state);'
+  - platform: template
+    id: esp_sprinkler_controller_zone_2_enable
+    name: ${node_friendly_name} Enable Zone 2
+    optimistic: true
+    restore_state: true
+    turn_on_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone2Enabled).set_state(id(esp_sprinkler_controller_zone_2_enable).state);'
+    turn_off_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone2Enabled).set_state(id(esp_sprinkler_controller_zone_2_enable).state);'
+  - platform: template
+    id: esp_sprinkler_controller_zone_3_enable
+    name: ${node_friendly_name} Enable Zone 3
+    optimistic: true
+    restore_state: true
+    turn_on_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone3Enabled).set_state(id(esp_sprinkler_controller_zone_3_enable).state);'
+    turn_off_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone3Enabled).set_state(id(esp_sprinkler_controller_zone_3_enable).state);'
+  - platform: template
+    id: esp_sprinkler_controller_zone_4_enable
+    name: ${node_friendly_name} Enable Zone 4
+    optimistic: true
+    restore_state: true
+    turn_on_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone4Enabled).set_state(id(esp_sprinkler_controller_zone_4_enable).state);'
+    turn_off_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone4Enabled).set_state(id(esp_sprinkler_controller_zone_4_enable).state);'
+  - platform: template
+    id: esp_sprinkler_controller_zone_5_enable
+    name: ${node_friendly_name} Enable Zone 5
+    optimistic: true
+    restore_state: true
+    turn_on_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone5Enabled).set_state(id(esp_sprinkler_controller_zone_5_enable).state);'
+    turn_off_action:
+      - delay: 50ms
+      - lambda: 'id(nextionZone5Enabled).set_state(id(esp_sprinkler_controller_zone_5_enable).state);'
+  # patch template switches to phyical switches so control is consistent
+  - platform: template
+    id: esp_sprinkler_controller_zone_1
+    name: ${node_friendly_name} Zone 1
+    turn_on_action:
+      - lambda: 'id(sprinkler_ctrlr).start_single_valve(0);'
+    turn_off_action:
+      - sprinkler.shutdown: sprinkler_ctrlr
+    lambda: 'return id(sprinkler_ctrlr).active_valve() == 0;'
+  - platform: template
+    id: esp_sprinkler_controller_zone_2
+    name: ${node_friendly_name} Zone 2
+    turn_on_action:
+      - lambda: 'id(sprinkler_ctrlr).start_single_valve(1);'
+    turn_off_action:
+      - sprinkler.shutdown: sprinkler_ctrlr
+    lambda: 'return id(sprinkler_ctrlr).active_valve() == 1;'
+  - platform: template
+    id: esp_sprinkler_controller_zone_3
+    name: ${node_friendly_name} Zone 3
+    turn_on_action:
+      - lambda: 'id(sprinkler_ctrlr).start_single_valve(2);'
+    turn_off_action:
+      - sprinkler.shutdown: sprinkler_ctrlr
+    lambda: 'return id(sprinkler_ctrlr).active_valve() == 2;'
+  - platform: template
+    id: esp_sprinkler_controller_zone_4
+    name: ${node_friendly_name} Zone 4
+    turn_on_action:
+      - lambda: 'id(sprinkler_ctrlr).start_single_valve(3);'
+    turn_off_action:
+      - sprinkler.shutdown: sprinkler_ctrlr
+    lambda: 'return id(sprinkler_ctrlr).active_valve() == 3;'
+  - platform: template
+    id: esp_sprinkler_controller_zone_5
+    name: ${node_friendly_name} Zone 5
+    turn_on_action:
+      - lambda: 'id(sprinkler_ctrlr).start_single_valve(4);'
+    turn_off_action:
+      - sprinkler.shutdown: sprinkler_ctrlr
+    lambda: 'return id(sprinkler_ctrlr).active_valve() == 4;'
+  # physical switches
+  - platform: gpio
+    id: esp_sprinkler_controller_thermistor_vcc
+    name: ${node_friendly_name} Thermistor Vcc
+    internal: true
+    restore_mode: ALWAYS_ON
+    pin:
+      number: 33
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_sprinkler_controller_mcp23017_reset
+    name: ${node_friendly_name} MCP23017 Reset
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      number: 4
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_master
+    name: ${node_friendly_name} TRIAC Master Valve
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 0
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_6
+    name: ${node_friendly_name} TRIAC Zone 6
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 1
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_7
+    name: ${node_friendly_name} TRIAC Zone 7
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 2
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_1
+    name: ${node_friendly_name} TRIAC Zone 1
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 3
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_2
+    name: ${node_friendly_name} TRIAC Zone 2
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 4
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_3
+    name: ${node_friendly_name} TRIAC Zone 3
+    restore_mode: ALWAYS_OFF
+    internal: true
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 5
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_4
+    name: ${node_friendly_name} TRIAC Zone 4
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 6
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_triac_zone_5
+    name: ${node_friendly_name} TRIAC Zone 5
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 7
+      mode: OUTPUT
+    on_turn_off:
+      - delay: 50ms
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+    on_turn_on:
+      - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+  - platform: gpio
+    id: esp_sprinkler_controller_relay_1
+    name: ${node_friendly_name} Relay 1
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 8
+      mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_relay_2
+  #   name: ${node_friendly_name} Relay 2
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 9
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_relay_3
+  #   name: ${node_friendly_name} Relay 3
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 10
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_to_1
+  #   name: ${node_friendly_name} Test Output 1
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 11
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_to_2
+  #   name: ${node_friendly_name} Test Output 2
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 12
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_to_3
+  #   name: ${node_friendly_name} Test Output 3
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 13
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_to_4
+  #   name: ${node_friendly_name} Test Output 4
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 14
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_sprinkler_controller_to_5
+  #   name: ${node_friendly_name} Test Output 5
+  #   internal: true
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 15
+  #     mode: OUTPUT
+
+# BME680 BSEC sensor
+bme680_bsec:
+  address: 0x77
+
+sensor:
+  # Nextion page sensor
+  - platform: nextion
+    nextion_id: main_lcd
+    id: currentPage
+    variable_name: currentPage
+    on_value:
+      then:
+        - script.execute: display_page_refresh
+        - script.execute: button_press
+  # Nextion sprinkler controller state sensors
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionSprinklerAutoAdv
+    variable_name: sprinklerAutoAdv
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionSprinklerReverse
+    variable_name: sprinklerReverse
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionSprinklerZone
+    variable_name: sprinklerZone
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionSprinklerZoneTotalSecRemain
+    variable_name: sprinklerZoneTotalSecRemain
+  # - platform: nextion
+  #   nextion_id: main_lcd
+  #   id: nextionSprinklerZoneTimeRemainSec
+  #   variable_name: sprinklerZoneTimeRemainSec
+  # - platform: nextion
+  #   nextion_id: main_lcd
+  #   id: nextionSprinklerZoneTimeRemainMin
+  #   variable_name: sprinklerZoneTimeRemainMin
+  # - platform: nextion
+  #   nextion_id: main_lcd
+  #   id: nextionSprinklerZoneTimeRemainHour
+  #   variable_name: sprinklerZoneTimeRemainHour
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone1Enabled
+    variable_name: zone1Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone2Enabled
+    variable_name: zone2Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone3Enabled
+    variable_name: zone3Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone4Enabled
+    variable_name: zone4Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone5Enabled
+    variable_name: zone5Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone6Enabled
+    variable_name: zone6Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone7Enabled
+    variable_name: zone7Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone8Enabled
+    variable_name: zone8Enabled
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone1RunTimeMin
+    variable_name: zone1RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone2RunTimeMin
+    variable_name: zone2RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone3RunTimeMin
+    variable_name: zone3RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone4RunTimeMin
+    variable_name: zone4RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone5RunTimeMin
+    variable_name: zone5RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone6RunTimeMin
+    variable_name: zone6RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone7RunTimeMin
+    variable_name: zone7RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionZone8RunTimeMin
+    variable_name: zone8RunTimeMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionDoorState
+    variable_name: doorState
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTemp
+    variable_name: weatherTemp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempFrac
+    variable_name: weatherTempFrac
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherHum
+    variable_name: weatherHum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherHumFrac
+    variable_name: weatherHumFrac
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempHigh
+    variable_name: weatherTempHigh
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempHighFrac
+    variable_name: weatherTempHighFrac
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempLow
+    variable_name: weatherTempLow
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempLowFrac
+    variable_name: weatherTempLowFrac
+  # Phototransistor ADC sensor
+  - platform: adc
+    id: adc_sensor_phototransistor
+    name: ${node_friendly_name} Phototransistor ADC
+    pin: 32
+    attenuation: 11db
+    update_interval: 1s
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 3
+          send_first_at: 1
+    on_value:
+      then:
+        - lambda: |-
+            id(display_brightness) = clamp<float>(id(adc_sensor_phototransistor).state / 3.9, 0.05, 1);
+            if (main_lcd != nullptr)
+              main_lcd->set_backlight_brightness(id(display_brightness));
+  # NTC thermistor ADC sensor
+  - platform: adc
+    id: adc_sensor_thermistor
+    name: ${node_friendly_name} Thermistor ADC
+    pin: 34
+    internal: true
+    update_interval: never
+  # NTC thermistor resistance sensor
+  - platform: resistance
+    id: thermistor_sensor
+    name: ${node_friendly_name} NTC Thermistor Resistance
+    sensor: adc_sensor_thermistor
+    configuration: DOWNSTREAM
+    reference_voltage: 0.82V
+    resistor: 10kOhm
+    internal: true
+  # NTC thermistor sensor
+  - platform: ntc
+    id: esp_thermostat_thermistor_temperature
+    name: ${node_friendly_name} NTC Thermistor Temperature
+    sensor: thermistor_sensor
+    calibration:
+      b_constant: 3380
+      reference_temperature: 25°C
+      reference_resistance: 10kOhm
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+          send_first_at: 1
+    on_value:
+      then:
+        - lambda: |-
+            std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_thermistor_temperature).state * 1.8 + 32) + "\xB0";
+            id(nextionTextSensor6a).set_state(temperature_string, false, true);
+  # DHT22 sensor
+  - platform: dht
+    pin: GPIO23
+    model: DHT22
+    temperature:
+      id: esp_thermostat_dht22_temperature
+      name: ${node_friendly_name} DHT22 Temperature
+      filters:
+        - offset: -1.2
+      on_value:
+        then:
+          - lambda: |-
+              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_dht22_temperature).state * 1.8 + 32) + "\xB0";
+              id(nextionTextSensor5a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_dht22_humidity
+      name: ${node_friendly_name} DHT22 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_dht22_humidity).state) + "%";
+              id(nextionTextSensor5b).set_state(humidity_string, false, true);
+    update_interval: 15s
+  # BME280 sensor
+  - platform: bme280
+    address: 0x76
+    temperature:
+      id: esp_thermostat_bme280_temperature
+      name: ${node_friendly_name} BME280 Temperature
+      filters:
+        - offset: -0.5
+      on_value:
+        then:
+          - lambda: |-
+              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme280_temperature).state * 1.8 + 32) + "\xB0";
+              id(nextionTextSensor2a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_bme280_humidity
+      name: ${node_friendly_name} BME280 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme280_humidity).state) + "%";
+              id(nextionTextSensor2b).set_state(humidity_string, false, true);
+    pressure:
+      id: esp_thermostat_bme280_pressure
+      name: ${node_friendly_name} BME280 Pressure
+      on_value:
+        then:
+          - lambda: |-
+              std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme280_pressure).state) + "hPa";
+              id(nextionTextSensor2c).set_state(pressure_string, false, true);
+    update_interval: 15s
+  # BME680 BSEC sensor
+  - platform: bme680_bsec
+    temperature:
+      id: esp_thermostat_bme680_temperature
+      name: ${node_friendly_name} BME680 Temperature
+      filters:
+        - offset: -1.2
+      on_value:
+        then:
+          - lambda: |-
+              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_temperature).state * 1.8 + 32) + "\xB0";
+              id(nextionTextSensor1a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_bme680_humidity
+      name: ${node_friendly_name} BME680 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_humidity).state) + "%";
+              id(nextionTextSensor1b).set_state(humidity_string, false, true);
+    pressure:
+      id: esp_thermostat_bme680_pressure
+      name: ${node_friendly_name} BME680 Pressure
+      on_value:
+        then:
+          - lambda: |-
+              std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_pressure).state) + "hPa";
+              id(nextionTextSensor1c).set_state(pressure_string, false, true);
+    gas_resistance:
+      id: esp_thermostat_bme680_gas_resistance
+      name: ${node_friendly_name} BME680 Gas Resistance
+      # on_value:
+      #   then:
+      #     - lambda: |-
+      #         std::string gas_res_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_gas_resistance).state);
+      #         id(nextionTextSensor1d).set_state(gas_res_string, false, true);
+    iaq:
+      id: esp_thermostat_bme680_iaq
+      name: ${node_friendly_name} BME680 IAQ
+      on_value:
+        then:
+          - lambda: |-
+              std::string iaq_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_iaq).state);
+              id(nextionTextSensor1d).set_state(iaq_string, false, true);
+    co2_equivalent:
+      id: esp_thermostat_bme680_eco2
+      name: ${node_friendly_name} BME680 eCO2
+    breath_voc_equivalent:
+      id: esp_thermostat_bme680_evoc
+      name: ${node_friendly_name} BME680 Breath eVOC
+  # BME680 sensor
+  # - platform: bme680
+  #   address: 0x77
+  #   temperature:
+  #     id: esp_thermostat_bme680_temperature
+  #     name: ${node_friendly_name} BME680 Temperature
+  #     filters:
+  #       - offset: -1.2
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_temperature).state * 1.8 + 32) + "\xB0";
+  #             id(nextionTextSensor1a).set_state(temperature_string, false, true);
+  #   humidity:
+  #     id: esp_thermostat_bme680_humidity
+  #     name: ${node_friendly_name} BME680 Humidity
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_humidity).state) + "%";
+  #             id(nextionTextSensor1b).set_state(humidity_string, false, true);
+  #   pressure:
+  #     id: esp_thermostat_bme680_pressure
+  #     name: ${node_friendly_name} BME680 Pressure
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_pressure).state) + "hPa";
+  #             id(nextionTextSensor1c).set_state(pressure_string, false, true);
+  #   gas_resistance:
+  #     id: esp_thermostat_bme680_gas_resistance
+  #     name: ${node_friendly_name} BME680 Gas Resistance
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             std::string gas_res_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_bme680_gas_resistance).state);
+  #             id(nextionTextSensor1d).set_state(gas_res_string, false, true);
+  #   update_interval: 15s
+  # SHTC3 sensor
+  - platform: shtcx
+    temperature:
+      id: esp_thermostat_shtcx_temperature
+      name: ${node_friendly_name} SHTC3 Temperature
+      filters:
+        - offset: -1.4
+      on_value:
+        then:
+          - lambda: |-
+              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_shtcx_temperature).state * 1.8 + 32) + "\xB0";
+              id(nextionTextSensor3a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_shtcx_humidity
+      name: ${node_friendly_name} SHTC3 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_shtcx_humidity).state) + "%";
+              id(nextionTextSensor3b).set_state(humidity_string, false, true);
+    update_interval: 15s
+  # TMP117 sensor
+  - platform: tmp117
+    id: esp_thermostat_tmp117_temperature
+    name: ${node_friendly_name} TMP117 Temperature
+    filters:
+      - offset: -1.5
+    on_value:
+      then:
+        - lambda: |-
+            std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_tmp117_temperature).state * 1.8 + 32) + "\xB0";
+            id(nextionTextSensor4a).set_state(temperature_string, false, true);
+    update_interval: 15s
+  # SGP40 sensor
+  - platform: sgp40
+    id: esp_thermostat_sgp40_voc
+    name: ${node_friendly_name} SGP40 VOC
+    unit_of_measurement: VOC Index
+    update_interval: 15s
+    compensation:
+      humidity_source: esp_thermostat_shtcx_humidity
+      temperature_source: esp_thermostat_shtcx_temperature
+    on_value:
+      then:
+        - lambda: |-
+            std::string voc_string = esp_sprinkler::round_float_to_string(id(esp_thermostat_sgp40_voc).state);
+            id(nextionTextSensor8d).set_state(voc_string, false, true);
+
+text_sensor:
+  - platform: bme680_bsec
+    iaq_accuracy:
+      id: esp_thermostat_bme680_accuracy
+      name: ${node_friendly_name} BME680 Accuracy
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextStatus1
+    component_name: ${home_page_name}.txtStatus
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextStatus2
+    component_name: ${zones_page_name}.txtStatus
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextStatus3
+    component_name: ${sensors_page_name}.txtStatus
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextWeatherAq
+    component_name: ${weather_page_name}.txtWeatherAq
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextWeatherIcon
+    component_name: ${weather_page_name}.txtWeatherIcon
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone1Name
+    component_name: ${zones_page_name}.txtZone1Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone2Name
+    component_name: ${zones_page_name}.txtZone2Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone3Name
+    component_name: ${zones_page_name}.txtZone3Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone4Name
+    component_name: ${zones_page_name}.txtZone4Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone5Name
+    component_name: ${zones_page_name}.txtZone5Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone6Name
+    component_name: ${zones_page_name}.txtZone6Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone7Name
+    component_name: ${zones_page_name}.txtZone7Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextZone8Name
+    component_name: ${zones_page_name}.txtZone8Name
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1
+    component_name: ${sensors_page_name}.txtSensor1
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2
+    component_name: ${sensors_page_name}.txtSensor2
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3
+    component_name: ${sensors_page_name}.txtSensor3
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4
+    component_name: ${sensors_page_name}.txtSensor4
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5
+    component_name: ${sensors_page_name}.txtSensor5
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6
+    component_name: ${sensors_page_name}.txtSensor6
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7
+    component_name: ${sensors_page_name}.txtSensor7
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8
+    component_name: ${sensors_page_name}.txtSensor8
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1a
+    component_name: ${sensors_page_name}.txtSensor1a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2a
+    component_name: ${sensors_page_name}.txtSensor2a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3a
+    component_name: ${sensors_page_name}.txtSensor3a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4a
+    component_name: ${sensors_page_name}.txtSensor4a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5a
+    component_name: ${sensors_page_name}.txtSensor5a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6a
+    component_name: ${sensors_page_name}.txtSensor6a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7a
+    component_name: ${sensors_page_name}.txtSensor7a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8a
+    component_name: ${sensors_page_name}.txtSensor8a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1b
+    component_name: ${sensors_page_name}.txtSensor1b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2b
+    component_name: ${sensors_page_name}.txtSensor2b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3b
+    component_name: ${sensors_page_name}.txtSensor3b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4b
+    component_name: ${sensors_page_name}.txtSensor4b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5b
+    component_name: ${sensors_page_name}.txtSensor5b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6b
+    component_name: ${sensors_page_name}.txtSensor6b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7b
+    component_name: ${sensors_page_name}.txtSensor7b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8b
+    component_name: ${sensors_page_name}.txtSensor8b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1c
+    component_name: ${sensors_page_name}.txtSensor1c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2c
+    component_name: ${sensors_page_name}.txtSensor2c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3c
+    component_name: ${sensors_page_name}.txtSensor3c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4c
+    component_name: ${sensors_page_name}.txtSensor4c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5c
+    component_name: ${sensors_page_name}.txtSensor5c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6c
+    component_name: ${sensors_page_name}.txtSensor6c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7c
+    component_name: ${sensors_page_name}.txtSensor7c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8c
+    component_name: ${sensors_page_name}.txtSensor8c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1d
+    component_name: ${sensors_page_name}.txtSensor1d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2d
+    component_name: ${sensors_page_name}.txtSensor2d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3d
+    component_name: ${sensors_page_name}.txtSensor3d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4d
+    component_name: ${sensors_page_name}.txtSensor4d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5d
+    component_name: ${sensors_page_name}.txtSensor5d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6d
+    component_name: ${sensors_page_name}.txtSensor6d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7d
+    component_name: ${sensors_page_name}.txtSensor7d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8d
+    component_name: ${sensors_page_name}.txtSensor8d
+
+display:
+  - platform: nextion
+    id: main_lcd
+    uart_id: nextion_uart
+    update_interval: 1s
+    # tft_url: https://www.kbx81.net/download/public/sprinkler/NX8048P070-011C.tft
+    # tft_url: http://10.100.0.51/download/public/sprinkler/NX8048K070.tft
+    tft_url: http://10.100.0.51/download/public/sprinkler/NX8048P070-011C.tft
+    lambda: "esp_sprinkler::draw_main_screen();"
+    on_setup:
+      then:
+        - lambda: |-
+            main_lcd->goto_page("main");
+            esp_sprinkler::draw_main_screen(true);
