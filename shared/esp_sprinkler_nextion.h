@@ -146,11 +146,11 @@ namespace esp_sprinkler
 
   void display_refresh_zone_names()
   {
-    id(nextionTextZone1Name).set_state("Parkway", false, true);
-    id(nextionTextZone2Name).set_state("Front Yard", false, true);
-    id(nextionTextZone3Name).set_state("East Side", false, true);
-    id(nextionTextZone4Name).set_state("Back Yard", false, true);
-    id(nextionTextZone5Name).set_state("West Side", false, true);
+    id(nextionTextZone1Name).set_state(id(sprinkler_ctrlr).valve_name(0), false, true);
+    id(nextionTextZone2Name).set_state(id(sprinkler_ctrlr).valve_name(1), false, true);
+    id(nextionTextZone3Name).set_state(id(sprinkler_ctrlr).valve_name(2), false, true);
+    id(nextionTextZone4Name).set_state(id(sprinkler_ctrlr).valve_name(3), false, true);
+    id(nextionTextZone5Name).set_state(id(sprinkler_ctrlr).valve_name(4), false, true);
   }
 
   void display_refresh_zone_run_durations()
