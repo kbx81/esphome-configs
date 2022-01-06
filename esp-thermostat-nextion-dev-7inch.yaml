@@ -1,46 +1,10 @@
 substitutions:
   node_name: esp-thermostat-dev-7inch
   node_friendly_name: "Dev Thermostat"
-  home_page_name: "main1"
-  home_page_number: "1"
-  rooms_page_name: "main2"
-  rooms_page_number: "2"
+  home_page_name: "weather"
+  rooms_page_name: "rooms"
   sensors_page_name: "sensors"
-  sensors_page_number: "3"
-  mode_page_name: "main1"
-  mode_page_number: "1"
-  mode_page_name_2: "main2"
-  mode_page_number_2: "2"
-  set_points_page_name: "main1"
-  set_points_page_number: "1"
-  set_points_page_name_2: "main2"
-  set_points_page_number_2: "2"
-  weather_page_name: "main1"
-  weather_page_number: "1"
-  mode_button_auto_id: "9"
-  mode_button_auto_objname: "btnAuto"
-  mode_button_cool_id: "7"
-  mode_button_cool_objname: "btnCool"
-  mode_button_fan_id: "6"
-  mode_button_fan_objname: "btnFan"
-  mode_button_heat_id: "8"
-  mode_button_heat_objname: "btnHeat"
-  mode_button_off_id: "5"
-  mode_button_off_objname: "btnOff"
-  mode_button_fan_mode_id: "10"
-  mode_button_fan_mode_objname: "btnFanMode"
-  set_point_button_lower_down_id: "13"
-  set_point_button_lower_down_objname: "btnLowerDown"
-  set_point_button_lower_up_id: "16"
-  set_point_button_lower_up_objname: "btnLowerUp"
-  set_point_button_upper_down_id: "12"
-  set_point_button_upper_down_objname: "btnUpperDown"
-  set_point_button_upper_up_id: "15"
-  set_point_button_upper_up_objname: "btnUpperUp"
-  set_point_button_humidity_down_id: "14"
-  set_point_button_humidity_down_objname: "btnHumDown"
-  set_point_button_humidity_up_id: "17"
-  set_point_button_humidity_up_objname: "btnHumUp"
+  weather_page_name: "weather"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
@@ -67,9 +31,15 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            id(display_brightness) = clamp<float>(id(adc_sensor_phototransistor).state / 3.9, 0.05, 1);
-            if (main_lcd != nullptr)
-              main_lcd->set_backlight_brightness(id(display_brightness));
+            auto brightness_mult = id(motion_sense).is_running() || !id(esp_thermostat_display_on_motion).state ? 100 : (1.0 - id(display_brightness_idle_reduction)) * 100;
+            id(display_brightness) = id(esp_thermostat_display).state ? clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult), id(display_min_brightness), id(display_max_brightness)) : 0;
+            if (id(nextionTargetBrightness).state != id(display_brightness))
+            {
+              id(nextionTargetBrightness).set_state(id(display_brightness), true, true);
+              ESP_LOGD("targetBrightness", "Set to %.1f", id(display_brightness));
+            }
+            // if (main_lcd != nullptr)
+            //   main_lcd->set_backlight_brightness(id(display_brightness));
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
@@ -83,7 +53,7 @@ sensor:
     name: ${node_friendly_name} NTC Thermistor Resistance
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
-    reference_voltage: 0.82V
+    reference_voltage: 0.84V
     resistor: 10kOhm
     internal: true
   # NTC thermistor sensor
@@ -97,7 +67,7 @@ sensor:
       reference_resistance: 10kOhm
     filters:
       - sliding_window_moving_average:
-          window_size: 5
+          window_size: 8
           send_every: 1
           send_first_at: 1
     on_value:
@@ -113,7 +83,7 @@ sensor:
       id: esp_thermostat_dht22_temperature
       name: ${node_friendly_name} DHT22 Temperature
       filters:
-        - offset: -1.2
+        - offset: -1.6
       on_value:
         then:
           - lambda: |-
@@ -135,7 +105,7 @@ sensor:
       id: esp_thermostat_bme280_temperature
       name: ${node_friendly_name} BME280 Temperature
       filters:
-        - offset: -0.5
+        - offset: -1.1
       on_value:
         then:
           - lambda: |-
@@ -164,7 +134,7 @@ sensor:
       id: esp_thermostat_bme680_temperature
       name: ${node_friendly_name} BME680 Temperature
       filters:
-        - offset: -1.2
+        - offset: -2.2
       on_value:
         then:
           - lambda: |-
@@ -257,7 +227,7 @@ sensor:
       id: esp_thermostat_shtcx_temperature
       name: ${node_friendly_name} SHTC3 Temperature
       filters:
-        - offset: -1.4
+        - offset: -2.3
       on_value:
         then:
           - lambda: |-
@@ -277,7 +247,7 @@ sensor:
     id: esp_thermostat_tmp117_temperature
     name: ${node_friendly_name} TMP117 Temperature
     filters:
-      - offset: -1.5
+      - offset: -2.5
     on_value:
       then:
         - lambda: |-

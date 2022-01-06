@@ -138,6 +138,7 @@ status_led:
 time:
   - platform: homeassistant
     id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
 
 i2c:
   id: i2c_bus

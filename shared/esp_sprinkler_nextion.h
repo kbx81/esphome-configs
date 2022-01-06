@@ -164,11 +164,11 @@ namespace esp_sprinkler
 
   void display_refresh_zone_run_enable_states()
   {
-    id(nextionZone1Enabled).set_state(id(esp_sprinkler_controller_zone_1_enable).state);
-    id(nextionZone2Enabled).set_state(id(esp_sprinkler_controller_zone_2_enable).state);
-    id(nextionZone3Enabled).set_state(id(esp_sprinkler_controller_zone_3_enable).state);
-    id(nextionZone4Enabled).set_state(id(esp_sprinkler_controller_zone_4_enable).state);
-    id(nextionZone5Enabled).set_state(id(esp_sprinkler_controller_zone_5_enable).state);
+    id(nextionZone1Enabled).set_state(id(sprinkler_ctrlr).enable_switch(0)->state);
+    id(nextionZone2Enabled).set_state(id(sprinkler_ctrlr).enable_switch(1)->state);
+    id(nextionZone3Enabled).set_state(id(sprinkler_ctrlr).enable_switch(2)->state);
+    id(nextionZone4Enabled).set_state(id(sprinkler_ctrlr).enable_switch(3)->state);
+    id(nextionZone5Enabled).set_state(id(sprinkler_ctrlr).enable_switch(4)->state);
   }
 
   void display_refresh_sensor_pair(double value, const NextionSensorPairing sensor, const DisplayConversion conv = esp_sprinkler::DC_NONE)
@@ -243,9 +243,11 @@ namespace esp_sprinkler
 
   void display_refresh_sprinkler_state()
   {
-    id(nextionSprinklerZone).set_state(id(sprinkler_ctrlr).active_valve());
+    id(nextionSprinklerActiveZone).set_state(id(sprinkler_ctrlr).manual_valve().value_or(id(sprinkler_ctrlr).active_valve().value_or(-1)));
+    id(nextionSprinklerPausedZone).set_state(id(sprinkler_ctrlr).paused_valve().value_or(-1));
     id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
     id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+    display_refresh_zone_run_enable_states();
   }
 
   void display_refresh_door_state()
@@ -264,9 +266,9 @@ namespace esp_sprinkler
       main_lcd->set_nextion_rtc_time(dateTime);
     }
 
-    if (id(sprinkler_ctrlr).is_a_valid_valve(id(sprinkler_ctrlr).active_valve()))
+    if (id(sprinkler_ctrlr).active_valve().has_value())
     {
-      id(nextionSprinklerZoneTotalSecRemain).set_state(id(sprinkler_ctrlr).time_remaining());
+      id(nextionSprinklerZoneTotalSecRemain).set_state(id(sprinkler_ctrlr).time_remaining().value_or(0));
     }
 
     if (fullRefresh)

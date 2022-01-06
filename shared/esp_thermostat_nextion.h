@@ -24,17 +24,11 @@ namespace esp32_thermostat
     DC_F_TO_C = 2
   };
 
-  struct NextionSensorPairing
-  {
-    nextion::NextionSensor *whole;
-    nextion::NextionSensor *frac;
-  };
-
   struct TableRow
   {
     nextion::NextionTextSensor *name;
-    NextionSensorPairing temp;
-    NextionSensorPairing hum;
+    nextion::NextionSensor *temp;
+    nextion::NextionSensor *hum;
   };
 
   struct IaqCondPairing
@@ -86,7 +80,8 @@ namespace esp32_thermostat
   const uint8_t max_missed_offline_updates = 2 * (60 / 15);
   const float temp_step_size = 5.0 / 9.0;
 
-  std::vector<esp32_thermostat::NextionSensorPairing> sensor_pairing(6);
+  // std::vector<esp32_thermostat::NextionSensorPairing> sensor_pairing(6);
+  std::vector<nextion::NextionSensor*> sensor_vector(6);
   std::vector<esp32_thermostat::TableRow> room_table(num_rooms);
   std::vector<float> room_humidity(num_rooms);
   std::vector<float> room_temperature(num_rooms);
@@ -95,45 +90,27 @@ namespace esp32_thermostat
   {
     if ((row >= 0) && (row < num_rooms))
     {
-      if ((room_table[row].temp.whole != nullptr) && (room_table[row].temp.frac != nullptr) &&
-          (room_table[row].hum.whole != nullptr) && (room_table[row].hum.frac != nullptr) &&
-          (room_table[row].name != nullptr))
+      if ((room_table[row].temp != nullptr) && (room_table[row].hum != nullptr) && (room_table[row].name != nullptr))
       {
         return room_table[row];
       }
-      room_table[0].temp.whole = nextionRoom1Temp;
-      room_table[0].temp.frac = nextionRoom1TempFrac;
-      room_table[1].temp.whole = nextionRoom2Temp;
-      room_table[1].temp.frac = nextionRoom2TempFrac;
-      room_table[2].temp.whole = nextionRoom3Temp;
-      room_table[2].temp.frac = nextionRoom3TempFrac;
-      room_table[3].temp.whole = nextionRoom4Temp;
-      room_table[3].temp.frac = nextionRoom4TempFrac;
-      room_table[4].temp.whole = nextionRoom5Temp;
-      room_table[4].temp.frac = nextionRoom5TempFrac;
-      room_table[5].temp.whole = nextionRoom6Temp;
-      room_table[5].temp.frac = nextionRoom6TempFrac;
-      room_table[6].temp.whole = nextionRoom7Temp;
-      room_table[6].temp.frac = nextionRoom7TempFrac;
-      room_table[7].temp.whole = nextionRoom8Temp;
-      room_table[7].temp.frac = nextionRoom8TempFrac;
+      room_table[0].temp = nextionRoom1Temp;
+      room_table[1].temp = nextionRoom2Temp;
+      room_table[2].temp = nextionRoom3Temp;
+      room_table[3].temp = nextionRoom4Temp;
+      room_table[4].temp = nextionRoom5Temp;
+      room_table[5].temp = nextionRoom6Temp;
+      room_table[6].temp = nextionRoom7Temp;
+      room_table[7].temp = nextionRoom8Temp;
 
-      room_table[0].hum.whole = nextionRoom1Hum;
-      room_table[0].hum.frac = nextionRoom1HumFrac;
-      room_table[1].hum.whole = nextionRoom2Hum;
-      room_table[1].hum.frac = nextionRoom2HumFrac;
-      room_table[2].hum.whole = nextionRoom3Hum;
-      room_table[2].hum.frac = nextionRoom3HumFrac;
-      room_table[3].hum.whole = nextionRoom4Hum;
-      room_table[3].hum.frac = nextionRoom4HumFrac;
-      room_table[4].hum.whole = nextionRoom5Hum;
-      room_table[4].hum.frac = nextionRoom5HumFrac;
-      room_table[5].hum.whole = nextionRoom6Hum;
-      room_table[5].hum.frac = nextionRoom6HumFrac;
-      room_table[6].hum.whole = nextionRoom7Hum;
-      room_table[6].hum.frac = nextionRoom7HumFrac;
-      room_table[7].hum.whole = nextionRoom8Hum;
-      room_table[7].hum.frac = nextionRoom8HumFrac;
+      room_table[0].hum = nextionRoom1Hum;
+      room_table[1].hum = nextionRoom2Hum;
+      room_table[2].hum = nextionRoom3Hum;
+      room_table[3].hum = nextionRoom4Hum;
+      room_table[4].hum = nextionRoom5Hum;
+      room_table[5].hum = nextionRoom6Hum;
+      room_table[6].hum = nextionRoom7Hum;
+      room_table[7].hum = nextionRoom8Hum;
 
       room_table[0].name = nextionTextRoom1;
       room_table[1].name = nextionTextRoom2;
@@ -149,30 +126,24 @@ namespace esp32_thermostat
     return esp32_thermostat::TableRow();
   }
 
-  esp32_thermostat::NextionSensorPairing display_sensor(DisplaySensor sensor)
+  nextion::NextionSensor* display_sensor(DisplaySensor sensor)
   {
     if ((sensor >= 0) && (sensor < static_cast<uint8_t>(DS_NUM_OF_SENSORS)))
     {
-      if ((sensor_pairing[sensor].whole != nullptr) && (sensor_pairing[sensor].frac != nullptr))
+      if (sensor_vector[sensor] != nullptr)
       {
-        return sensor_pairing[sensor];
+        return sensor_vector[sensor];
       }
-      sensor_pairing[0].whole = nextionCurrentTemp;
-      sensor_pairing[0].frac = nextionCurrentTempFrac;
-      sensor_pairing[1].whole = nextionCurrentHum;
-      sensor_pairing[1].frac = nextionCurrentHumFrac;
-      sensor_pairing[2].whole = nextionWeatherTemp;
-      sensor_pairing[2].frac = nextionWeatherTempFrac;
-      sensor_pairing[3].whole = nextionWeatherHum;
-      sensor_pairing[3].frac = nextionWeatherHumFrac;
-      sensor_pairing[4].whole = nextionWeatherTempHigh;
-      sensor_pairing[4].frac = nextionWeatherTempHighFrac;
-      sensor_pairing[5].whole = nextionWeatherTempLow;
-      sensor_pairing[5].frac = nextionWeatherTempLowFrac;
+      sensor_vector[0] = nextionCurrentTemp;
+      sensor_vector[1] = nextionCurrentHum;
+      sensor_vector[2] = nextionWeatherTemp;
+      sensor_vector[3] = nextionWeatherHum;
+      sensor_vector[4] = nextionWeatherTempHigh;
+      sensor_vector[5] = nextionWeatherTempLow;
 
-      return sensor_pairing[sensor];
+      return sensor_vector[sensor];
     }
-    return esp32_thermostat::NextionSensorPairing();
+    return nullptr;
   }
 
   std::string round_float_to_string(float value, uint8_t precision = 1)
@@ -266,7 +237,7 @@ namespace esp32_thermostat
     id(nextionTextSensor8).set_state("SGP40:", false, true);
   }
 
-  void display_refresh_sensor_pair(double value, const NextionSensorPairing sensor, const DisplayConversion conv = esp32_thermostat::DC_NONE)
+  void display_refresh_sensor(float value, nextion::NextionSensor* sensor, const DisplayConversion conv = esp32_thermostat::DC_NONE)
   {
     switch (conv)
     {
@@ -282,23 +253,29 @@ namespace esp32_thermostat
       break;
     }
 
-    value = round(value * 10); // we want just one decimal place
-    double value_int = 0, value_frac = modf(value / 10, &value_int) * 10;
+    value = roundf(value * 10); // we want just one decimal place
 
-    sensor.whole->set_state(static_cast<float>(value_int), false, true);
-    sensor.frac->set_state(roundf(static_cast<float>(value_frac)), false, true);
+    sensor->set_state(value, false, true);
   }
 
-  void display_refresh_sensor_pair(const double value, const DisplaySensor sensor_num, const DisplayConversion conv = esp32_thermostat::DC_NONE)
+  void display_refresh_sensor(const double value, const DisplaySensor sensor_num, const DisplayConversion conv = esp32_thermostat::DC_NONE)
   {
-    display_refresh_sensor_pair(value, display_sensor(sensor_num), conv);
+    display_refresh_sensor(value, display_sensor(sensor_num), conv);
   }
 
   void display_refresh_set_points()
   {
-    id(nextionCurrentSetLower).set_state(id(esp_thermostat).target_temperature_low * 1.8 + 32, false, true);
-    id(nextionCurrentSetUpper).set_state(id(esp_thermostat).target_temperature_high * 1.8 + 32, false, true);
+    id(nextionCurrentSetLower).set_state(roundf((id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10), false, true);
+    id(nextionCurrentSetUpper).set_state(roundf((id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10), false, true);
     // id(nextionCurrentSetHum).set_state(id(esp_thermostat).target_humidity, false, true);
+    if (id(nextionCurrentSetMin).state != (id(esp_thermostat).get_traits().get_visual_min_temperature() * 1.8 + 32) * 10)
+    {
+      id(nextionCurrentSetMin).set_state((id(esp_thermostat).get_traits().get_visual_min_temperature() * 1.8 + 32) * 10, true, true);
+    }    
+    if (id(nextionCurrentSetMax).state != (id(esp_thermostat).get_traits().get_visual_max_temperature() * 1.8 + 32) * 10)
+    {
+      id(nextionCurrentSetMax).set_state((id(esp_thermostat).get_traits().get_visual_max_temperature() * 1.8 + 32) * 10, true, true);
+    }
   }
 
   void display_refresh_table_name(int row, std::string name)
@@ -320,7 +297,7 @@ namespace esp32_thermostat
       if (room_humidity[row] != humidity)
       {
         room_humidity[row] = humidity;
-        display_refresh_sensor_pair(room_humidity[row], room_row(row).hum, esp32_thermostat::DC_NONE);
+        display_refresh_sensor(room_humidity[row], room_row(row).hum, esp32_thermostat::DC_NONE);
       }
     }
   }
@@ -332,7 +309,7 @@ namespace esp32_thermostat
       if (room_temperature[row] != temperature)
       {
         room_temperature[row] = temperature;
-        display_refresh_sensor_pair(room_temperature[row], room_row(row).temp, esp32_thermostat::DC_C_TO_F);
+        display_refresh_sensor(room_temperature[row], room_row(row).temp, esp32_thermostat::DC_C_TO_F);
       }
     }
   }
@@ -399,8 +376,6 @@ namespace esp32_thermostat
       // main_lcd->set_touch_sleep_timeout(60);
       main_lcd->set_nextion_rtc_time(dateTime);
     }
-    // ESP_LOGD("********** HEAP **********", " Free: %d", ESP.getFreeHeap());
-    // ESP_LOGD("********** HEAP **********", "Total: %d", ESP.getHeapSize());
 
     if (fullRefresh)
     {
@@ -410,82 +385,18 @@ namespace esp32_thermostat
       display_refresh_fan_mode();
       display_refresh_set_points();
       display_refresh_weather_cond();
-      display_refresh_sensor_pair(id(weather_humidity), esp32_thermostat::DS_WEATHER_HUM, esp32_thermostat::DC_NONE);
-      display_refresh_sensor_pair(id(weather_temperature), esp32_thermostat::DS_WEATHER_TEMP, esp32_thermostat::DC_NONE);
-      display_refresh_sensor_pair(id(weather_temperature_high), esp32_thermostat::DS_WEATHER_TEMPHIGH, esp32_thermostat::DC_NONE);
-      display_refresh_sensor_pair(id(weather_temperature_low), esp32_thermostat::DS_WEATHER_TEMPLOW, esp32_thermostat::DC_NONE);
+      display_refresh_sensor(id(weather_humidity), esp32_thermostat::DS_WEATHER_HUM, esp32_thermostat::DC_NONE);
+      display_refresh_sensor(id(weather_temperature), esp32_thermostat::DS_WEATHER_TEMP, esp32_thermostat::DC_NONE);
+      display_refresh_sensor(id(weather_temperature_high), esp32_thermostat::DS_WEATHER_TEMPHIGH, esp32_thermostat::DC_NONE);
+      display_refresh_sensor(id(weather_temperature_low), esp32_thermostat::DS_WEATHER_TEMPLOW, esp32_thermostat::DC_NONE);
       display_refresh_sensor_names();
     }
-  }
-
-  float adjust_high_set_point(float adjustment)
-  {
-    auto call = id(esp_thermostat).make_call();
-    auto new_set_point = id(esp_thermostat).target_temperature_high += adjustment;
-    call.set_target_temperature_high(new_set_point);
-    call.perform();
-    display_refresh_set_points();
-    return id(esp_thermostat).target_temperature_high;
-  }
-
-  float adjust_low_set_point(float adjustment)
-  {
-    auto call = id(esp_thermostat).make_call();
-    auto new_set_point = id(esp_thermostat).target_temperature_low += adjustment;
-    call.set_target_temperature_low(new_set_point);
-    call.perform();
-    display_refresh_set_points();
-    return id(esp_thermostat).target_temperature_low;
-  }
-
-  void set_thermostat_fan_mode(const climate::ClimateFanMode new_mode)
-  {
-    auto call = id(esp_thermostat).make_call();
-    call.set_fan_mode(new_mode);
-    call.perform();
-    display_refresh_fan_mode();
-  }
-
-  void set_thermostat_mode(const climate::ClimateMode new_mode)
-  {
-    auto call = id(esp_thermostat).make_call();
-    call.set_mode(new_mode);
-    call.perform();
-    display_refresh_mode();
-    if (new_mode == climate::CLIMATE_MODE_OFF)
-      set_thermostat_fan_mode(climate::CLIMATE_FAN_AUTO);
-  }
-
-  void fan_mode_button_click()
-  {
-    if (id(esp_thermostat).fan_mode.value_or(CLIMATE_FAN_AUTO) == CLIMATE_FAN_AUTO)
-      set_thermostat_fan_mode(climate::CLIMATE_FAN_ON);
-    else
-      set_thermostat_fan_mode(climate::CLIMATE_FAN_AUTO);
-  }
-
-  void mode_button_click()
-  {
-    // if (id(main_lcd).is_on()) {
-    uint8_t mode_selected = 0;
-    // set mode_selected to current thermostat climate mode
-    for (uint8_t i = 0; i < num_modes; i++)
-    {
-      if (supported_modes[i] == id(esp_thermostat).mode)
-        mode_selected = i;
-    }
-    // increment mode_selected, resetting it if it overflowed
-    if (++mode_selected >= num_modes)
-      mode_selected = 0;
-    // set the new climate mode and refresh the thermostat to fire triggers
-    set_thermostat_mode(supported_modes[mode_selected]);
-    // }
   }
 
   float thermostat_sensor_update()
   {
     bool template_sensor_valid = (id(current_temperature) >= id(esp_thermostat).get_traits().get_visual_min_temperature()) && (id(current_temperature) <= id(esp_thermostat).get_traits().get_visual_max_temperature());
-    float sensor_value = id(esp_thermostat_bme280_temperature).state;
+    float sensor_value = id(esp_thermostat_bme680_temperature).state;
     int max_missed_updates = esp32_thermostat::max_missed_offline_updates;
 
     if (id(esp_thermostat_api_status).state)

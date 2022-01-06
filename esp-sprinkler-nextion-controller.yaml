@@ -15,41 +15,43 @@ substitutions:
   weather_page_number: "1"
   button_off_id: "1"
   button_off_objname: "btnOff"
-  button_run_id: "2"
+  button_pause_id: "2"
+  button_pause_objname: "btnPause"
+  button_run_id: "3"
   button_run_objname: "btnRun"
-  button_auto_id: "3"
+  button_auto_id: "4"
   button_auto_objname: "btnAuto"
-  button_dir_id: "4"
-  button_dir_objname: "btnDir"
   button_next_id: "5"
   button_next_objname: "btnNext"
   button_previous_id: "6"
   button_previous_objname: "btnPrev"
-  button_door_id: "7"
+  button_dir_id: "7"
+  button_dir_objname: "btnDir"
+  button_door_id: "8"
   button_door_objname: "btnGarageDoor"
-  button_valve1_id: "11"
+  button_valve1_id: "12"
   button_valve1_objname: "btnZone1Power"
-  button_valve2_id: "12"
+  button_valve2_id: "13"
   button_valve2_objname: "btnZone2Power"
-  button_valve3_id: "13"
+  button_valve3_id: "14"
   button_valve3_objname: "btnZone3Power"
-  button_valve4_id: "14"
+  button_valve4_id: "15"
   button_valve4_objname: "btnZone4Power"
-  button_valve5_id: "15"
+  button_valve5_id: "16"
   button_valve5_objname: "btnZone5Power"
-  button_valve6_id: "16"
+  button_valve6_id: "17"
   button_valve6_objname: "btnZone6Power"
-  button_valve7_id: "17"
+  button_valve7_id: "18"
   button_valve7_objname: "btnZone7Power"
-  button_valve8_id: "18"
+  button_valve8_id: "19"
   button_valve8_objname: "btnZone8Power"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
 esphome:
-  platform: ESP32
-  board: featheresp32
+  # platform: ESP32
+  # board: featheresp32
   includes: shared/esp_sprinkler_nextion.h
   platformio_options:
     build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768 -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue
@@ -57,6 +59,11 @@ esphome:
   #   priority: 500
     # then:
     #   - script.execute: display_on
+
+esp32:
+  board: featheresp32
+  framework:
+    type: arduino
 
 # Enable Home Assistant API and define services
 api:
@@ -95,11 +102,38 @@ api:
             id(sprinkler_ctrlr).set_valve_run_duration(2, zone_3);
             id(sprinkler_ctrlr).set_valve_run_duration(3, zone_4);
             id(sprinkler_ctrlr).set_valve_run_duration(4, zone_5);
-    - service: set_run_time_multiplier
+            esp_sprinkler::display_refresh_zone_run_durations();
+    - service: set_run_duration
       variables:
-        multiplier: float
+        valve_number: int
+        run_duration: int
       then:
-        - lambda: "id(sprinkler_ctrlr).set_multiplier(multiplier);"
+        - sprinkler.set_valve_run_duration:
+            id: sprinkler_ctrlr
+            valve_number: !lambda 'return valve_number;'
+            run_duration: !lambda 'return run_duration;'
+        - lambda: 'esp_sprinkler::display_refresh_zone_run_durations();'
+    # - service: set_run_time_multiplier
+    #   variables:
+    #     multiplier: float
+    #   then:
+    #     - sprinkler.set_multiplier:
+    #         id: sprinkler_ctrlr
+    #         multiplier: !lambda 'return multiplier;'
+    - service: queue_valve
+      variables:
+        valve_number: int
+      then:
+        - sprinkler.queue_single_valve:
+            id: sprinkler_ctrlr
+            valve_number: !lambda 'return valve_number;'
+    - service: set_repeat
+      variables:
+        repeat: int
+      then:
+        - sprinkler.set_repeat:
+            id: sprinkler_ctrlr
+            repeat: !lambda 'return repeat;'
     - service: update_weather_data
       variables:
         condition: string
@@ -234,6 +268,7 @@ status_led:
 time:
   - platform: homeassistant
     id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
 
 i2c:
   id: i2c_bus
@@ -332,13 +367,22 @@ binary_sensor:
         - sprinkler.shutdown: sprinkler_ctrlr
         - script.execute: button_press
   - platform: nextion
+    id: nextion_touch_sprinkler_pause
+    page_id: ${controls_page_number}
+    component_id: ${button_pause_id}
+    component_name: ${controls_page_name}.${button_pause_objname}
+    on_press:
+      then:
+        - sprinkler.pause: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
     id: nextion_touch_sprinkler_run
     page_id: ${controls_page_number}
     component_id: ${button_run_id}
     component_name: ${controls_page_name}.${button_run_objname}
     on_press:
       then:
-        - sprinkler.start_full_cycle: sprinkler_ctrlr
+        - sprinkler.resume_or_start_full_cycle: sprinkler_ctrlr
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_sprinkler_next
@@ -399,13 +443,22 @@ binary_sensor:
         - sprinkler.shutdown: sprinkler_ctrlr
         - script.execute: button_press
   - platform: nextion
+    id: nextion_touch_sprinkler_pause_2
+    page_id: ${zones_page_number}
+    component_id: ${button_pause_id}
+    component_name: ${controls_page_name}.${button_pause_objname}
+    on_press:
+      then:
+        - sprinkler.pause: sprinkler_ctrlr
+        - script.execute: button_press
+  - platform: nextion
     id: nextion_touch_sprinkler_run_2
     page_id: ${zones_page_number}
     component_id: ${button_run_id}
     component_name: ${zones_page_name}.${button_run_objname}
     on_press:
       then:
-        - sprinkler.start_full_cycle: sprinkler_ctrlr
+        - sprinkler.resume_or_start_full_cycle: sprinkler_ctrlr
         - script.execute: button_press
   - platform: nextion
     id: nextion_touch_sprinkler_next_2
@@ -521,32 +574,66 @@ binary_sensor:
         - script.execute: button_press
 
 sprinkler:
-  id: sprinkler_ctrlr
-  pump: esp_sprinkler_controller_triac_master
-  valve_open_delay: 5s
-  valves:
-    - name: "Parkway"
-      run_duration: 1800s
-      enable_switch: esp_sprinkler_controller_zone_1_enable
-      valve_switch: esp_sprinkler_controller_triac_zone_1
-    - name: "Front Yard"
-      run_duration: 3600s
-      enable_switch: esp_sprinkler_controller_zone_2_enable
-      valve_switch: esp_sprinkler_controller_triac_zone_2
-    - name: "East Side"
-      run_duration: 900s
-      enable_switch: esp_sprinkler_controller_zone_3_enable
-      valve_switch: esp_sprinkler_controller_triac_zone_3
-    - name: "Back Yard"
-      run_duration: 5400s
-      enable_switch: esp_sprinkler_controller_zone_4_enable
-      valve_switch: esp_sprinkler_controller_triac_zone_4
-    - name: "West Side"
-      run_duration: 2700s
-      enable_switch: esp_sprinkler_controller_zone_5_enable
-      valve_switch: esp_sprinkler_controller_triac_zone_5
+  - id: sprinkler_ctrlr
+    name: "Lawn Sprinklers"
+    auto_advance_switch_name: "Lawn Sprinklers Auto-Advance"
+    reverse_switch_name: "Lawn Sprinklers Reverse"
+    manual_selection_delay: 3s
+    # repeat: 1
+    valve_open_delay: 5s
+    # valve_overlap: 5s
+    valves:
+      - valve_switch_name: "Parkway"
+        enable_switch_name: "Parkway Enable"
+        pump_switch: esp_sprinkler_controller_triac_master
+        run_duration: 1800s
+        valve_switch: esp_sprinkler_controller_triac_zone_1
+      - valve_switch_name: "Front Yard"
+        enable_switch_name: "Front Yard Enable"
+        pump_switch: esp_sprinkler_controller_triac_master
+        run_duration: 3600s
+        valve_switch: esp_sprinkler_controller_triac_zone_2
+      - valve_switch_name: "East Side"
+        enable_switch_name: "East Side Enable"
+        pump_switch: esp_sprinkler_controller_triac_master
+        run_duration: 900s
+        valve_switch: esp_sprinkler_controller_triac_zone_3
+      - valve_switch_name: "Back Yard"
+        enable_switch_name: "Back Yard Enable"
+        pump_switch: esp_sprinkler_controller_triac_master
+        run_duration: 5400s
+        valve_switch: esp_sprinkler_controller_triac_zone_4
+      - valve_switch_name: "West Side"
+        enable_switch_name: "West Side Enable"
+        pump_switch: esp_sprinkler_controller_triac_master
+        run_duration: 2700s
+        valve_switch: esp_sprinkler_controller_triac_zone_5
+
+number:
+  - platform: template
+    id: sprinkler_ctrlr_multiplier
+    name: "Lawn Sprinkler Multiplier"
+    optimistic: true
+    min_value: 0.1
+    max_value: 10.0
+    step: 0.1
+    initial_value: 1.0
+    set_action:
+      - sprinkler.set_multiplier:
+          id: sprinkler_ctrlr
+          multiplier: !lambda 'return x;'
+      - lambda: 'esp_sprinkler::display_refresh_zone_run_durations();'
 
 switch:
+  # thermistor Vcc
+  - platform: gpio
+    id: esp_thermostat_thermistor_vcc
+    name: ${node_friendly_name} Thermistor Vcc
+    internal: true
+    restore_mode: ALWAYS_ON
+    pin:
+      number: 33
+      mode: OUTPUT
   # display power
   - platform: gpio
     id: esp_sprinkler_controller_display_power
@@ -579,144 +666,12 @@ switch:
     turn_on_action:
       - script.execute: pulse_door_opener_relay
     lambda: 'return id(esp_sprinkler_controller_relay_1).state;'
-  # zone auto-advance -- enables automatic advancing to the next zone until all zone enablers are "off"
-  - platform: template
-    id: sprinkler_activate
-    name: "Activate"
-    turn_on_action:
-      - sprinkler.start_full_cycle: sprinkler_ctrlr
-    turn_off_action:
-      - sprinkler.shutdown: sprinkler_ctrlr
-    lambda: 'return id(sprinkler_ctrlr).is_a_valid_valve(id(sprinkler_ctrlr).active_valve());'
-  # zone auto-advance -- enables automatic advancing to the next zone until all zone enablers are "off"
-  - platform: template
-    id: sprinkler_auto_adv
-    name: "Auto Advance"
-    turn_on_action:
-      - lambda: |-
-          id(sprinkler_ctrlr).set_auto_advance(true);
-          id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
-    turn_off_action:
-      - lambda: |-
-          id(sprinkler_ctrlr).set_auto_advance(false);
-          id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
-    lambda: 'return id(sprinkler_ctrlr).auto_advance();'
-  # zone reverse -- iterates through zones in reverse/descending order when enabled
-  - platform: template
-    id: sprinkler_reverse
-    name: "Reverse"
-    turn_on_action:
-      - lambda: |-
-          id(sprinkler_ctrlr).set_reverse(true);
-          id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
-    turn_off_action:
-      - lambda: |-
-          id(sprinkler_ctrlr).set_reverse(false);
-          id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
-    lambda: 'return id(sprinkler_ctrlr).reverse();'
   # enables scheduled start at the time configured
   - platform: template
     id: esp_sprinkler_controller_scheduled_start
     name: ${node_friendly_name} Scheduled Start
     optimistic: true
     restore_state: true
-  # zone enablers -- 'on' means a zone will run in the cycle, 'off' means it will not
-  - platform: template
-    id: esp_sprinkler_controller_zone_1_enable
-    name: ${node_friendly_name} Enable Zone 1
-    optimistic: true
-    restore_state: true
-    turn_on_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone1Enabled).set_state(id(esp_sprinkler_controller_zone_1_enable).state);'
-    turn_off_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone1Enabled).set_state(id(esp_sprinkler_controller_zone_1_enable).state);'
-  - platform: template
-    id: esp_sprinkler_controller_zone_2_enable
-    name: ${node_friendly_name} Enable Zone 2
-    optimistic: true
-    restore_state: true
-    turn_on_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone2Enabled).set_state(id(esp_sprinkler_controller_zone_2_enable).state);'
-    turn_off_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone2Enabled).set_state(id(esp_sprinkler_controller_zone_2_enable).state);'
-  - platform: template
-    id: esp_sprinkler_controller_zone_3_enable
-    name: ${node_friendly_name} Enable Zone 3
-    optimistic: true
-    restore_state: true
-    turn_on_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone3Enabled).set_state(id(esp_sprinkler_controller_zone_3_enable).state);'
-    turn_off_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone3Enabled).set_state(id(esp_sprinkler_controller_zone_3_enable).state);'
-  - platform: template
-    id: esp_sprinkler_controller_zone_4_enable
-    name: ${node_friendly_name} Enable Zone 4
-    optimistic: true
-    restore_state: true
-    turn_on_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone4Enabled).set_state(id(esp_sprinkler_controller_zone_4_enable).state);'
-    turn_off_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone4Enabled).set_state(id(esp_sprinkler_controller_zone_4_enable).state);'
-  - platform: template
-    id: esp_sprinkler_controller_zone_5_enable
-    name: ${node_friendly_name} Enable Zone 5
-    optimistic: true
-    restore_state: true
-    turn_on_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone5Enabled).set_state(id(esp_sprinkler_controller_zone_5_enable).state);'
-    turn_off_action:
-      - delay: 50ms
-      - lambda: 'id(nextionZone5Enabled).set_state(id(esp_sprinkler_controller_zone_5_enable).state);'
-  # patch template switches to phyical switches so control is consistent
-  - platform: template
-    id: esp_sprinkler_controller_zone_1
-    name: ${node_friendly_name} Zone 1
-    turn_on_action:
-      - lambda: 'id(sprinkler_ctrlr).start_single_valve(0);'
-    turn_off_action:
-      - sprinkler.shutdown: sprinkler_ctrlr
-    lambda: 'return id(sprinkler_ctrlr).active_valve() == 0;'
-  - platform: template
-    id: esp_sprinkler_controller_zone_2
-    name: ${node_friendly_name} Zone 2
-    turn_on_action:
-      - lambda: 'id(sprinkler_ctrlr).start_single_valve(1);'
-    turn_off_action:
-      - sprinkler.shutdown: sprinkler_ctrlr
-    lambda: 'return id(sprinkler_ctrlr).active_valve() == 1;'
-  - platform: template
-    id: esp_sprinkler_controller_zone_3
-    name: ${node_friendly_name} Zone 3
-    turn_on_action:
-      - lambda: 'id(sprinkler_ctrlr).start_single_valve(2);'
-    turn_off_action:
-      - sprinkler.shutdown: sprinkler_ctrlr
-    lambda: 'return id(sprinkler_ctrlr).active_valve() == 2;'
-  - platform: template
-    id: esp_sprinkler_controller_zone_4
-    name: ${node_friendly_name} Zone 4
-    turn_on_action:
-      - lambda: 'id(sprinkler_ctrlr).start_single_valve(3);'
-    turn_off_action:
-      - sprinkler.shutdown: sprinkler_ctrlr
-    lambda: 'return id(sprinkler_ctrlr).active_valve() == 3;'
-  - platform: template
-    id: esp_sprinkler_controller_zone_5
-    name: ${node_friendly_name} Zone 5
-    turn_on_action:
-      - lambda: 'id(sprinkler_ctrlr).start_single_valve(4);'
-    turn_off_action:
-      - sprinkler.shutdown: sprinkler_ctrlr
-    lambda: 'return id(sprinkler_ctrlr).active_valve() == 4;'
   # physical switches
   - platform: gpio
     id: esp_sprinkler_controller_thermistor_vcc
@@ -728,7 +683,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_sprinkler_controller_mcp23017_reset
-    name: ${node_friendly_name} MCP23017 Reset
+    # name: ${node_friendly_name} MCP23017 Reset
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -938,8 +893,12 @@ sensor:
     variable_name: sprinklerReverse
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionSprinklerZone
-    variable_name: sprinklerZone
+    id: nextionSprinklerActiveZone
+    variable_name: sprinklerActiveZone
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionSprinklerPausedZone
+    variable_name: sprinklerPausedZone
   - platform: nextion
     nextion_id: main_lcd
     id: nextionSprinklerZoneTotalSecRemain
@@ -1080,14 +1039,14 @@ sensor:
     name: ${node_friendly_name} Thermistor ADC
     pin: 34
     internal: true
-    update_interval: never
+    update_interval: 15s
   # NTC thermistor resistance sensor
   - platform: resistance
     id: thermistor_sensor
     name: ${node_friendly_name} NTC Thermistor Resistance
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
-    reference_voltage: 0.82V
+    reference_voltage: 0.9V
     resistor: 10kOhm
     internal: true
   # NTC thermistor sensor
@@ -1116,8 +1075,6 @@ sensor:
     temperature:
       id: esp_thermostat_dht22_temperature
       name: ${node_friendly_name} DHT22 Temperature
-      filters:
-        - offset: -1.2
       on_value:
         then:
           - lambda: |-

@@ -1,6 +1,6 @@
 substitutions:
-  node_name: esp-thermostat-dev-mini
-  node_friendly_name: "Dev Mini Thermostat"
+  node_name: esp-thermostat-bathroom
+  node_friendly_name: "Bathroom Thermostat"
   home_page_name: "home"
   rooms_page_name: "rooms"
   sensors_page_name: "sensors"
@@ -34,12 +34,7 @@ sensor:
             auto brightness_mult = id(motion_sense).is_running() || !id(esp_thermostat_display_on_motion).state ? 100 : (1.0 - id(display_brightness_idle_reduction)) * 100;
             id(display_brightness) = id(esp_thermostat_display).state ? clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult), id(display_min_brightness), id(display_max_brightness)) : 0;
             if (id(nextionTargetBrightness).state != id(display_brightness))
-            {
               id(nextionTargetBrightness).set_state(id(display_brightness), true, true);
-              ESP_LOGD("targetBrightness", "Set to %.1f", id(display_brightness));
-            }
-            // if (main_lcd != nullptr)
-            //   main_lcd->set_backlight_brightness(id(display_brightness));
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
@@ -53,7 +48,7 @@ sensor:
     name: ${node_friendly_name} NTC Thermistor Resistance
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
-    reference_voltage: 0.92V
+    reference_voltage: 0.86V
     resistor: 10kOhm
     internal: true
   # NTC thermistor sensor
@@ -76,28 +71,28 @@ sensor:
             std::string temperature_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_thermistor_temperature).state * 1.8 + 32) + "\xB0";
             id(nextionTextSensor6a).set_state(temperature_string, false, true);
   # DHT22 sensor
-  - platform: dht
-    pin: GPIO23
-    model: DHT22
-    temperature:
-      id: esp_thermostat_dht22_temperature
-      name: ${node_friendly_name} DHT22 Temperature
-      filters:
-        - offset: -1.2
-      on_value:
-        then:
-          - lambda: |-
-              std::string temperature_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_dht22_temperature).state * 1.8 + 32) + "\xB0";
-              id(nextionTextSensor5a).set_state(temperature_string, false, true);
-    humidity:
-      id: esp_thermostat_dht22_humidity
-      name: ${node_friendly_name} DHT22 Humidity
-      on_value:
-        then:
-          - lambda: |-
-              std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_dht22_humidity).state) + "%";
-              id(nextionTextSensor5b).set_state(humidity_string, false, true);
-    update_interval: 15s
+  # - platform: dht
+  #   pin: GPIO23
+  #   model: DHT22
+  #   temperature:
+  #     id: esp_thermostat_dht22_temperature
+  #     name: ${node_friendly_name} DHT22 Temperature
+  #     filters:
+  #       - offset: -3.2
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             std::string temperature_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_dht22_temperature).state * 1.8 + 32) + "\xB0";
+  #             id(nextionTextSensor5a).set_state(temperature_string, false, true);
+  #   humidity:
+  #     id: esp_thermostat_dht22_humidity
+  #     name: ${node_friendly_name} DHT22 Humidity
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_dht22_humidity).state) + "%";
+  #             id(nextionTextSensor5b).set_state(humidity_string, false, true);
+  #   update_interval: 15s
   # BME280 sensor
   - platform: bme280
     address: 0x76
@@ -105,7 +100,7 @@ sensor:
       id: esp_thermostat_bme280_temperature
       name: ${node_friendly_name} BME280 Temperature
       filters:
-        - offset: -0.5
+        - offset: -2.2
       on_value:
         then:
           - lambda: |-
@@ -134,7 +129,7 @@ sensor:
       id: esp_thermostat_bme680_temperature
       name: ${node_friendly_name} BME680 Temperature
       filters:
-        - offset: -1.2
+        - offset: -2.4
       on_value:
         then:
           - lambda: |-
@@ -227,7 +222,7 @@ sensor:
       id: esp_thermostat_shtcx_temperature
       name: ${node_friendly_name} SHTC3 Temperature
       filters:
-        - offset: -1.4
+        - offset: -3.2
       on_value:
         then:
           - lambda: |-
@@ -247,7 +242,7 @@ sensor:
     id: esp_thermostat_tmp117_temperature
     name: ${node_friendly_name} TMP117 Temperature
     filters:
-      - offset: -1.5
+      - offset: -3.6
     on_value:
       then:
         - lambda: |-

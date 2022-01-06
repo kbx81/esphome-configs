@@ -1,10 +1,17 @@
 esphome:
   includes: shared/esp_thermostat_nextion.h
-  platform: ESP32
-  board: featheresp32
-  arduino_version: dev
+  # platform: ESP32
+  # board: featheresp32
+  # arduino_version: dev
   platformio_options:
-    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768 -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue
+    # 20211001: to enlarge stack, edit ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/config/sdkconfig.h
+    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768 -DARDUINO_LOOP_STACK_SIZE=32768 -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue
+    # build_flags: -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue
+
+esp32:
+  board: featheresp32
+  framework:
+    type: arduino
 
 api:
   services:
@@ -16,6 +23,27 @@ api:
     - service: update_nextion
       then:
         - lambda: "main_lcd->upload_tft();"
+    - service: set_minimum_brightness
+      variables:
+        minimum_brightness: float
+      then:
+        - globals.set:
+            id: display_min_brightness
+            value: !lambda "return (minimum_brightness >= 0) && (minimum_brightness < 100) ? minimum_brightness : 0;"
+    - service: set_maximum_brightness
+      variables:
+        maximum_brightness: float
+      then:
+        - globals.set:
+            id: display_max_brightness
+            value: !lambda "return (maximum_brightness > 0) && (maximum_brightness <= 100) ? maximum_brightness : 100;"
+    - service: set_brightness_idle_reduction
+      variables:
+        brightness_idle_reduction: float
+      then:
+        - globals.set:
+            id: display_brightness_idle_reduction
+            value: !lambda "return (brightness_idle_reduction >= 0) && (brightness_idle_reduction <= 1) ? brightness_idle_reduction : 0;"
     - service: update_climate_current_temperature
       variables:
         temperature: float
@@ -26,7 +54,7 @@ api:
         - globals.set:
             id: missed_update_count
             value: "0"
-        - lambda: "esp32_thermostat::display_refresh_sensor_pair(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
     - service: update_climate_current_humidity
       variables:
         humidity: float
@@ -37,7 +65,7 @@ api:
         - globals.set:
             id: missed_update_count
             value: "0"
-        - lambda: "esp32_thermostat::display_refresh_sensor_pair(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
     - service: update_climate_table_name
       variables:
         row: int
@@ -88,19 +116,19 @@ api:
             }
             if (id(weather_humidity) != humidity) {
               id(weather_humidity) = humidity;
-              esp32_thermostat::display_refresh_sensor_pair(id(weather_humidity), esp32_thermostat::DS_WEATHER_HUM);
+              esp32_thermostat::display_refresh_sensor(id(weather_humidity), esp32_thermostat::DS_WEATHER_HUM);
             }
             if (id(weather_temperature) != temperature) {
               id(weather_temperature) = temperature;
-              esp32_thermostat::display_refresh_sensor_pair(id(weather_temperature), esp32_thermostat::DS_WEATHER_TEMP);
+              esp32_thermostat::display_refresh_sensor(id(weather_temperature), esp32_thermostat::DS_WEATHER_TEMP);
             }
             if (id(weather_temperature_high) != temperature_high) {
               id(weather_temperature_high) = temperature_high;
-              esp32_thermostat::display_refresh_sensor_pair(id(weather_temperature_high), esp32_thermostat::DS_WEATHER_TEMPHIGH);
+              esp32_thermostat::display_refresh_sensor(id(weather_temperature_high), esp32_thermostat::DS_WEATHER_TEMPHIGH);
             }
             if (id(weather_temperature_low) != temperature_low) {
               id(weather_temperature_low) = temperature_low;
-              esp32_thermostat::display_refresh_sensor_pair(id(weather_temperature_low), esp32_thermostat::DS_WEATHER_TEMPLOW);
+              esp32_thermostat::display_refresh_sensor(id(weather_temperature_low), esp32_thermostat::DS_WEATHER_TEMPLOW);
             }
 
 globals:
@@ -118,6 +146,18 @@ globals:
     type: float
     restore_value: no
     initial_value: "50"
+  - id: display_min_brightness
+    type: float
+    restore_value: yes
+    initial_value: "5"
+  - id: display_max_brightness
+    type: float
+    restore_value: yes
+    initial_value: "100"
+  - id: display_brightness_idle_reduction
+    type: float
+    restore_value: yes
+    initial_value: "0.20"
   # last hour display was fully refreshed
   - id: display_last_full_refresh
     type: int
@@ -175,39 +215,11 @@ globals:
     initial_value: "false"
 
 script:
-  # display screen management
-  - id: button_press
-    mode: restart
-    then:
-      - script.execute: display_on
-      - delay: 120s
-      - lambda: |-
-          if (id(currentPage).state != ${home_page_number})
-            main_lcd->goto_page("main1");
-      # - lambda: 'esp32_thermostat::set_display_page(esp32_thermostat::DisplayPageEnum::MAIN_SCREEN);'
   # display power management
-  - id: display_on
+  - id: motion_sense
     mode: restart
     then:
-      # - lambda: 'id(main_lcd)->turn_on();'
-      # - lambda: 'id(display_brightness) = 100;'
-      - component.update: main_lcd
       - delay: 120s
-      # - lambda: 'id(main_lcd)->turn_off();'
-      # - lambda: 'id(display_brightness) = 0;'
-  # display refresh - everything on current page
-  - id: display_page_refresh
-    mode: restart
-    then:
-      - lambda: |-
-          if (id(currentPage).state == ${home_page_number})
-            id(main_lcd).update_components_by_prefix("${home_page_name}");
-          else if (id(currentPage).state == ${set_points_page_number})
-            id(main_lcd).update_components_by_prefix("${set_points_page_name}");
-          else if (id(currentPage).state == ${rooms_page_number})
-            id(main_lcd).update_components_by_prefix("${rooms_page_name}");
-          else if (id(currentPage).state == ${sensors_page_number})
-            id(main_lcd).update_components_by_prefix("${sensors_page_name}");
   # display refresh coordination
   - id: climate_action_refresh
     mode: restart
@@ -223,6 +235,7 @@ status_led:
 time:
   - platform: homeassistant
     id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
 
 i2c:
   id: i2c_bus
@@ -373,7 +386,7 @@ binary_sensor:
             condition:
               switch.is_on: esp_thermostat_display_on_motion
             then:
-              - script.execute: display_on
+              - script.execute: motion_sense
   - platform: gpio
     id: esp_thermostat_mode_button
     name: ${node_friendly_name} Mode Button
@@ -384,225 +397,11 @@ binary_sensor:
       min_length: 50ms
       max_length: 500ms
       then:
-        - lambda: "esp32_thermostat::mode_button_click();"
-        - component.update: main_lcd
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_off
-    page_id: ${mode_page_number}
-    component_id: ${mode_button_off_id}
-    component_name: ${mode_page_name}.${mode_button_off_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_OFF);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_fan
-    page_id: ${mode_page_number}
-    component_id: ${mode_button_fan_id}
-    component_name: ${mode_page_name}.${mode_button_fan_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_FAN_ONLY);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_cool
-    page_id: ${mode_page_number}
-    component_id: ${mode_button_cool_id}
-    component_name: ${mode_page_name}.${mode_button_cool_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_COOL);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_heat
-    page_id: ${mode_page_number}
-    component_id: ${mode_button_heat_id}
-    component_name: ${mode_page_name}.${mode_button_heat_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_HEAT);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_auto
-    page_id: ${mode_page_number}
-    component_id: ${mode_button_auto_id}
-    component_name: ${mode_page_name}.${mode_button_auto_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_HEAT_COOL);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_fan_mode
-    page_id: ${mode_page_number}
-    component_id: ${mode_button_fan_mode_id}
-    component_name: ${mode_page_name}.${mode_button_fan_mode_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::fan_mode_button_click();"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_down_cool
-    page_id: ${set_points_page_number}
-    component_id: ${set_point_button_upper_down_id}
-    component_name: ${set_points_page_name}.${set_point_button_upper_down_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_high_set_point(-esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_up_cool
-    page_id: ${set_points_page_number}
-    component_id: ${set_point_button_upper_up_id}
-    component_name: ${set_points_page_name}.${set_point_button_upper_up_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_high_set_point(esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_down_heat
-    page_id: ${set_points_page_number}
-    component_id: ${set_point_button_lower_down_id}
-    component_name: ${set_points_page_name}.${set_point_button_lower_down_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_low_set_point(-esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_up_heat
-    page_id: ${set_points_page_number}
-    component_id: ${set_point_button_lower_up_id}
-    component_name: ${set_points_page_name}.${set_point_button_lower_up_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_low_set_point(esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_down_hum
-    page_id: ${set_points_page_number}
-    component_id: ${set_point_button_humidity_down_id}
-    component_name: ${set_points_page_name}.${set_point_button_humidity_down_objname}
-    on_press:
-      then:
-        # - lambda: 'esp32_thermostat::adjust_humidity_set_point(-esp32_thermostat::temp_step_size);'
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_up_hum
-    page_id: ${set_points_page_number}
-    component_id: ${set_point_button_humidity_up_id}
-    component_name: ${set_points_page_name}.${set_point_button_humidity_up_objname}
-    on_press:
-      then:
-        # - lambda: 'esp32_thermostat::adjust_humidity_set_point(esp32_thermostat::temp_step_size);'
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_off_2
-    page_id: ${mode_page_number_2}
-    component_id: ${mode_button_off_id}
-    component_name: ${mode_page_name_2}.${mode_button_off_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_OFF);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_fan_2
-    page_id: ${mode_page_number_2}
-    component_id: ${mode_button_fan_id}
-    component_name: ${mode_page_name_2}.${mode_button_fan_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_FAN_ONLY);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_cool_2
-    page_id: ${mode_page_number_2}
-    component_id: ${mode_button_cool_id}
-    component_name: ${mode_page_name_2}.${mode_button_cool_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_COOL);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_heat_2
-    page_id: ${mode_page_number_2}
-    component_id: ${mode_button_heat_id}
-    component_name: ${mode_page_name_2}.${mode_button_heat_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_HEAT);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_mode_auto_2
-    page_id: ${mode_page_number_2}
-    component_id: ${mode_button_auto_id}
-    component_name: ${mode_page_name_2}.${mode_button_auto_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::set_thermostat_mode(climate::CLIMATE_MODE_HEAT_COOL);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_fan_mode_2
-    page_id: ${mode_page_number_2}
-    component_id: ${mode_button_fan_mode_id}
-    component_name: ${mode_page_name_2}.${mode_button_fan_mode_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::fan_mode_button_click();"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_down_cool_2
-    page_id: ${set_points_page_number_2}
-    component_id: ${set_point_button_upper_down_id}
-    component_name: ${mode_page_name_2}.${set_point_button_upper_down_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_high_set_point(-esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_up_cool_2
-    page_id: ${set_points_page_number_2}
-    component_id: ${set_point_button_upper_up_id}
-    component_name: ${mode_page_name_2}.${set_point_button_upper_up_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_high_set_point(esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_down_heat_2
-    page_id: ${set_points_page_number_2}
-    component_id: ${set_point_button_lower_down_id}
-    component_name: ${mode_page_name_2}.${set_point_button_lower_down_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_low_set_point(-esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_up_heat_2
-    page_id: ${set_points_page_number_2}
-    component_id: ${set_point_button_lower_up_id}
-    component_name: ${mode_page_name_2}.${set_point_button_lower_up_objname}
-    on_press:
-      then:
-        - lambda: "esp32_thermostat::adjust_low_set_point(esp32_thermostat::temp_step_size);"
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_down_hum_2
-    page_id: ${set_points_page_number_2}
-    component_id: ${set_point_button_humidity_down_id}
-    component_name: ${mode_page_name_2}.${set_point_button_humidity_down_objname}
-    on_press:
-      then:
-        # - lambda: 'esp32_thermostat::adjust_humidity_set_point(-esp32_thermostat::temp_step_size);'
-        - script.execute: button_press
-  - platform: nextion
-    id: nextion_touch_up_hum_2
-    page_id: ${set_points_page_number_2}
-    component_id: ${set_point_button_humidity_up_id}
-    component_name: ${mode_page_name_2}.${set_point_button_humidity_up_objname}
-    on_press:
-      then:
-        # - lambda: 'esp32_thermostat::adjust_humidity_set_point(esp32_thermostat::temp_step_size);'
-        - script.execute: button_press
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            mode: "off"
+            fan_mode: "auto"
 
 sensor:
   # template sensor used for thermostat component
@@ -614,26 +413,17 @@ sensor:
     update_interval: 15s
     on_value:
       then:
-        - lambda: "esp32_thermostat::display_refresh_sensor_pair(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
   # template sensor used for humidity
   - platform: template
     id: esp_thermostat_humidity_sensor
     name: ${node_friendly_name} Template Humidity Sensor
     unit_of_measurement: "%"
-    lambda: "return id(esp_thermostat_bme280_humidity).state;"
+    lambda: "return id(esp_thermostat_bme680_humidity).state;"
     update_interval: 15s
     on_value:
       then:
-        - lambda: "esp32_thermostat::display_refresh_sensor_pair(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
-  # Nextion page sensor
-  - platform: nextion
-    nextion_id: main_lcd
-    id: currentPage
-    variable_name: currentPage
-    on_value:
-      then:
-        - script.execute: display_page_refresh
-        - script.execute: button_press
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
   # Nextion climate state (action/mode/fan_mode) sensors
   - platform: nextion
     nextion_id: main_lcd
@@ -643,27 +433,35 @@ sensor:
     nextion_id: main_lcd
     id: nextionClimateMode
     variable_name: climateMode
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            mode: !lambda "return static_cast<climate::ClimateMode>(int(id(nextionClimateMode).state));"
   - platform: nextion
     nextion_id: main_lcd
     id: nextionClimateFanMode
     variable_name: climateFanMode
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            fan_mode: !lambda "return static_cast<climate::ClimateFanMode>(int(id(nextionClimateFanMode).state));"
   # Other Nextion sensors
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTargetBrightness
+    variable_name: targetBrightness
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentTemp
     variable_name: currentTemp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionCurrentTempFrac
-    variable_name: currentTempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionCurrentHum
     variable_name: currentHum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionCurrentHumFrac
-    variable_name: currentHumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetHum
@@ -672,42 +470,52 @@ sensor:
     nextion_id: main_lcd
     id: nextionCurrentSetLower
     variable_name: currentSetLower
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            target_temperature_low: !lambda "return ((id(nextionCurrentSetLower).state / 10) - 32) * 5 / 9;"
+        - lambda: |-
+            if (id(nextionCurrentSetLower).state != (id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10)
+              id(nextionCurrentSetLower).set_state((id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10, false, true);
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetUpper
     variable_name: currentSetUpper
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            target_temperature_high: !lambda "return ((id(nextionCurrentSetUpper).state / 10) - 32) * 5 / 9;"
+        - lambda: |-
+            if (id(nextionCurrentSetUpper).state != (id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10)
+              id(nextionCurrentSetUpper).set_state((id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10, false, true);
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetMin
+    variable_name: currentSetMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetMax
+    variable_name: currentSetMax
   - platform: nextion
     nextion_id: main_lcd
     id: nextionWeatherTemp
     variable_name: weatherTemp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionWeatherTempFrac
-    variable_name: weatherTempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionWeatherHum
     variable_name: weatherHum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionWeatherHumFrac
-    variable_name: weatherHumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionWeatherTempHigh
     variable_name: weatherTempHigh
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionWeatherTempHighFrac
-    variable_name: weatherTempHighFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionWeatherTempLow
     variable_name: weatherTempLow
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionWeatherTempLowFrac
-    variable_name: weatherTempLowFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionWeatherCondIcon
@@ -722,128 +530,64 @@ sensor:
     variable_name: room1Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom1TempFrac
-    variable_name: room1TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom1Hum
     variable_name: room1Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom1HumFrac
-    variable_name: room1HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom2Temp
     variable_name: room2Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom2TempFrac
-    variable_name: room2TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom2Hum
     variable_name: room2Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom2HumFrac
-    variable_name: room2HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom3Temp
     variable_name: room3Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom3TempFrac
-    variable_name: room3TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom3Hum
     variable_name: room3Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom3HumFrac
-    variable_name: room3HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom4Temp
     variable_name: room4Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom4TempFrac
-    variable_name: room4TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom4Hum
     variable_name: room4Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom4HumFrac
-    variable_name: room4HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom5Temp
     variable_name: room5Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom5TempFrac
-    variable_name: room5TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom5Hum
     variable_name: room5Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom5HumFrac
-    variable_name: room5HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom6Temp
     variable_name: room6Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom6TempFrac
-    variable_name: room6TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom6Hum
     variable_name: room6Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom6HumFrac
-    variable_name: room6HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom7Temp
     variable_name: room7Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom7TempFrac
-    variable_name: room7TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom7Hum
     variable_name: room7Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom7HumFrac
-    variable_name: room7HumFrac
   - platform: nextion
     nextion_id: main_lcd
     id: nextionRoom8Temp
     variable_name: room8Temp
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionRoom8TempFrac
-    variable_name: room8TempFrac
-  - platform: nextion
-    nextion_id: main_lcd
     id: nextionRoom8Hum
     variable_name: room8Hum
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionRoom8HumFrac
-    variable_name: room8HumFrac
 
 text_sensor:
   - platform: nextion
@@ -1068,7 +812,7 @@ text_sensor:
     component_name: ${sensors_page_name}.txtSensor8d
 
 switch:
-  # display power
+  # display power (hard/physical)
   - platform: gpio
     id: esp_thermostat_display_power
     name: ${node_friendly_name} Display Power
@@ -1076,18 +820,13 @@ switch:
     pin:
       number: 25
       mode: OUTPUT
-  # display control
+  # display power (soft)
   - platform: template
     id: esp_thermostat_display
     name: ${node_friendly_name} Display
-    turn_on_action:
-      - script.execute: display_on
-    turn_off_action:
-      # - lambda: 'id(main_lcd)->turn_off();'
-      - lambda: "id(display_brightness) = 0;"
-    # lambda: 'return id(main_lcd)->is_on();'
-    lambda: "return id(display_brightness) > 0;"
-  # display control by motion
+    optimistic: true
+    restore_state: true
+  # display brightness control by motion
   - platform: template
     id: esp_thermostat_display_on_motion
     name: ${node_friendly_name} Display On Motion
