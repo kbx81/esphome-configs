@@ -1,0 +1,126 @@
+substitutions:
+  node_name: esp-sensor-toy-with-display
+  node_friendly_name: "Sensor Toy with Display"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP8266
+  board: esp01_1m
+  on_boot:
+    - script.execute: display_on
+
+time:
+  - platform: homeassistant
+    id: esptime
+
+i2c:
+  id: i2c_bus
+  frequency: 200kHz
+  sda: GPIO2
+  scl: GPIO0
+
+font:
+  - file: resources/Helvetica.ttf
+    id: thermostat_large
+    size: 24
+  - file: resources/Helvetica.ttf
+    id: thermostat_medium
+    size: 13
+  - file: resources/Helvetica.ttf
+    id: thermostat_small
+    size: 12
+  - file: resources/Helvetica.ttf
+    id: thermostat_tiny
+    size: 9
+
+script:
+  # display power management
+  - id: display_on
+    mode: restart
+    then:
+      - lambda: "id(main_lcd)->turn_on();"
+      # - lambda: 'id(main_lcd)->set_brightness(0.5);'
+      - delay: 4h
+      # - lambda: 'id(main_lcd)->set_brightness(0.35);'
+
+sensor:
+  - platform: sgp30
+    eco2:
+      name: ${node_friendly_name} SGP30 eCO2
+      accuracy_decimals: 1
+    tvoc:
+      name: ${node_friendly_name} SGP30 TVOC
+      accuracy_decimals: 1
+    compensation:
+      temperature_source: shtcx_temperature
+      humidity_source: shtcx_humidity
+    address: 0x58
+    update_interval: 1s
+  - platform: bme280
+    address: 0x76
+    temperature:
+      id: bme280_temperature
+      name: ${node_friendly_name} BME280 Temperature
+      filters:
+        - offset: -0.5
+    humidity:
+      id: bme280_humidity
+      name: ${node_friendly_name} BME280 Humidity
+    pressure:
+      id: bme280_pressure
+      name: ${node_friendly_name} BME280 Pressure
+    update_interval: 15s
+  - platform: shtcx
+    temperature:
+      id: shtcx_temperature
+      name: ${node_friendly_name} SHTC3 Temperature
+      filters:
+        - offset: -1
+    humidity:
+      id: shtcx_humidity
+      name: ${node_friendly_name} SHTC3 Humidity
+    update_interval: 15s
+  - platform: dht
+    pin: GPIO3
+    model: DHT22
+    temperature:
+      id: dht22_temperature
+      name: ${node_friendly_name} DHT22 Temperature
+    humidity:
+      id: dht22_humidity
+      name: ${node_friendly_name} DHT22 Humidity
+    update_interval: 15s
+
+switch:
+  # display control
+  - platform: template
+    id: esp_display
+    name: ${node_friendly_name} Display
+    turn_on_action:
+      - script.execute: display_on
+    turn_off_action:
+      - lambda: "id(main_lcd)->turn_off();"
+    lambda: "return id(main_lcd)->is_on();"
+
+display:
+  - platform: ssd1306_i2c
+    model: "SH1106 128x64"
+    id: main_lcd
+    # reset_pin: GPIO17
+    brightness: 50%
+    rotation: 180
+    lambda: |-
+      it.strftime(0, 0, id(thermostat_small), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
+      it.strftime(it.get_width() - 1, 0, id(thermostat_small), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
+
+      if (!isnan(id(bme280_temperature).state)) {
+        it.printf(0, it.get_height() - 45, id(thermostat_medium), TextAlign::TOP_LEFT, "Temperature:");
+        it.printf(0, it.get_height() - 30, id(thermostat_medium), TextAlign::TOP_LEFT, "Humidity:");
+        it.printf(0, it.get_height() - 15, id(thermostat_medium), TextAlign::TOP_LEFT, "Pressure:");
+
+        it.printf(it.get_width() - 1, it.get_height() - 45, id(thermostat_medium), TextAlign::TOP_RIGHT, "%.1f°F", id(bme280_temperature).state * 1.8 + 32);
+        it.printf(it.get_width() - 1, it.get_height() - 30, id(thermostat_medium), TextAlign::TOP_RIGHT, "%.1f%%", id(bme280_humidity).state);
+        it.printf(it.get_width() - 1, it.get_height() - 15, id(thermostat_medium), TextAlign::TOP_RIGHT, "%.1f hPa", id(bme280_pressure).state);
+      }

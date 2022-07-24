@@ -1,0 +1,138 @@
+substitutions:
+  node_name: esp-lights-3d-printer
+  node_friendly_name: "3D Printer"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+remote_receiver:
+  id: ir_rx
+  dump: nec
+  pin:
+    inverted: true
+    number: GPIO36
+  on_nec:
+    then:
+      lambda: |-
+        if (x.command == 0xBF40) {
+          auto call1 = id(printer_led_lights).toggle();
+          auto call2 = id(filament_led_lights).toggle();
+          call1.perform();
+          call2.perform();
+        }
+
+binary_sensor:
+  - platform: gpio
+    id: leds_off_button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: printer_led_lights
+        - light.turn_off:
+            id: filament_led_lights
+  - platform: gpio
+    id: printer_led_on_button
+    pin:
+      number: GPIO35
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_on:
+            id: printer_led_lights
+            brightness: 1.0
+            red: 1.0
+            green: 0.933
+            blue: 0.753
+            white: 1.0
+  - platform: gpio
+    id: filament_led_on_button
+    pin:
+      number: GPIO34
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_on:
+            id: filament_led_lights
+            brightness: 0.5
+            red: 1.0
+            green: 0.933
+            blue: 0.753
+            white: 1.0
+  # - platform: remote_receiver
+  #   id: led_remote_power
+  #   # name: "LED Remote Power"
+  #   nec:
+  #     address: 0x00FF
+  #     command: 0xBF40
+  #   on_press:
+  #     then:
+  #       - light.toggle: printer_led_lights
+  #       - light.toggle: filament_led_lights
+
+light:
+  - platform: rgbw
+    id: printer_led_lights
+    name: ${node_friendly_name} Enclosure Lights
+    red: printer_pwm_red_channel
+    green: printer_pwm_green_channel
+    blue: printer_pwm_blue_channel
+    white: printer_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+  - platform: rgbw
+    id: filament_led_lights
+    name: ${node_friendly_name} Filament Lights
+    red: filament_pwm_red_channel
+    green: filament_pwm_green_channel
+    blue: filament_pwm_blue_channel
+    white: filament_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+
+output:
+  - platform: ledc
+    id: printer_pwm_red_channel
+    pin: GPIO16
+  - platform: ledc
+    id: printer_pwm_green_channel
+    pin: GPIO18
+  - platform: ledc
+    id: printer_pwm_blue_channel
+    pin: GPIO13
+  - platform: ledc
+    id: printer_pwm_white_channel
+    pin: GPIO27
+  - platform: ledc
+    id: filament_pwm_red_channel
+    pin: GPIO25
+  - platform: ledc
+    id: filament_pwm_green_channel
+    pin: GPIO26
+  - platform: ledc
+    id: filament_pwm_blue_channel
+    pin: GPIO33
+  - platform: ledc
+    id: filament_pwm_white_channel
+    pin: GPIO32

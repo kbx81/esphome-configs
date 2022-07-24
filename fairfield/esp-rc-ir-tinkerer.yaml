@@ -1,0 +1,550 @@
+substitutions:
+  node_name: esp-rc-ir-tinkerer
+  node_friendly_name: "IR Tinkerer"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+  platformio_options:
+    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768 -D_GLIBCXX_USE_C99=1
+
+api:
+  services:
+    - service: set_nec_code
+      variables:
+        address: string
+        command: string
+      then:
+        - globals.set:
+            id: nec_address
+            value: !lambda 'return std::stoul(address, id(pos), 0);'
+        - globals.set:
+            id: nec_command
+            value: !lambda 'return std::stoul(command, id(pos), 0);'
+        - switch.turn_on: transmit_nec
+    - service: set_nec_code_short
+      variables:
+        address: int
+        command: int
+      then:
+        - globals.set:
+            id: nec_address_a
+            value: !lambda 'return address;'
+        - globals.set:
+            id: nec_command_a
+            value: !lambda 'return command;'
+        - script.execute: nec_send_from_parts
+    - service: set_panasonic_code
+      variables:
+        address: string
+        command: string
+      then:
+        - globals.set:
+            id: panasonic_address
+            value: !lambda 'return std::stoul(address, id(pos), 0);'
+        - globals.set:
+            id: panasonic_command
+            value: !lambda 'return std::stoul(command, id(pos), 0);'
+        - switch.turn_on: transmit_panasonic
+    - service: set_samsung_code
+      variables:
+        data: string
+        nbits: string
+      then:
+        - globals.set:
+            id: samsung_data
+            value: !lambda 'return std::stoull(data, id(pos), 0);'
+        - globals.set:
+            id: samsung_nbits
+            value: !lambda 'return std::stoul(nbits, id(pos), 0);'
+        - switch.turn_on: transmit_toshiba_ac
+    - service: set_toshiba_ac_code
+      variables:
+        rc_code_1: string
+        rc_code_2: string
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1
+            value: !lambda 'return std::stoull(rc_code_1, id(pos), 0);'
+        - globals.set:
+            id: toshiba_ac_rc_code_2
+            value: !lambda 'return std::stoull(rc_code_2, id(pos), 0);'
+        - switch.turn_on: transmit_toshiba_ac
+    - service: set_toshiba_ac_codes_by_parts
+      variables:
+        rc_code_1a: int
+        rc_code_1b: int
+        rc_code_1c: int
+        rc_code_2a: int
+        rc_code_2b: int
+        rc_code_2c: int
+        rc_code_2d: int
+        rc_code_2e: int
+        rc_code_2f: int
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1a
+            value: !lambda 'return rc_code_1a;'
+        - globals.set:
+            id: toshiba_ac_rc_code_1b
+            value: !lambda 'return rc_code_1b;'
+        - globals.set:
+            id: toshiba_ac_rc_code_1c
+            value: !lambda 'return rc_code_1c;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2a
+            value: !lambda 'return rc_code_2a;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2b
+            value: !lambda 'return rc_code_2b;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2c
+            value: !lambda 'return rc_code_2c;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2d
+            value: !lambda 'return rc_code_2d;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2e
+            value: !lambda 'return rc_code_2e;'
+        - globals.set:
+            id: toshiba_ac_rc_code_2f
+            value: !lambda 'return rc_code_2f;'
+        - script.execute: toshiba_send_from_parts
+    ### Code increment/decrement services -- NEC ###
+    - service: increment_nec_address
+      then:
+        - globals.set:
+            id: nec_address_a
+            value: !lambda 'return id(nec_address_a) + 1;'
+        - script.execute: nec_send_from_parts
+    - service: decrement_nec_address
+      then:
+        - globals.set:
+            id: nec_address_a
+            value: !lambda 'return id(nec_address_a) - 1;'
+        - script.execute: nec_send_from_parts
+    - service: increment_nec_command
+      then:
+        - globals.set:
+            id: nec_command_a
+            value: !lambda 'return id(nec_command_a) + 1;'
+        - script.execute: nec_send_from_parts
+    - service: decrement_nec_command
+      then:
+        - globals.set:
+            id: nec_command_a
+            value: !lambda 'return id(nec_command_a) - 1;'
+        - script.execute: nec_send_from_parts
+    ### Code increment/decrement services -- Panasonic ###
+    - service: increment_panasonic_address
+      then:
+        - globals.set:
+            id: panasonic_address
+            value: !lambda 'return id(panasonic_address) + 1;'
+        - switch.turn_on: transmit_panasonic
+    - service: decrement_panasonic_address
+      then:
+        - globals.set:
+            id: panasonic_address
+            value: !lambda 'return id(panasonic_address) - 1;'
+        - switch.turn_on: transmit_panasonic
+    - service: increment_panasonic_command
+      then:
+        - globals.set:
+            id: panasonic_command
+            value: !lambda 'return id(panasonic_command) + 1;'
+        - switch.turn_on: transmit_panasonic
+    - service: decrement_panasonic_command
+      then:
+        - globals.set:
+            id: panasonic_command
+            value: !lambda 'return id(panasonic_command) - 1;'
+        - switch.turn_on: transmit_panasonic
+    ### Code increment/decrement services -- Samsung ###
+    - service: increment_samsung_data
+      then:
+        - globals.set:
+            id: samsung_data
+            value: !lambda 'return id(samsung_data) + 1;'
+        - switch.turn_on: transmit_samsung
+    - service: decrement_samsung_data
+      then:
+        - globals.set:
+            id: samsung_data
+            value: !lambda 'return id(samsung_data) - 1;'
+        - switch.turn_on: transmit_samsung
+    ### Code increment/decrement services -- Toshiba ###
+    - service: increment_toshiba_ac_rc_code_1a
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1a
+            value: !lambda 'return id(toshiba_ac_rc_code_1a) + 1;'
+        - script.execute: toshiba_send_from_parts
+    - service: decrement_toshiba_ac_rc_code_1a
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1a
+            value: !lambda 'return id(toshiba_ac_rc_code_1a) - 1;'
+        - script.execute: toshiba_send_from_parts
+    - service: increment_toshiba_ac_rc_code_1b
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1b
+            value: !lambda 'return id(toshiba_ac_rc_code_1b) + 1;'
+        - script.execute: toshiba_send_from_parts
+    - service: decrement_toshiba_ac_rc_code_1b
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1b
+            value: !lambda 'return id(toshiba_ac_rc_code_1b) - 1;'
+        - script.execute: toshiba_send_from_parts
+    - service: increment_toshiba_ac_rc_code_1c
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1c
+            value: !lambda 'return id(toshiba_ac_rc_code_1c) + 1;'
+        - script.execute: toshiba_send_from_parts
+    - service: decrement_toshiba_ac_rc_code_1c
+      then:
+        - globals.set:
+            id: toshiba_ac_rc_code_1c
+            value: !lambda 'return id(toshiba_ac_rc_code_1c) - 1;'
+        - script.execute: toshiba_send_from_parts
+
+script:
+  - id: nec_send_from_parts
+    mode: restart
+    then:
+      - lambda: |-
+          uint16_t address = id(nec_address_a);
+          uint16_t command = id(nec_command_a);
+          address = (address << 8) | static_cast<uint8_t>(~id(nec_address_a));
+          command = (command << 8) | static_cast<uint8_t>(~id(nec_command_a));
+          id(nec_address) = address;
+          id(nec_command) = command;
+      - switch.turn_on: transmit_nec
+  - id: toshiba_send_from_parts
+    mode: restart
+    then:
+      - lambda: |-
+          uint64_t code = id(toshiba_ac_rc_code_1a);
+          code = (code << 8) | static_cast<uint8_t>(~id(toshiba_ac_rc_code_1a));
+          code = (code << 8) | id(toshiba_ac_rc_code_1b);
+          code = (code << 8) | static_cast<uint8_t>(~id(toshiba_ac_rc_code_1b));
+          code = (code << 8) | id(toshiba_ac_rc_code_1c);
+          code = (code << 8) | static_cast<uint8_t>(~id(toshiba_ac_rc_code_1c));
+          id(toshiba_ac_rc_code_1) = code;
+          code = id(toshiba_ac_rc_code_2a);
+          code = (code << 8) | id(toshiba_ac_rc_code_2b);
+          code = (code << 8) | id(toshiba_ac_rc_code_2c);
+          code = (code << 8) | id(toshiba_ac_rc_code_2d);
+          code = (code << 8) | id(toshiba_ac_rc_code_2e);
+          if (id(toshiba_ac_rc_code_2f) == 0) {
+            uint8_t checksum = id(toshiba_ac_rc_code_2a) + id(toshiba_ac_rc_code_2b) + id(toshiba_ac_rc_code_2c) + id(toshiba_ac_rc_code_2d) + id(toshiba_ac_rc_code_2e);
+            code = (code << 8) | checksum;
+          } else {
+            code = (code << 8) | id(toshiba_ac_rc_code_2f);
+          }
+          id(toshiba_ac_rc_code_2) = code;
+      - switch.turn_on: transmit_toshiba_ac
+
+globals:
+  - id: pos
+    type: std::size_t*
+    restore_value: no
+    initial_value: 'nullptr'
+  # codes we'll send
+  - id: nec_address
+    type: uint16_t
+    restore_value: yes
+    initial_value: '0'
+  - id: nec_command
+    type: uint16_t
+    restore_value: yes
+    initial_value: '0'
+  - id: panasonic_address
+    type: uint16_t
+    restore_value: yes
+    initial_value: '0'
+  - id: panasonic_command
+    type: uint32_t
+    restore_value: yes
+    initial_value: '0'
+  - id: samsung_data
+    type: uint64_t
+    restore_value: yes
+    initial_value: '0'
+  - id: samsung_nbits
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_1
+    type: uint64_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2
+    type: uint64_t
+    restore_value: yes
+    initial_value: '0'
+  # code parts we'll send
+  - id: nec_address_a
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: nec_command_a
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_1a
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_1b
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_1c
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2a
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2b
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2c
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2d
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2e
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+  - id: toshiba_ac_rc_code_2f
+    type: uint8_t
+    restore_value: yes
+    initial_value: '0'
+
+status_led:
+  pin:
+    number: GPIO13
+    inverted: true
+
+remote_receiver:
+  id: ir_rx
+  # dump: [ samsung, toshiba_ac ]
+  # dump: all
+  # dump: raw
+  # dump: toshiba_ac
+  dump: [ nec, toshiba_ac ]
+  # idle: 4ms
+  # tolerance: 10%
+  pin:
+    inverted: true
+    number: GPIO34
+
+remote_transmitter:
+  - id: ir_tx
+    pin: GPIO12
+    carrier_duty_percent: 50%
+  # - pin: GPIO15
+  #   id: rf_tx
+  #   carrier_duty_percent: 100%
+
+binary_sensor:
+  - platform: gpio
+    id: gpio_0
+    name: ${node_friendly_name} IO0 Button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.turn_on: transmit_toshiba_ac
+
+switch:
+  ### Transmit action switches ###
+  - platform: template
+    id: transmit_nec
+    name: Transmit NEC
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: !lambda 'return id(nec_address);'
+          command: !lambda 'return id(nec_command);'
+      - lambda: 'ESP_LOGD("IR Tinkerer", "Sent NEC: address=0x%04X, command=0x%04X", id(nec_address), id(nec_command));'
+  - platform: template
+    id: transmit_panasonic
+    name: Transmit Panasonic
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: !lambda 'return id(panasonic_address);'
+          command: !lambda 'return id(panasonic_command);'
+      - lambda: 'ESP_LOGD("IR Tinkerer", "Sent Panasonic: address=0x%04X, command=0x%04X", id(panasonic_address), id(panasonic_command));'
+  - platform: template
+    id: transmit_samsung
+    name: Transmit Samsung
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: !lambda 'return id(samsung_data);'
+          nbits: !lambda 'return id(samsung_nbits);'
+      - lambda: 'ESP_LOGD("IR Tinkerer", "Sent Samsung: data=0x%" PRIX64 ", nbits=%u", id(samsung_data), id(samsung_nbits));'
+  - platform: template
+    id: transmit_toshiba_ac
+    name: Transmit Toshiba AC
+    turn_on_action:
+      - remote_transmitter.transmit_toshiba_ac:
+          transmitter_id: ir_tx
+          rc_code_1: !lambda 'return id(toshiba_ac_rc_code_1);'
+          rc_code_2: !lambda 'return id(toshiba_ac_rc_code_2);'
+      - lambda: |-
+          if (id(toshiba_ac_rc_code_2) != 0)
+            ESP_LOGD("IR Tinkerer", "Sent Toshiba AC: rc_code_1=0x%" PRIX64 ", rc_code_2=0x%" PRIX64, id(toshiba_ac_rc_code_1), id(toshiba_ac_rc_code_2));
+          else
+            ESP_LOGD("IR Tinkerer", "Sent Toshiba AC: rc_code_1=0x%" PRIX64, id(toshiba_ac_rc_code_1));
+  ### Code increment/decrement switches -- NEC ###
+  - platform: template
+    id: increment_nec_address
+    name: NEC Address Increment
+    turn_on_action:
+      - globals.set:
+          id: nec_address
+          value: !lambda 'return id(nec_address_a) + 1;'
+      - script.execute: nec_send_from_parts
+  - platform: template
+    id: decrement_nec_address
+    name: NEC Address Decrement
+    turn_on_action:
+      - globals.set:
+          id: nec_address
+          value: !lambda 'return id(nec_address_a) - 1;'
+      - script.execute: nec_send_from_parts
+  - platform: template
+    id: increment_nec_command
+    name: NEC Command Increment
+    turn_on_action:
+      - globals.set:
+          id: nec_command
+          value: !lambda 'return id(nec_command_a) + 1;'
+      - script.execute: nec_send_from_parts
+  - platform: template
+    id: decrement_nec_command
+    name: NEC Command Decrement
+    turn_on_action:
+      - globals.set:
+          id: nec_command
+          value: !lambda 'return id(nec_command_a) - 1;'
+      - script.execute: nec_send_from_parts
+  ### Code increment/decrement switches -- Panasonic ###
+  - platform: template
+    id: increment_panasonic_address
+    name: Panasonic Address Increment
+    turn_on_action:
+      - globals.set:
+          id: panasonic_address
+          value: !lambda 'return id(panasonic_address) + 1;'
+      - switch.turn_on: transmit_panasonic
+  - platform: template
+    id: decrement_panasonic_address
+    name: Panasonic Address Decrement
+    turn_on_action:
+      - globals.set:
+          id: panasonic_address
+          value: !lambda 'return id(panasonic_address) - 1;'
+      - switch.turn_on: transmit_panasonic
+  - platform: template
+    id: increment_panasonic_command
+    name: Panasonic Command Increment
+    turn_on_action:
+      - globals.set:
+          id: panasonic_command
+          value: !lambda 'return id(panasonic_command) + 1;'
+      - switch.turn_on: transmit_panasonic
+  - platform: template
+    id: decrement_panasonic_command
+    name: Panasonic Command Decrement
+    turn_on_action:
+      - globals.set:
+          id: panasonic_command
+          value: !lambda 'return id(panasonic_command) - 1;'
+      - switch.turn_on: transmit_panasonic
+  ### Code increment/decrement switches -- Samsung ###
+  - platform: template
+    id: increment_samsung_data
+    name: Samsung Data Increment
+    turn_on_action:
+      - globals.set:
+          id: samsung_data
+          value: !lambda 'return id(samsung_data) + 1;'
+      - switch.turn_on: transmit_samsung
+  - platform: template
+    id: decrement_samsung_data
+    name: Samsung Data Decrement
+    turn_on_action:
+      - globals.set:
+          id: samsung_data
+          value: !lambda 'return id(samsung_data) - 1;'
+      - switch.turn_on: transmit_samsung
+  ### Code increment/decrement switches -- Toshiba ###
+  - platform: template
+    id: increment_toshiba_ac_rc_code_1a
+    name: Toshiba AC Code 1a Increment
+    turn_on_action:
+      - globals.set:
+          id: toshiba_ac_rc_code_1a
+          value: !lambda 'return id(toshiba_ac_rc_code_1a) + 1;'
+      - script.execute: toshiba_send_from_parts
+  - platform: template
+    id: decrement_toshiba_ac_rc_code_1a
+    name: Toshiba AC Code 1a Decrement
+    turn_on_action:
+      - globals.set:
+          id: toshiba_ac_rc_code_1a
+          value: !lambda 'return id(toshiba_ac_rc_code_1a) - 1;'
+      - script.execute: toshiba_send_from_parts
+  - platform: template
+    id: increment_toshiba_ac_rc_code_1b
+    name: Toshiba AC Code 1b Increment
+    turn_on_action:
+      - globals.set:
+          id: toshiba_ac_rc_code_1b
+          value: !lambda 'return id(toshiba_ac_rc_code_1b) + 1;'
+      - script.execute: toshiba_send_from_parts
+  - platform: template
+    id: decrement_toshiba_ac_rc_code_1b
+    name: Toshiba AC Code 1b Decrement
+    turn_on_action:
+      - globals.set:
+          id: toshiba_ac_rc_code_1b
+          value: !lambda 'return id(toshiba_ac_rc_code_1b) - 1;'
+      - script.execute: toshiba_send_from_parts
+  - platform: template
+    id: increment_toshiba_ac_rc_code_1c
+    name: Toshiba AC Code 1c Increment
+    turn_on_action:
+      - globals.set:
+          id: toshiba_ac_rc_code_1c
+          value: !lambda 'return id(toshiba_ac_rc_code_1c) + 1;'
+      - script.execute: toshiba_send_from_parts
+  - platform: template
+    id: decrement_toshiba_ac_rc_code_1c
+    name: Toshiba AC Code 1c Decrement
+    turn_on_action:
+      - globals.set:
+          id: toshiba_ac_rc_code_1c
+          value: !lambda 'return id(toshiba_ac_rc_code_1c) - 1;'
+      - script.execute: toshiba_send_from_parts

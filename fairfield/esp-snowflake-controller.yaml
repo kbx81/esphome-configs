@@ -1,0 +1,77 @@
+substitutions:
+  node_name: esp-snowflake-controller
+  node_friendly_name: "Snowflake"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP8266
+  board: esp01_1m
+
+globals:
+  # makes sure we don't switch the snowflakes' state if it's already in the desired state
+  - id: snowflake_state
+    type: bool
+    initial_value: "false"
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
+
+switch:
+  - platform: gpio
+    id: snowflake_button
+    name: ${node_friendly_name} Button
+    pin: GPIO0
+  - platform: gpio
+    id: snowflake_power_enable
+    name: ${node_friendly_name} Power Enable
+    pin: GPIO1
+  - platform: template
+    id: snowflake_power
+    name: ${node_friendly_name} Power
+    lambda: 'return id(snowflake_state);'
+    turn_off_action:
+      - if:
+          condition:
+            lambda: 'return id(snowflake_state);'
+          then:
+            - globals.set:
+                id: snowflake_state
+                value: 'false'
+            - switch.turn_on: snowflake_button
+            - delay: 2250ms
+            - switch.turn_off: snowflake_button
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return !id(snowflake_state);'
+          then:
+            - globals.set:
+                id: snowflake_state
+                value: 'true'
+            - switch.turn_on: snowflake_button
+            - delay: 500ms
+            - switch.turn_off: snowflake_button
+  - platform: template
+    id: snowflake_button_short_press
+    name: ${node_friendly_name} Button Short Press
+    turn_on_action:
+      - switch.turn_on: snowflake_button
+      - delay: 500ms
+      - switch.turn_off: snowflake_button
+  - platform: template
+    id: snowflake_button_long_press
+    name: ${node_friendly_name} Button Long Press
+    turn_on_action:
+      - switch.turn_on: snowflake_button
+      - delay: 2250ms
+      - switch.turn_off: snowflake_button
+
+binary_sensor:
+  - platform: gpio
+    id: snowflake_button_input
+    name: ${node_friendly_name} Button Input
+    pin: GPIO3

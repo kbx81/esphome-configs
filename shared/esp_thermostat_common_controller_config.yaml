@@ -1,0 +1,174 @@
+mcp23017:
+  - id: mcp23017_hub
+    address: 0x20
+    # open_drain_interrupt: 'true'
+
+switch:
+  # - platform: gpio
+  #   id: esp_thermostat_dht22_vcc
+  #   name: ${node_friendly_name} DHT22 Vcc
+  #   internal: true
+  #   pin:
+  #     number: 25
+  #     mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_thermistor_vcc
+    name: ${node_friendly_name} Thermistor Vcc
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      number: 33
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_mcp23017_reset
+    name: ${node_friendly_name} MCP23017 Reset
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      number: 4
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    id: esp_thermostat_fan
+    name: ${node_friendly_name} Fan
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 0
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_cool_1
+    name: ${node_friendly_name} Cool 1
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 1
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_cool_2
+    name: ${node_friendly_name} Cool 2
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 2
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_heat_1
+    name: ${node_friendly_name} Heat 1
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 3
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_heat_2
+    name: ${node_friendly_name} Heat 2
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 4
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_humidify
+    name: ${node_friendly_name} Humidify
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 5
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_misc_2
+    name: ${node_friendly_name} Misc 2
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 6
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_triac_misc_3
+    name: ${node_friendly_name} Misc 3
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 7
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_relay_1
+    name: ${node_friendly_name} Relay 1
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 8
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_relay_2
+    name: ${node_friendly_name} Relay 2
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 9
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_relay_3
+    name: ${node_friendly_name} Relay 3
+    # internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 10
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_to_1
+    name: ${node_friendly_name} Test Output 1
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 11
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_to_2
+    name: ${node_friendly_name} Test Output 2
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 12
+      mode: OUTPUT
+  - platform: gpio
+    id: esp_thermostat_to_3
+    name: ${node_friendly_name} Test Output 3
+    internal: true
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp23017_hub
+      number: 13
+      mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_thermostat_to_4
+  #   name: ${node_friendly_name} Test Output 4
+  #   internal: true
+  #   restore_mode: ALWAYS_OFF
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 14
+  #     mode: OUTPUT
+  # - platform: gpio
+  #   id: esp_thermostat_to_5
+  #   name: ${node_friendly_name} Test Output 5
+  #   internal: true
+  #   restore_mode: ALWAYS_OFF
+  #   pin:
+  #     mcp23xxx: mcp23017_hub
+  #     number: 15
+  #     mode: OUTPUT

@@ -1,0 +1,225 @@
+substitutions:
+  node_name: esp-lights-front-room-column-sw
+  node_friendly_name: "Front Room Southwest Column Lamp"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+remote_receiver:
+  id: ir_rx
+  dump: nec
+  pin:
+    inverted: true
+    number: GPIO36
+  on_nec:
+    then:
+      lambda: |-
+        if (x.command == 0xBF40) {
+          auto call1 = id(lamp_leds).toggle();
+          auto call2 = id(lamp_uplight_leds).toggle();
+          auto call3 = id(left_leds).toggle();
+          auto call4 = id(right_leds).toggle();
+          call1.perform();
+          call2.perform();
+          call3.perform();
+          call4.perform();
+        }
+
+binary_sensor:
+  # - platform: remote_receiver
+  #   id: led_remote_power
+  #   nec:
+  #     address: 0x00FF
+  #     command: 0xBF40
+  #   on_press:
+  #     then:
+  #       - light.toggle: lamp_leds
+  #       - light.toggle: lamp_uplight_leds
+  #       - light.toggle: left_leds
+  #       - light.toggle: right_leds
+  - platform: gpio
+    id: leds_off_button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: lamp_leds
+        - light.turn_off:
+            id: lamp_uplight_leds
+        - light.turn_off:
+            id: left_leds
+        - light.turn_off:
+            id: right_leds
+  # - platform: gpio
+  #   id: lamp_leds_on_button
+  #   pin:
+  #     number: GPIO35
+  #     inverted: true
+  #   on_click:
+  #     min_length: 50ms
+  #     max_length: 500ms
+  #     then:
+  #       - light.turn_on:
+  #           id: lamp_leds
+  #           brightness: 1.0
+  #           red: 1.0
+  #           green: 0.933
+  #           blue: 0.753
+  #           white: 1.0
+  # - platform: gpio
+  #   id: lamp_uplight_leds_on_button
+  #   pin:
+  #     number: GPIO34
+  #     inverted: true
+  #   on_click:
+  #     min_length: 50ms
+  #     max_length: 500ms
+  #     then:
+  #       - light.turn_on:
+  #           id: lamp_uplight_leds
+  #           brightness: 1.0
+  #           red: 1.0
+  #           green: 0.933
+  #           blue: 0.753
+  #           white: 1.0
+  # - platform: gpio
+  #   id: left_leds_on_button
+  #   pin:
+  #     number: GPIO39
+  #     inverted: true
+  #   on_click:
+  #     min_length: 50ms
+  #     max_length: 500ms
+  #     then:
+  #       - light.turn_on:
+  #           id: left_leds
+  #           brightness: 0.5
+  #           red: 1.0
+  #           green: 0.933
+  #           blue: 0.753
+  #           white: 1.0
+  # - platform: gpio
+  #   id: right_leds_on_button
+  #   pin:
+  #     number: GPIO36
+  #     inverted: true
+  #   on_click:
+  #     min_length: 50ms
+  #     max_length: 500ms
+  #     then:
+  #       - light.turn_on:
+  #           id: right_leds
+  #           brightness: 0.5
+  #           red: 1.0
+  #           green: 0.933
+  #           blue: 0.753
+  #           white: 1.0
+
+light:
+  - platform: rgbw
+    id: lamp_leds
+    name: ${node_friendly_name}
+    red: lamp_pwm_red_channel
+    green: lamp_pwm_green_channel
+    blue: lamp_pwm_blue_channel
+    white: lamp_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+  - platform: rgbw
+    id: lamp_uplight_leds
+    name: ${node_friendly_name} Uplight
+    red: lamp_uplight_pwm_red_channel
+    green: lamp_uplight_pwm_green_channel
+    blue: lamp_uplight_pwm_blue_channel
+    white: lamp_uplight_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+  - platform: rgbw
+    id: left_leds
+    name: ${node_friendly_name} Post Left
+    red: left_pwm_red_channel
+    green: left_pwm_green_channel
+    blue: left_pwm_blue_channel
+    white: left_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+  - platform: rgbw
+    id: right_leds
+    name: ${node_friendly_name} Post Right
+    red: right_pwm_red_channel
+    green: right_pwm_green_channel
+    blue: right_pwm_blue_channel
+    white: right_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+
+output:
+  - platform: ledc
+    id: lamp_pwm_red_channel
+    pin: GPIO16
+  - platform: ledc
+    id: lamp_pwm_green_channel
+    pin: GPIO18
+  - platform: ledc
+    id: lamp_pwm_blue_channel
+    pin: GPIO13
+  - platform: ledc
+    id: lamp_pwm_white_channel
+    pin: GPIO27
+  - platform: ledc
+    id: lamp_uplight_pwm_red_channel
+    pin: GPIO15
+  - platform: ledc
+    id: lamp_uplight_pwm_green_channel
+    pin: GPIO17
+  - platform: ledc
+    id: lamp_uplight_pwm_blue_channel
+    pin: GPIO12
+  - platform: ledc
+    id: lamp_uplight_pwm_white_channel
+    pin: GPIO14
+  - platform: ledc
+    id: left_pwm_red_channel
+    pin: GPIO22
+  - platform: ledc
+    id: left_pwm_green_channel
+    pin: GPIO23
+  - platform: ledc
+    id: left_pwm_blue_channel
+    pin: GPIO19
+  - platform: ledc
+    id: left_pwm_white_channel
+    pin: GPIO21
+  - platform: ledc
+    id: right_pwm_red_channel
+    pin: GPIO25
+  - platform: ledc
+    id: right_pwm_green_channel
+    pin: GPIO26
+  - platform: ledc
+    id: right_pwm_blue_channel
+    pin: GPIO32
+  - platform: ledc
+    id: right_pwm_white_channel
+    pin: GPIO33

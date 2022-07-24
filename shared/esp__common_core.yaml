@@ -1,0 +1,43 @@
+substitutions:
+  <<: !include esp__common_secrets.yaml
+
+esphome:
+  name: ${node_name}
+  build_path: ../build/${node_name}
+
+preferences:
+  flash_write_interval: 2min
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  reboot_timeout: 120min
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${node_name}
+    password: "W81pKxXbMA5c"
+
+# captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API and define services
+api:
+  encryption:
+    key: ${api_key}
+  password: ${api_password}
+  reboot_timeout: 120min
+
+ota:
+  password: ${ota_password}
+
+button:
+  - platform: restart
+    name: ${node_friendly_name} Restart
+
+sensor:
+  - platform: wifi_signal
+    name: ${node_friendly_name} Wi-Fi Signal
+    update_interval: 15s

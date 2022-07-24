@@ -1,0 +1,88 @@
+substitutions:
+  node_name: esp-pulse-counter
+  node_friendly_name: "Pulse Counter"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esp8266:
+  board: d1_mini
+  framework:
+    version: recommended
+
+# status_led:
+#   pin:
+#     number: GPIO2
+#     inverted: true
+
+binary_sensor:
+  - platform: gpio
+    id: esp_pulse_counter_pulse_sensor
+    name: ${node_friendly_name} Pulse Sensor
+    pin:
+      number: GPIO13
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_release:
+      then:
+        - if:
+            condition:
+              switch.is_on: esp_pulse_counter_count_down
+            then:
+              - number.set:
+                  id: esp_pulse_counter
+                  value: !lambda 'return id(esp_pulse_counter).state - 1;'
+            else:
+              - number.set:
+                  id: esp_pulse_counter
+                  value: !lambda 'return id(esp_pulse_counter).state + 1;'
+        - if:
+            condition:
+              lambda: 'return id(esp_pulse_counter).state == id(esp_pulse_counter_target).state;'
+            then:
+              - light.turn_on: esp_pulse_counter_alert
+              - number.set:
+                  id: esp_pulse_counter_target
+                  value: !lambda 'return id(esp_pulse_counter).state + id(esp_pulse_counter_auto_inc).state;'
+
+light:
+  - platform: status_led
+    id: esp_pulse_counter_alert
+    name: ${node_friendly_name} Alert Light
+    pin:
+      number: GPIO2
+      inverted: true
+
+switch:
+  - platform: template
+    id: esp_pulse_counter_count_down
+    name: ${node_friendly_name} Count Down
+    optimistic: true
+
+number:
+  - platform: template
+    id: esp_pulse_counter
+    name: ${node_friendly_name} Count
+    optimistic: true
+    min_value: 0
+    max_value: 1000000
+    step: 1
+    initial_value: 0
+  - platform: template
+    id: esp_pulse_counter_target
+    name: ${node_friendly_name} Count Target
+    optimistic: true
+    min_value: 0
+    max_value: 1000000
+    step: 1
+    initial_value: 0
+  - platform: template
+    id: esp_pulse_counter_auto_inc
+    name: ${node_friendly_name} Auto-Increment Value
+    optimistic: true
+    min_value: 0
+    max_value: 1000000
+    step: 1
+    initial_value: 0

@@ -1,0 +1,121 @@
+esp32:
+  board: featheresp32
+  framework:
+    type: arduino
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+# remote_receiver:
+#   id: ir_rx
+#   dump: nec
+#   pin:
+#     inverted: true
+#     number: GPIO36
+#   on_nec:
+#     then:
+#       lambda: |-
+#         if (x.command == 0xBF40) {
+#           auto call1 = id(printer_led_lights).toggle();
+#           auto call2 = id(filament_led_lights).toggle();
+#           call1.perform();
+#           call2.perform();
+#         }
+
+binary_sensor:
+  - platform: gpio
+    id: down_button
+    pin:
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: neon_light_dac
+            transition_length: 0s
+        - light.turn_off:
+            id: neon_light_pwm
+            transition_length: 0s
+  - platform: gpio
+    id: up_button
+    pin:
+      number: GPIO2
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_on:
+            id: neon_light_dac
+            brightness: 1.0
+            transition_length: 0s
+        # - light.turn_on:
+        #     id: neon_light_pwm
+        #     brightness: 1.0
+        #     transition_length: 0s
+  - platform: gpio
+    name: ${node_friendly_name} Fault
+    id: fault_sensor
+    pin:
+      number: GPIO34
+      inverted: true
+#   - platform: remote_receiver
+#     id: led_remote_power
+#     # name: "LED Remote Power"
+#     nec:
+#       address: 0x00FF
+#       command: 0xBF40
+#     on_press:
+#       then:
+#         - light.toggle: printer_led_lights
+#         - light.toggle: filament_led_lights
+
+switch:
+  - platform: gpio
+    id: neon_enable
+    # name: ${node_friendly_name} Enable
+    restore_mode: ALWAYS_OFF
+    pin:
+      number: 27
+      mode: OUTPUT
+
+light:
+  - platform: monochromatic
+    id: neon_light_dac
+    name: ${node_friendly_name}
+    # name: ${node_friendly_name} DAC
+    restore_mode: ALWAYS_OFF
+    output: neon_dac_output
+    on_turn_off:
+      - switch.turn_off: neon_enable
+    on_turn_on:
+      - switch.turn_on: neon_enable
+  - platform: monochromatic
+    id: neon_light_pwm
+    # name: ${node_friendly_name} PWM
+    restore_mode: ALWAYS_OFF
+    output: neon_pwm_output
+    on_turn_off:
+      - switch.turn_off: neon_enable
+    on_turn_on:
+      - switch.turn_on: neon_enable
+
+output:
+  - platform: esp32_dac
+    pin: 25
+    id: neon_dac_output
+    max_power: ${dac_max_power}
+  - platform: ledc
+    id: neon_pwm_output
+    pin: 26
+    frequency: 330Hz

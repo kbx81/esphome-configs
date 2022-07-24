@@ -1,0 +1,233 @@
+substitutions:
+  node_name: esp-lights-bathroom
+  node_friendly_name: "Bathroom Vanity"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+
+script:
+  # motion actiavte lower light
+  - id: motion_activate_lower
+    mode: restart
+    then:
+      if:
+        condition:
+          - binary_sensor.is_on: bathroom_vanity_api_status
+        # if the API is connected, just switch the light on
+        then:
+          - light.turn_on:
+              id: bathroom_vanity_downlight
+              transition_length: 1s
+        # if the API is NOT connected, switch the light on but also set it to 100% and to white
+        #  since we can't otherwise control the brightness or color right now
+        else:
+          - light.turn_on:
+              id: bathroom_vanity_downlight
+              transition_length: 1s
+              brightness: 1.0
+              red: 1.0
+              green: 0.675
+              blue: 0.06
+              white: 1.0
+  # motion deactiavte lower light -- switch off light after delay
+  - id: motion_deactivate_lower
+    mode: restart
+    then:
+      - delay: 180s
+      - light.turn_off:
+          id: bathroom_vanity_downlight
+          transition_length: 1s
+  # motion actiavte upper light
+  - id: motion_activate_upper
+    mode: restart
+    then:
+      if:
+        condition:
+          - binary_sensor.is_on: bathroom_vanity_api_status
+        # if the API is connected, just switch the light on
+        then:
+          - light.turn_on:
+              id: bathroom_vanity_uplight
+              transition_length: 1s
+        # if the API is NOT connected, switch the light on but also set it to 100% and to white
+        #  since we can't control the brightness or color right now
+        else:
+          - light.turn_on:
+              id: bathroom_vanity_uplight
+              transition_length: 1s
+              brightness: 1.0
+              red: 1.0
+              green: 0.675
+              blue: 0.06
+              white: 1.0
+  # motion deactiavte upper light -- switch off light after delay
+  - id: motion_deactivate_upper
+    mode: restart
+    then:
+      - delay: 180s
+      - light.turn_off:
+          id: bathroom_vanity_uplight
+          transition_length: 1s
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+binary_sensor:
+  # API status sensor
+  - platform: status
+    id: bathroom_vanity_api_status
+    name: ${node_friendly_name} API Status
+    internal: true
+  # motion sensor (PIR or RCWL-0516 nodule)
+  - platform: gpio
+    id: bathroom_vanity_motion_detection
+    name: ${node_friendly_name} Motion Detection
+    pin:
+      number: GPIO2
+    # stop the motion deactivation script and trigger the motion activation script when motion is sensed
+    on_press:
+      then:
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.stop: motion_deactivate_lower
+              - script.execute: motion_activate_lower
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.stop: motion_deactivate_upper
+              - script.execute: motion_activate_upper
+    # trigger the motion deactivation script (delay -> off) when motion is no longer sensed
+    on_release:
+      then:
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.execute: motion_deactivate_lower
+        # only trigger the script if motion activation is enabled via the template switch
+        - if:
+            condition:
+              lambda: 'return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;'
+            then:
+              - script.execute: motion_deactivate_upper
+  # sensors for buttons for manual control of lights
+  - platform: gpio
+    id: bathroom_lights_off_button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: bathroom_vanity_uplight
+        - light.turn_off:
+            id: bathroom_vanity_downlight
+  - platform: gpio
+    id: bathroom_vanity_uplight_on_button
+    pin:
+      number: GPIO36
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_on:
+            id: bathroom_vanity_uplight
+            brightness: 1.0
+            red: 1.0
+            green: 0.933
+            blue: 0.753
+            white: 1.0
+  - platform: gpio
+    id: bathroom_vanity_downlight_on_button
+    pin:
+      number: GPIO39
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_on:
+            id: bathroom_vanity_downlight
+            brightness: 0.5
+            red: 1.0
+            green: 0.933
+            blue: 0.753
+            white: 1.0
+
+switch:
+  # template switches to enable/disable motion activation of lights
+  - platform: template
+    id: bathroom_vanity_motion_activation_lower
+    name: ${node_friendly_name} Motion Activation Lower
+    optimistic: true
+    restore_state: true
+  - platform: template
+    id: bathroom_vanity_motion_activation_upper
+    name: ${node_friendly_name} Motion Activation Upper
+    optimistic: true
+    restore_state: true
+
+light:
+  - platform: rgbw
+    id: bathroom_vanity_uplight
+    name: ${node_friendly_name} Uplight
+    red: bathroom_vanity_uplight_pwm_red_channel
+    green: bathroom_vanity_uplight_pwm_green_channel
+    blue: bathroom_vanity_uplight_pwm_blue_channel
+    white: bathroom_vanity_uplight_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+  - platform: rgbw
+    id: bathroom_vanity_downlight
+    name: ${node_friendly_name} Downlight
+    red: bathroom_vanity_downlight_pwm_red_channel
+    green: bathroom_vanity_downlight_pwm_green_channel
+    blue: bathroom_vanity_downlight_pwm_blue_channel
+    white: bathroom_vanity_downlight_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+
+output:
+  - platform: ledc
+    id: bathroom_vanity_downlight_pwm_red_channel
+    pin: GPIO16
+  - platform: ledc
+    id: bathroom_vanity_downlight_pwm_green_channel
+    pin: GPIO18
+  - platform: ledc
+    id: bathroom_vanity_downlight_pwm_blue_channel
+    pin: GPIO13
+  - platform: ledc
+    id: bathroom_vanity_downlight_pwm_white_channel
+    pin: GPIO27
+  - platform: ledc
+    id: bathroom_vanity_uplight_pwm_red_channel
+    pin: GPIO25
+  - platform: ledc
+    id: bathroom_vanity_uplight_pwm_green_channel
+    pin: GPIO26
+  - platform: ledc
+    id: bathroom_vanity_uplight_pwm_blue_channel
+    pin: GPIO33
+  - platform: ledc
+    id: bathroom_vanity_uplight_pwm_white_channel
+    pin: GPIO32

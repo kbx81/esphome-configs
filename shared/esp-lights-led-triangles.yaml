@@ -1,0 +1,224 @@
+esphome:
+  includes: ../shared/esp_led_triangles.h
+
+esp8266:
+  board: d1_mini
+  framework:
+    version: 2.7.4
+    # version: recommended
+
+# globals:
+#   - id: bedroom_temp
+#     type: float
+#     restore_value: no
+#     initial_value: '-100'
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
+
+# remote_receiver:
+#   id: ir_rx
+#   dump: nec
+#   pin:
+#     inverted: true
+#     number: GPIO36
+#   on_nec:
+#     then:
+#       lambda: |-
+#         if (x.command == 0xBF40) {
+#           auto call1 = id(printer_led_lights).toggle();
+#           auto call2 = id(filament_led_lights).toggle();
+#           call1.perform();
+#           call2.perform();
+#         }
+
+# binary_sensor:
+#   - platform: gpio
+#     id: leds_off_button
+#     pin:
+#       number: GPIO0
+#       inverted: true
+#     on_click:
+#       min_length: 50ms
+#       max_length: 500ms
+#       then:
+#         - light.turn_off:
+#             id: printer_led_lights
+#         - light.turn_off:
+#             id: filament_led_lights
+#   - platform: gpio
+#     id: printer_led_on_button
+#     pin:
+#       number: GPIO35
+#       inverted: true
+#     on_click:
+#       min_length: 50ms
+#       max_length: 500ms
+#       then:
+#         - light.turn_on:
+#             id: printer_led_lights
+#             brightness: 1.0
+#             red: 1.0
+#             green: 0.933
+#             blue: 0.753
+#             white: 1.0
+#   - platform: gpio
+#     id: filament_led_on_button
+#     pin:
+#       number: GPIO34
+#       inverted: true
+#     on_click:
+#       min_length: 50ms
+#       max_length: 500ms
+#       then:
+#         - light.turn_on:
+#             id: filament_led_lights
+#             brightness: 0.5
+#             red: 1.0
+#             green: 0.933
+#             blue: 0.753
+#             white: 1.0
+#   - platform: remote_receiver
+#     id: led_remote_power
+#     # name: "LED Remote Power"
+#     nec:
+#       address: 0x00FF
+#       command: 0xBF40
+#     on_press:
+#       then:
+#         - light.toggle: printer_led_lights
+#         - light.toggle: filament_led_lights
+
+light:
+  - platform: fastled_clockless
+    id: pixel_strip2
+    name: ${node_friendly_name} HST Art Background
+    chipset: WS2811
+    pin: GPIO15
+    num_leds: 1
+  - platform: fastled_spi
+    id: pixel_strip1
+    name: ${node_friendly_name}
+    chipset: DOTSTAR
+    data_pin: GPIO13
+    clock_pin: GPIO14
+    num_leds: 128
+    rgb_order: BGR
+    effects:
+      - addressable_rainbow:
+      - addressable_color_wipe:
+      - addressable_scan:
+      - addressable_twinkle:
+      - addressable_fireworks:
+      - addressable_flicker:
+      - addressable_lambda:
+          name: "Fire"
+          update_interval: 16ms
+          lambda: "esp_led_triangles::hst_fire(it, initial_run, 32);"
+      - addressable_lambda:
+          name: "HST Art Patterns"
+          update_interval: 16ms
+          lambda: |-
+            auto brt = id(pixel_strip2).current_values.is_on() ? id(pixel_strip2).current_values.get_brightness() : 0;
+            uint8_t pRed = id(pixel_strip2).current_values.get_red() * 255;
+            uint8_t pGreen = id(pixel_strip2).current_values.get_green() * 255;
+            uint8_t pBlue = id(pixel_strip2).current_values.get_blue() * 255;
+            esp_led_triangles::hst_art(it, initial_run, 5, esp_led_triangles::MANUAL, current_color, Color(pRed * brt, pGreen * brt, pBlue * brt));
+      - addressable_lambda:
+          name: "HST Art Random Color Patterns"
+          update_interval: 16ms
+          lambda: |-
+            esp_led_triangles::hst_art(it, initial_run, 5, esp_led_triangles::RANDOM);
+      - addressable_lambda:
+          name: "HST Art Random Rotating Color Patterns"
+          update_interval: 16ms
+          lambda: |-
+            esp_led_triangles::hst_art(it, initial_run, 5, esp_led_triangles::RANDOM_ROTATE);
+      - addressable_lambda:
+          name: "Spin"
+          update_interval: 125ms
+          lambda: |-
+            static uint8_t cell = 0, stall = 0;
+            static Color fill_color(0, 0, 0);
+
+            if (initial_run || (stall > 23)) {
+              cell = 0;
+              stall = 0;
+            }
+
+            // if (cell > 7) {
+            //   cell = 0;
+            //   fill_color = Color::random_color();
+            // }
+
+            if ((stall < 4) || (stall > 11 && stall < 16)) {
+              for (uint8_t i = 0; i < 16; i++) {
+                // update all pixels within the given pixel group as indicated by 'cell'
+                uint8_t led = esp_led_triangles::hst_cell_origin[i] + esp_led_triangles::hst_cell_offset[cell];
+                it[esp_led_triangles::m_leds[led]] = fill_color;
+              }
+              cell++;
+            } else {
+              fill_color = Color::random_color();
+            }
+            stall++;
+      - addressable_lambda:
+          name: "Fill Grid"
+          update_interval: 125ms
+          lambda: |-
+            static uint8_t cell = 0;
+            static Color fill_color(0, 0, 0);
+
+            if (initial_run || cell >= it.size() - 1) {
+              if (!initial_run)
+                it[esp_led_triangles::m_leds[cell]] = fill_color;
+              cell = 0;
+              // it.all() = Color::BLACK;
+              fill_color = Color::random_color();
+              it[esp_led_triangles::m_leds[cell]] = Color::WHITE;
+            } else {
+              it[esp_led_triangles::m_leds[cell++]] = fill_color;
+              it[esp_led_triangles::m_leds[cell]] = Color::WHITE;
+            }
+      # - addressable_lambda:
+      #     name: "TestEffect1"
+      #     update_interval: 16ms
+      #     lambda: |-
+      #       // it.size() - Number of LEDs
+      #       // it[num] - Access the LED at index num.
+      #       // Set the LED at num to the given r, g, b values
+      #       // it[num] = Color(r, g, b);
+      #       // Get the color at index num (Color instance)
+      #       // it[num].get();
+
+      #       // Example: Simple color wipe
+      #       for (int i = it.size() - 1; i > 0; i--) {
+      #         it[i] = it[i - 1].get();
+      #       }
+      #       it[0] = Color::random_color();
+
+      #       // Bonus: use .range() and .all() to set many LEDs without having to write a loop.
+      #       it.range(0, 50) = Color::BLACK;
+      #       it.all().fade_to_black(10);
+      # - addressable_lambda:
+      #     name: "TestEffect2"
+      #     update_interval: 16ms
+      #     lambda: |-
+      #       // Static variables keep their value even when
+      #       // stopping and starting the effect again
+      #       static uint16_t progress = 0;
+
+      #       // normal variables lose their value after each
+      #       // execution - basically after each update_interval
+      #       uint16_t changes = 0;
+
+      #       // To reset static when stopping and starting the effect
+      #       // again you can use the initial_run variable
+      #       if (initial_run) {
+      #         progress = 0;
+      #         it.all() = Color::BLACK;
+      #         // optionally do a return so nothing happens until the next update_interval
+      #         return;
+      #       }

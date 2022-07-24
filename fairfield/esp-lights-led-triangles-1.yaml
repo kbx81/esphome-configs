@@ -1,0 +1,7 @@
+substitutions:
+  node_name: esp-lights-led-triangles-1
+  node_friendly_name: "LED Triangles 1"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+  esp_lights_led_triangles: !include ../shared/esp-lights-led-triangles.yaml

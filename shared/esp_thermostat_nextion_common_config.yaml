@@ -1,0 +1,881 @@
+esphome:
+  includes: ../shared/esp_thermostat_nextion.h
+  platformio_options:
+    # 20211001: to enlarge stack, edit ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/config/sdkconfig.h
+    build_flags:
+      - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
+      - -DBOARD_HAS_PSRAM
+      - -mfix-esp32-psram-cache-issue
+
+esp32:
+  board: featheresp32
+  framework:
+    type: arduino
+
+wifi:
+  power_save_mode: none
+
+api:
+  services:
+    # - service: set_display_page
+    #   variables:
+    #     page: int
+    #   then:
+    #     - lambda: 'esp32_thermostat::set_display_page(page);'
+    - service: update_nextion
+      then:
+        - lambda: "main_lcd->upload_tft();"
+    - service: update_climate_current_temperature
+      variables:
+        temperature: float
+      then:
+        - globals.set:
+            id: current_temperature
+            value: !lambda "return temperature;"
+        - if:
+            condition:
+              lambda: "return temperature != id(esp_thermostat_temperature_sensor).state;"
+            then:
+              - globals.set:
+                  id: missed_update_count
+                  value: "0"
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
+    - service: update_climate_current_humidity
+      variables:
+        humidity: float
+      then:
+        - globals.set:
+            id: current_humidity
+            value: !lambda "return humidity;"
+        - if:
+            condition:
+              lambda: "return humidity != id(esp_thermostat_humidity_sensor).state;"
+            then:
+              - globals.set:
+                  id: missed_update_count
+                  value: "0"
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
+    - service: update_climate_table_name
+      variables:
+        row: int
+        name: string
+      then:
+        - lambda: "esp32_thermostat::display_refresh_table_name(row, name);"
+    - service: update_climate_table_humidity
+      variables:
+        row: int
+        humidity: float
+      then:
+        - lambda: "esp32_thermostat::display_refresh_table_humidity(row, humidity);"
+    - service: update_climate_table_temperature
+      variables:
+        row: int
+        temperature: float
+      then:
+        - lambda: "esp32_thermostat::display_refresh_table_temperature(row, temperature);"
+    - service: update_status
+      variables:
+        message: string
+      then:
+        - globals.set:
+            id: status_string
+            value: !lambda "return message;"
+        - lambda: "esp32_thermostat::display_refresh_status();"
+    - service: update_air_quality_data
+      variables:
+        aqi: float
+      then:
+        - lambda: |-
+            if (id(weather_air_quality) != aqi) {
+              id(weather_air_quality) = aqi;
+              esp32_thermostat::display_refresh_iaq_txt(id(weather_air_quality), true);
+            }
+    - service: update_weather_data
+      variables:
+        condition: string
+        humidity: float
+        temperature: float
+        temperature_high: float
+        temperature_low: float
+      then:
+        - lambda: |-
+            if (id(weather_condition) != condition) {
+              id(weather_condition) = condition;
+              esp32_thermostat::display_refresh_weather_cond();
+            }
+            if (id(weather_humidity) != humidity) {
+              id(weather_humidity) = humidity;
+              esp32_thermostat::display_refresh_sensor(id(weather_humidity), esp32_thermostat::DS_WEATHER_HUM);
+            }
+            if (id(weather_temperature) != temperature) {
+              id(weather_temperature) = temperature;
+              esp32_thermostat::display_refresh_sensor(id(weather_temperature), esp32_thermostat::DS_WEATHER_TEMP);
+            }
+            if (id(weather_temperature_high) != temperature_high) {
+              id(weather_temperature_high) = temperature_high;
+              esp32_thermostat::display_refresh_sensor(id(weather_temperature_high), esp32_thermostat::DS_WEATHER_TEMPHIGH);
+            }
+            if (id(weather_temperature_low) != temperature_low) {
+              id(weather_temperature_low) = temperature_low;
+              esp32_thermostat::display_refresh_sensor(id(weather_temperature_low), esp32_thermostat::DS_WEATHER_TEMPLOW);
+            }
+
+globals:
+  # the temperature/humidity that guides the thermostat controller
+  - id: current_humidity
+    type: float
+    restore_value: yes
+    initial_value: "0"
+  - id: current_temperature
+    type: float
+    restore_value: yes
+    initial_value: "-100"
+  # last hour display was fully refreshed
+  - id: display_last_full_refresh
+    type: int
+    restore_value: no
+    initial_value: "-1"
+  # number of sensor updates while offline
+  - id: missed_update_count
+    type: int
+    restore_value: no
+    initial_value: "0"
+  # row on which local sensor data is placed in the climate data table
+  - id: climate_table_local_row
+    type: int
+    restore_value: no
+    initial_value: "-1"
+  # status string
+  - id: status_string
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # weather condition, temperature, humidity
+  - id: weather_air_quality
+    type: float
+    restore_value: yes
+    initial_value: "0"
+  - id: weather_condition
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: weather_humidity
+    type: float
+    restore_value: yes
+    initial_value: "0"
+  - id: weather_temperature
+    type: float
+    restore_value: yes
+    initial_value: "-100"
+  - id: weather_temperature_high
+    type: float
+    restore_value: no
+    initial_value: "-100"
+  - id: weather_temperature_low
+    type: float
+    restore_value: no
+    initial_value: "-100"
+  # flag to indicate template sensor is ready
+  - id: sensor_ready
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+script:
+  # display power management
+  - id: motion_sense
+    mode: restart
+    then:
+      - delay: 120s
+  # display refresh coordination
+  - id: climate_action_refresh
+    mode: restart
+    then:
+      - delay: 1s
+      - lambda: "esp32_thermostat::display_refresh_action();"
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+time:
+  - platform: homeassistant
+    id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
+
+i2c:
+  id: i2c_bus
+  frequency: 400kHz
+  sda: 21
+  scl: 22
+  scan: false
+
+# spi:
+#   clk_pin: GPIO14
+#   mosi_pin: GPIO13
+#   miso_pin: GPIO12
+
+uart:
+  id: nextion_uart
+  tx_pin: GPIO19
+  rx_pin: GPIO18
+  baud_rate: 115200
+
+climate:
+  - platform: thermostat
+    id: esp_thermostat
+    name: ${node_friendly_name}
+    sensor: esp_thermostat_temperature_sensor
+    startup_delay: true
+    supplemental_cooling_delta: 2.222222222222222
+    cool_deadband: 0.5556
+    cool_overrun: 0.5556
+    min_cooling_off_time: 300s
+    min_cooling_run_time: 300s
+    max_cooling_run_time: 600s
+    supplemental_heating_delta: 2.222222222222222
+    heat_deadband: 0.5556
+    heat_overrun: 0.5556
+    min_heating_off_time: 300s
+    min_heating_run_time: 300s
+    max_heating_run_time: 600s
+    min_fan_mode_switching_time: 30s
+    # min_fanning_off_time: 30s
+    # min_fanning_run_time: 30s
+    min_idle_time: 30s
+    set_point_minimum_differential: 0.5556
+    fan_only_action_uses_fan_mode_timer: true
+    fan_only_cooling: true
+    fan_with_cooling: true
+    # fan_with_heating: true
+    visual:
+      min_temperature: 60°F
+      max_temperature: 90°F
+      temperature_step: 0.1
+    # default_mode: auto
+    default_target_temperature_low: 72°F
+    default_target_temperature_high: 75°F
+    # away_config:
+    #   default_target_temperature_low: 68°F
+    #   default_target_temperature_high: 78°F
+    preset:
+      - name: "boost"
+        default_target_temperature_low: 70°F
+        default_target_temperature_high: 72°F
+      - name: "comfort"
+        default_target_temperature_low: 74°F
+        default_target_temperature_high: 76°F
+      - name: "eco"
+        default_target_temperature_low: 68°F
+        default_target_temperature_high: 78°F
+    off_mode:
+      - lambda: |-
+          id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;
+          esp32_thermostat::display_refresh_mode();
+          esp32_thermostat::display_refresh_fan_mode();
+    auto_mode:
+      - lambda: |-
+          esp32_thermostat::display_refresh_mode();
+    cool_mode:
+      - lambda: |-
+          esp32_thermostat::display_refresh_mode();
+    heat_mode:
+      - lambda: |-
+          esp32_thermostat::display_refresh_mode();
+    fan_only_mode:
+      - lambda: |-
+          esp32_thermostat::display_refresh_mode();
+    cool_action:
+      - switch.turn_off: esp_thermostat_heat_2
+      - switch.turn_off: esp_thermostat_heat_1
+      - switch.turn_on: esp_thermostat_cool_1
+      - script.execute: climate_action_refresh
+    supplemental_cooling_action:
+      - switch.turn_on: esp_thermostat_cool_2
+      - script.execute: climate_action_refresh
+    heat_action:
+      - switch.turn_off: esp_thermostat_cool_2
+      - switch.turn_off: esp_thermostat_cool_1
+      - switch.turn_on: esp_thermostat_heat_1
+      - script.execute: climate_action_refresh
+    supplemental_heating_action:
+      - switch.turn_on: esp_thermostat_heat_2
+      - script.execute: climate_action_refresh
+    idle_action:
+      - switch.turn_off: esp_thermostat_cool_2
+      - switch.turn_off: esp_thermostat_cool_1
+      - switch.turn_off: esp_thermostat_heat_2
+      - switch.turn_off: esp_thermostat_heat_1
+      - switch.turn_off: esp_thermostat_humidify
+      - lambda: |-
+          if (id(esp_thermostat).fan_mode == climate::CLIMATE_FAN_AUTO)
+            id(esp_thermostat_fan).turn_off();
+      - script.execute: climate_action_refresh
+    fan_only_action:
+      - switch.turn_on: esp_thermostat_fan
+      - script.execute: climate_action_refresh
+    fan_mode_auto_action:
+      - lambda: |-
+          if ((id(esp_thermostat).action != climate::CLIMATE_ACTION_COOLING)
+           && (id(esp_thermostat).action != climate::CLIMATE_ACTION_FAN))
+            id(esp_thermostat_fan).turn_off();
+          esp32_thermostat::display_refresh_fan_mode();
+    fan_mode_on_action:
+      - switch.turn_on: esp_thermostat_fan
+      - lambda: |-
+          esp32_thermostat::display_refresh_fan_mode();
+    target_temperature_change_action:
+      - lambda: |-
+          esp32_thermostat::display_refresh_set_points();
+
+binary_sensor:
+  - platform: status
+    id: esp_thermostat_api_status
+    name: ${node_friendly_name} API Status
+    on_state:
+      then:
+        - lambda: "esp32_thermostat::display_refresh_status();"
+  # flag to indicate when the on-board sensor is in use
+  - platform: template
+    id: esp_thermostat_on_board_sensor_active
+    name: ${node_friendly_name} On-board Sensor Active
+    # if the API is connected, use the max_missed_online_updates as the max, else use max_missed_offline_updates
+    lambda: |-
+      uint32_t max_missed_updates = id(esp_thermostat_api_status).state ? esp32_thermostat::max_missed_online_updates : esp32_thermostat::max_missed_offline_updates;
+      return id(missed_update_count) > max_missed_updates;
+  # - platform: gpio
+  #   id: esp_thermostat_tmp117_alert
+  #   name: ${node_friendly_name} TMP117 Alert
+  #   pin:
+  #     mcp23017: mcp23017_hub
+  #     number: 15
+  #     mode: INPUT_PULLUP
+  # - platform: gpio
+  #   id: esp_thermostat_mcp23017_int_a
+  #   name: ${node_friendly_name} MCP23017 Interrupt A
+  #   pin:
+  #     number: GPIO36
+  # - platform: gpio
+  #   id: esp_thermostat_mcp23017_int_b
+  #   name: ${node_friendly_name} MCP23017 Interrupt B
+  #   pin:
+  #     number: GPIO39
+  - platform: gpio
+    id: esp_thermostat_motion_detection
+    name: ${node_friendly_name} Motion Detection
+    pin:
+      number: GPIO27
+    on_state:
+      then:
+        - if:
+            condition:
+              switch.is_on: esp_thermostat_display_on_motion
+            then:
+              - script.execute: motion_sense
+  - platform: gpio
+    id: esp_thermostat_mode_button
+    name: ${node_friendly_name} Mode Button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            mode: "off"
+            fan_mode: "auto"
+
+sensor:
+  # template sensor used for thermostat component
+  - platform: template
+    id: esp_thermostat_temperature_sensor
+    name: ${node_friendly_name} Template Temperature Sensor
+    unit_of_measurement: "°C"
+    lambda: "return esp32_thermostat::thermostat_temperature_sensor_value();"
+    update_interval: 15s
+    on_value:
+      then:
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
+  # template sensor used for humidity
+  - platform: template
+    id: esp_thermostat_humidity_sensor
+    name: ${node_friendly_name} Template Humidity Sensor
+    unit_of_measurement: "%"
+    lambda: "return esp32_thermostat::thermostat_humidity_sensor_value();"
+    update_interval: 15s
+    on_value:
+      then:
+        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
+  # Nextion climate state (action/mode/fan_mode) sensors
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionClimateAction
+    variable_name: climateAction
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionClimateMode
+    variable_name: climateMode
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            mode: !lambda "return static_cast<climate::ClimateMode>(int(id(nextionClimateMode).state));"
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionClimateFanMode
+    variable_name: climateFanMode
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            fan_mode: !lambda "return static_cast<climate::ClimateFanMode>(int(id(nextionClimateFanMode).state));"
+  # Other Nextion sensors
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTargetBrightness
+    variable_name: targetBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentTemp
+    variable_name: currentTemp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentHum
+    variable_name: currentHum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetHum
+    variable_name: currentSetHum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetLower
+    variable_name: currentSetLower
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            target_temperature_low: !lambda "return ((id(nextionCurrentSetLower).state / 10) - 32) * 5 / 9;"
+        - lambda: |-
+            if (id(nextionCurrentSetLower).state != (id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10)
+              id(nextionCurrentSetLower).set_state((id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10, false, true);
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetUpper
+    variable_name: currentSetUpper
+    on_value:
+      then:
+        - script.execute: motion_sense
+        - climate.control:
+            id: esp_thermostat
+            target_temperature_high: !lambda "return ((id(nextionCurrentSetUpper).state / 10) - 32) * 5 / 9;"
+        - lambda: |-
+            if (id(nextionCurrentSetUpper).state != (id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10)
+              id(nextionCurrentSetUpper).set_state((id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10, false, true);
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetMin
+    variable_name: currentSetMin
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentSetMax
+    variable_name: currentSetMax
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTemp
+    variable_name: weatherTemp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherHum
+    variable_name: weatherHum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempHigh
+    variable_name: weatherTempHigh
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherTempLow
+    variable_name: weatherTempLow
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionWeatherCondIcon
+    variable_name: weatherCondIcon
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionLockoutState
+    variable_name: lockoutState
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom1Temp
+    variable_name: room1Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom1Hum
+    variable_name: room1Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom2Temp
+    variable_name: room2Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom2Hum
+    variable_name: room2Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom3Temp
+    variable_name: room3Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom3Hum
+    variable_name: room3Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom4Temp
+    variable_name: room4Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom4Hum
+    variable_name: room4Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom5Temp
+    variable_name: room5Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom5Hum
+    variable_name: room5Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom6Temp
+    variable_name: room6Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom6Hum
+    variable_name: room6Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom7Temp
+    variable_name: room7Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom7Hum
+    variable_name: room7Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom8Temp
+    variable_name: room8Temp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionRoom8Hum
+    variable_name: room8Hum
+
+text_sensor:
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextStatus1
+    component_name: ${home_page_name}.txtStatus
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextStatus2
+    component_name: ${rooms_page_name}.txtStatus
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextStatus3
+    component_name: ${sensors_page_name}.txtStatus
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextCurrentAq1
+    component_name: ${home_page_name}.txtCurrentAq
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextCurrentAq2
+    component_name: ${rooms_page_name}.txtCurrentAq
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextWeatherAq
+    component_name: ${weather_page_name}.txtWeatherAq
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextWeatherIcon
+    component_name: ${weather_page_name}.txtWeatherIcon
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom1
+    component_name: ${rooms_page_name}.txtRoom1
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom2
+    component_name: ${rooms_page_name}.txtRoom2
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom3
+    component_name: ${rooms_page_name}.txtRoom3
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom4
+    component_name: ${rooms_page_name}.txtRoom4
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom5
+    component_name: ${rooms_page_name}.txtRoom5
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom6
+    component_name: ${rooms_page_name}.txtRoom6
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom7
+    component_name: ${rooms_page_name}.txtRoom7
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextRoom8
+    component_name: ${rooms_page_name}.txtRoom8
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1
+    component_name: ${sensors_page_name}.txtSensor1
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2
+    component_name: ${sensors_page_name}.txtSensor2
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3
+    component_name: ${sensors_page_name}.txtSensor3
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4
+    component_name: ${sensors_page_name}.txtSensor4
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5
+    component_name: ${sensors_page_name}.txtSensor5
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6
+    component_name: ${sensors_page_name}.txtSensor6
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7
+    component_name: ${sensors_page_name}.txtSensor7
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8
+    component_name: ${sensors_page_name}.txtSensor8
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1a
+    component_name: ${sensors_page_name}.txtSensor1a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2a
+    component_name: ${sensors_page_name}.txtSensor2a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3a
+    component_name: ${sensors_page_name}.txtSensor3a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4a
+    component_name: ${sensors_page_name}.txtSensor4a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5a
+    component_name: ${sensors_page_name}.txtSensor5a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6a
+    component_name: ${sensors_page_name}.txtSensor6a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7a
+    component_name: ${sensors_page_name}.txtSensor7a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8a
+    component_name: ${sensors_page_name}.txtSensor8a
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1b
+    component_name: ${sensors_page_name}.txtSensor1b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2b
+    component_name: ${sensors_page_name}.txtSensor2b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3b
+    component_name: ${sensors_page_name}.txtSensor3b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4b
+    component_name: ${sensors_page_name}.txtSensor4b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5b
+    component_name: ${sensors_page_name}.txtSensor5b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6b
+    component_name: ${sensors_page_name}.txtSensor6b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7b
+    component_name: ${sensors_page_name}.txtSensor7b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8b
+    component_name: ${sensors_page_name}.txtSensor8b
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1c
+    component_name: ${sensors_page_name}.txtSensor1c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2c
+    component_name: ${sensors_page_name}.txtSensor2c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3c
+    component_name: ${sensors_page_name}.txtSensor3c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4c
+    component_name: ${sensors_page_name}.txtSensor4c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5c
+    component_name: ${sensors_page_name}.txtSensor5c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6c
+    component_name: ${sensors_page_name}.txtSensor6c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7c
+    component_name: ${sensors_page_name}.txtSensor7c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8c
+    component_name: ${sensors_page_name}.txtSensor8c
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor1d
+    component_name: ${sensors_page_name}.txtSensor1d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor2d
+    component_name: ${sensors_page_name}.txtSensor2d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor3d
+    component_name: ${sensors_page_name}.txtSensor3d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor4d
+    component_name: ${sensors_page_name}.txtSensor4d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor5d
+    component_name: ${sensors_page_name}.txtSensor5d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor6d
+    component_name: ${sensors_page_name}.txtSensor6d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor7d
+    component_name: ${sensors_page_name}.txtSensor7d
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionTextSensor8d
+    component_name: ${sensors_page_name}.txtSensor8d
+
+switch:
+  # display power (hard/physical)
+  - platform: gpio
+    id: esp_thermostat_display_power
+    name: ${node_friendly_name} Display Power
+    restore_mode: ALWAYS_ON
+    pin:
+      number: 25
+      mode: OUTPUT
+  # automatic display brightness control
+  - platform: template
+    id: esp_thermostat_display_auto_brightness
+    name: ${node_friendly_name} Display Automatic Brightness
+    optimistic: true
+    restore_state: true
+  # display power (soft)
+  - platform: template
+    id: esp_thermostat_display
+    name: ${node_friendly_name} Display
+    optimistic: true
+    restore_state: true
+  # display brightness control by motion
+  - platform: template
+    id: esp_thermostat_display_on_motion
+    name: ${node_friendly_name} Display On Motion
+    optimistic: true
+    restore_state: true
+
+number:
+  - platform: template
+    id: esp_thermostat_target_humidity
+    name: ${node_friendly_name} Target Humidity
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    initial_value: 30
+    restore_value: true
+    on_value:
+      then:
+        lambda: 'id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);'
+  - platform: template
+    id: esp_thermostat_display_brightness
+    name: ${node_friendly_name} Display Brightness
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 50
+    restore_value: true
+    on_value:
+      then:
+        lambda: |-
+          if (id(nextionTargetBrightness).state != x)
+            id(nextionTargetBrightness).set_state(x, true, true);
+  - platform: template
+    id: esp_thermostat_display_minimum_brightness
+    name: ${node_friendly_name} Display Minimum Brightness
+    optimistic: true
+    min_value: 0
+    max_value: 99
+    step: 1
+    initial_value: 5
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_display_maximum_brightness
+    name: ${node_friendly_name} Display Maximum Brightness
+    optimistic: true
+    min_value: 1
+    max_value: 100
+    step: 1
+    initial_value: 100
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_display_brightness_idle_reduction
+    name: ${node_friendly_name} Display Brightness Idle Reduction
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.01
+    initial_value: 0.80
+    restore_value: true

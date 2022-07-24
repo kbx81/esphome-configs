@@ -1,0 +1,1043 @@
+substitutions:
+  node_name: esp-rc-ir-front-room
+  node_friendly_name: "Front Room IR Controller"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+  platformio_options:
+    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
+
+api:
+  services:
+    - service: update_ac_current_temperature
+      variables:
+        temperature: float
+      then:
+        - globals.set:
+            id: current_temperature
+            value: !lambda "if (id(toshiba_ac_front_room).mode == climate::CLIMATE_MODE_COOL) { return static_cast<float>(temperature); } else if (id(toshiba_ac_front_room).mode == climate::CLIMATE_MODE_HEAT) { return static_cast<float>(temperature + 1.5); } else { return temperature; }"
+            # value: !lambda 'return temperature - 0.4;'
+        - globals.set:
+            id: missed_update_count
+            value: "0"
+
+globals:
+  # the temperature periodically transmitted to the AC unit
+  - id: current_temperature
+    type: float
+    restore_value: yes
+    initial_value: "24"
+  # number of missed updates; reset when API service is called to update temp
+  - id: missed_update_count
+    type: int
+    restore_value: no
+    initial_value: "24"
+
+interval:
+  - interval: 30s
+    then:
+      lambda: |-
+        if (id(missed_update_count) < 12) {
+          id(toshiba_ac_comfort_sense_error).turn_off();
+        } else {
+          id(toshiba_ac_comfort_sense_error).turn_on();
+        }
+        id(missed_update_count) += 1;
+
+status_led:
+  pin:
+    inverted: true
+    number: GPIO13
+
+remote_receiver:
+  id: ir_rx
+  dump: [samsung, toshiba_ac]
+  # dump: all
+  # dump: raw
+  pin:
+    inverted: true
+    number: GPIO34
+
+remote_transmitter:
+  - id: ir_tx
+    pin: GPIO12
+    carrier_duty_percent: 50%
+  # - pin: GPIO15
+  #   id: rf_tx
+  #   carrier_duty_percent: 100%
+
+climate:
+  - platform: toshiba
+    id: toshiba_ac_front_room
+    name: "Toshiba AC Front Room"
+    model: RAC-PT1411HWRU-F
+    receiver_id: ir_rx
+    transmitter_id: ir_tx
+    sensor: toshiba_ac_temperature_sensor
+
+binary_sensor:
+  - platform: gpio
+    id: gpio_0
+    # name: ${node_friendly_name} IO0 Button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      - min_length: 50ms
+        max_length: 500ms
+        then:
+          - switch.turn_on: toshiba_ac_display_toggle
+      - min_length: 501ms
+        max_length: 1000ms
+        then:
+          - switch.toggle: front_room_infotainment
+
+sensor:
+  - platform: template
+    id: toshiba_ac_temperature_sensor
+    # name: ${node_friendly_name} Toshiba AC Temperature Sensor
+    unit_of_measurement: "°C"
+    lambda: "return id(current_temperature);"
+    update_interval: 30s
+
+switch:
+  - platform: gpio
+    id: toshiba_ac_comfort_sense_error
+    restore_mode: ALWAYS_ON
+    pin:
+      inverted: true
+      mode: OUTPUT
+      number: 15
+  - platform: template
+    id: front_room_infotainment
+    name: Front Room Infotainment
+    turn_off_action:
+      - switch.turn_off: panasonic_power
+      - delay: 250ms
+      - switch.turn_off: pioneer_power
+    turn_on_action:
+      - switch.turn_on: pioneer_power
+      - delay: 250ms
+      - switch.turn_on: panasonic_power
+    lambda: "return id(pioneer_power).state | id(panasonic_power).state;"
+  - platform: template
+    id: nixie_a
+    name: Nixie A
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF609
+  - platform: template
+    id: nixie_b
+    name: Nixie B
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF50A
+  - platform: template
+    id: nixie_c
+    name: Nixie C
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF708
+  - platform: template
+    id: nixie_d
+    name: Nixie D
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF20D
+  - platform: template
+    id: nixie_e
+    name: Nixie E
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF906
+  - platform: template
+    id: nixie_u
+    name: Nixie U
+    turn_on_action:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xFA05
+  - platform: template
+    id: apple_tv_down
+    name: Apple TV Down
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5500FF
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_left
+    name: Apple TV Left
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5501FE
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_right
+    name: Apple TV Right
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5502FD
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_up
+    name: Apple TV Up
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5503FC
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_menu
+    name: Apple TV Menu
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5504FB
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_select
+    name: Apple TV Select
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5505FA
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_play
+    name: Apple TV Play
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5506F9
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_pause
+    name: Apple TV Pause
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5507F8
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_stop
+    name: Apple TV Stop
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5508F7
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_rewind
+    name: Apple TV Rewind
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5509F6
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_fast_forward
+    name: Apple TV Fast Forward
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550AF5
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_previous_track
+    name: Apple TV Previous Track
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550BF4
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_next_track
+    name: Apple TV Next Track
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550CF3
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_skip_back
+    name: Apple TV Skip Back
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550DF2
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_skip_forward
+    name: Apple TV Skip Forward
+    turn_on_action:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550EF1
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  # - platform: template
+  #   id: air_cleaner_power
+  #   name: Air Cleaner Power
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xB04F
+  # - platform: template
+  #   id: air_cleaner_sleep
+  #   name: Air Cleaner Sleep
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x50AF
+  # - platform: template
+  #   id: air_cleaner_fan_down
+  #   name: Air Cleaner Fan Down
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xE01F
+  # - platform: template
+  #   id: air_cleaner_fan_up
+  #   name: Air Cleaner Fan Up
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x20DF
+  # - platform: template
+  #   id: air_cleaner_purify_down
+  #   name: Air Cleaner Purify Down
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xF807
+  # - platform: template
+  #   id: air_cleaner_purify_up
+  #   name: Air Cleaner Purify Up
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x08F7
+  # - platform: template
+  #   id: air_cleaner_anion
+  #   name: Air Cleaner Anion
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xA05F
+  # - platform: template
+  #   id: air_cleaner_sterilize
+  #   name: Air Cleaner Sterilize
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x40BF
+  # - platform: template
+  #   id: air_cleaner_time_set
+  #   name: Air Cleaner Time/Set
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x10EF
+  - platform: template
+    id: panasonic_power
+    name: Panasonic Power
+    optimistic: true
+    restore_state: true
+    turn_off_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100FCFD
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01007C7D
+  - platform: template
+    id: panasonic_power_toggle
+    name: Panasonic Power Toggle
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100BCBD
+  - platform: template
+    id: panasonic_input_button
+    name: Panasonic Input Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100A0A1
+  - platform: template
+    id: panasonic_ok_button
+    name: Panasonic Ok Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01009293
+  - platform: template
+    id: panasonic_exit_button
+    name: Panasonic Exit Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x019059C8
+  - platform: template
+    id: panasonic_menu_button
+    name: Panasonic Menu Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01004A4B
+  - platform: template
+    id: panasonic_down_button
+    name: Panasonic Down Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100D2D3
+  - platform: template
+    id: panasonic_up_button
+    name: Panasonic Up Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01005253
+  - platform: template
+    id: panasonic_left_button
+    name: Panasonic Left Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01007273
+  - platform: template
+    id: panasonic_right_button
+    name: Panasonic Right Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100F2F3
+  - platform: template
+    id: panasonic_return_button
+    name: Panasonic Return Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01002B2A
+  - platform: template
+    id: panasonic_info_button
+    name: Panasonic Info Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01009C9D
+  - platform: template
+    id: panasonic_volume_down_button
+    name: Panasonic Volume Down Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01008485
+  - platform: template
+    id: panasonic_volume_up_button
+    name: Panasonic Volume Up Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01000405
+  - platform: template
+    id: panasonic_mute_button
+    name: Panasonic Mute Button
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01004C4D
+  - platform: template
+    id: pioneer_power
+    name: Pioneer Power
+    optimistic: true
+    restore_state: true
+    turn_off_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA51B
+          repeat:
+            times: 2
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA51A
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_power_toggle
+    name: Pioneer Power Toggle
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA51C
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_mute_button
+    name: Pioneer Mute Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA512
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_mute_off_button
+    name: Pioneer Mute Off Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA552
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_mute_on_button
+    name: Pioneer Mute On Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA551
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_volume_down_button
+    name: Pioneer Volume Down Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50B
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_volume_up_button
+    name: Pioneer Volume Up Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50A
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_volume_down_button_x5
+    name: Pioneer Volume Down Button x5
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50B
+          repeat:
+            times: 9
+  - platform: template
+    id: pioneer_volume_up_button_x5
+    name: Pioneer Volume Up Button x5
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50A
+          repeat:
+            times: 9
+  - platform: template
+    id: pioneer_bass_down_button
+    name: Pioneer Bass Down Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA501
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_bass_up_button
+    name: Pioneer Bass Up Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA500
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_treble_down_button
+    name: Pioneer Treble Down Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA503
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_treble_up_button
+    name: Pioneer Treble Up Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA502
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_dimmer_button
+    name: Pioneer Dimmer Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA556
+          rc_code_2: 0xA506
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_bddvd_input_button
+    name: Pioneer BDDVD Input Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55C
+          rc_code_2: 0xA5C0
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_bluetooth_input_button
+    name: Pioneer Bluetooth Input Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55C
+          rc_code_2: 0xA5C4
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_cable_sat_input_button
+    name: Pioneer Cable Sat Input Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA510
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_game_input_button
+    name: Pioneer Game Input Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55C
+          rc_code_2: 0xA5C5
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_stream_box_input_button
+    name: Pioneer Stream Box Input Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xF536
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_auto_direct_button
+    name: Pioneer Auto Direct Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA59A
+          rc_code_2: 0xA5C3
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_stereo_button
+    name: Pioneer Stereo Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA59F
+          rc_code_2: 0xA5C0
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_alc_standard_button
+    name: Pioneer ALC Standard Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55E
+          rc_code_2: 0xA508
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_surround_button
+    name: Pioneer Surround Button
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA59F
+          rc_code_2: 0xA5D3
+          repeat:
+            times: 2
+  - platform: template
+    id: toshiba_ac_display_toggle
+    name: Toshiba AC Display Toggle
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A09F6
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  - platform: template
+    id: toshiba_ac_continuous_fan_toggle
+    name: Toshiba AC Continuous Fan Toggle
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A6996
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  - platform: template
+    id: toshiba_ac_louver_angle_10_degrees
+    name: Toshiba AC Louver Angle 10 degrees
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A2ED1
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  - platform: template
+    id: toshiba_ac_louver_angle_30_degrees
+    name: Toshiba AC Louver Angle 30 degrees
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A2DD2
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  - platform: template
+    id: toshiba_ac_louver_angle_50_degrees
+    name: Toshiba AC Louver Angle 50 degrees
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A2CD3
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  - platform: template
+    id: toshiba_ac_louver_angle_70_degrees
+    name: Toshiba AC Louver Angle 70 degrees
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A2BD4
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  - platform: template
+    id: toshiba_ac_louver_angle_90_degrees
+    name: Toshiba AC Louver Angle 90 degrees
+    turn_on_action:
+      - remote_transmitter.transmit_samsung:
+          transmitter_id: ir_tx
+          data: 0xB946F50A2AD5
+          nbits: 48
+          repeat:
+            times: 2
+            wait_time: 4ms
+  # String lights receiver uses modified JVC protocol:
+  #  swap dst->item() bits and HEADER_HIGH_US = 2000, HEADER_LOW_US = 550, BIT_ONE_LOW_US = 1000, BIT_ZERO_LOW_US = 500, BIT_HIGH_US = 550
+  # - platform: template
+  #   name: String Lights Off Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA01
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights On Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA08
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Brighter Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA04
+  #         repeat:
+  #           times: 12
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Dimmer Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA02
+  #         repeat:
+  #           times: 12
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Red Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA10
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Green Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA20
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Blue Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA40
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights White Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA80
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Amber Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA82
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Yellow Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA05
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Light Blue Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA09
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Pink Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA11
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Magenta Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA21
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Light Green Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA41
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Color Chase Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA81
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Color Jump Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA14
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Color Roll Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA22
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Color Alternate Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA12
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Chase with Color Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA0A
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: String Lights Cyan Red Blink Button
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_jvc:
+  #         transmitter_id: rf
+  #         data: 0xAA42
+  #         repeat:
+  #           times: 40
+  #           wait_time: 7ms
+  # - platform: template
+  #   name: Velleman Clock Button 1
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_raw:
+  #         transmitter_id: rf
+  #         code: [320, -334, 645, -661, 318, -336, 646, -660, 320, -333, 645, -662, 317, -335, 645, -663, 316, -338, 642, -662, 320, -335, 644, -661, 319, -335, 644, -663, 316, -338, 642, -663, 317, -336, 643, -664, 318, -335, 644, -664, 316, -337, 642, -665, 316, -337, 642, -663, 317, -338, 640, -665, 314, -339, 641, -667, 313, -339, 639, -667, 315, -340, 639, -667, 313, -341, 638, -341, 641, -340, 639, -667, 314, -148]
+  #         repeat:
+  #           times: 40
+  #           wait_time: 35ms
+  # - platform: template
+  #   name: Velleman Clock Button 2
+  #   turn_on_action:
+  #     - remote_transmitter.transmit_raw:
+  #         transmitter_id: rf
+  #         code: [318, -339, 638, -665, 315, -338, 642, -670, 308, -340, 640, -666, 315, -337, 642, -671, 308, -341, 638, -669, 309, -342, 639, -669, 308, -344, 637, -670, 311, -340, 639, -669, 309, -343, 637, -671, 310, -341, 636, -672, 309, -344, 634, -671, 310, -344, 634, -671, 310, -343, 635, -684, 295, -345, 636, -674, 303, -347, 635, -672, 304, -351, 631, -347, 630, -348, 633, -672, 306, -349, 631, -676, 306, -148]
+  #         repeat:
+  #           times: 40
+  #           wait_time: 35ms

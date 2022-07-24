@@ -1,0 +1,163 @@
+substitutions:
+  node_name: esp-relay-switcher
+  node_friendly_name: "Relay Switcher"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esp32:
+  board: featheresp32
+  framework:
+    type: esp-idf
+
+status_led:
+  pin:
+    number: GPIO5
+
+binary_sensor:
+  - platform: gpio
+    id: button_1
+    pin:
+      number: GPIO16
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_1
+  - platform: gpio
+    id: button_2
+    pin:
+      number: GPIO17
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_2
+  - platform: gpio
+    id: button_3
+    pin:
+      number: GPIO18
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_3
+  - platform: gpio
+    id: button_4
+    pin:
+      number: GPIO19
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_4
+  - platform: gpio
+    id: button_5
+    pin:
+      number: GPIO21
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_5
+  - platform: gpio
+    id: button_6
+    pin:
+      number: GPIO22
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_6
+  - platform: gpio
+    id: button_7
+    pin:
+      number: GPIO23
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_7
+  - platform: gpio
+    id: button_8
+    pin:
+      number: GPIO15
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - switch.toggle:
+            id: relay_8
+
+switch:
+  - platform: gpio
+    pin: GPIO32
+    name: ${node_friendly_name} Relay 1
+    id: relay_1
+  - platform: gpio
+    pin: GPIO33
+    name: ${node_friendly_name} Relay 2
+    id: relay_2
+  - platform: gpio
+    pin: GPIO25
+    name: ${node_friendly_name} Relay 3
+    id: relay_3
+  - platform: gpio
+    pin: GPIO26
+    name: ${node_friendly_name} Relay 4
+    id: relay_4
+  - platform: gpio
+    pin: GPIO27
+    name: ${node_friendly_name} Relay 5
+    id: relay_5
+  - platform: gpio
+    pin: GPIO14
+    name: ${node_friendly_name} Relay 6
+    id: relay_6
+  - platform: gpio
+    pin: GPIO12
+    name: ${node_friendly_name} Relay 7
+    id: relay_7
+  - platform: gpio
+    pin: GPIO13
+    name: ${node_friendly_name} Relay 8
+    id: relay_8

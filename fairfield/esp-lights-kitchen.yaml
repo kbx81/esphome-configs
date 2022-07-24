@@ -1,0 +1,324 @@
+substitutions:
+  node_name: esp-lights-kitchen
+  node_friendly_name: "Kitchen"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+esphome:
+  platform: ESP32
+  board: featheresp32
+
+# api:
+#   services:
+#     - service: set_jvc_code_in_parts
+#       variables:
+#         data_a: int
+#         data_b: int
+#       then:
+#         - globals.set:
+#             id: jvc_data_a
+#             value: !lambda 'return data_a;'
+#         - globals.set:
+#             id: jvc_data_b
+#             value: !lambda 'return data_b;'
+#         - lambda: |-
+#             uint16_t data = id(jvc_data_a);
+#             data = (data << 8) | id(jvc_data_b);
+#             id(jvc_data) = data;
+#         - remote_transmitter.transmit_jvc:
+#             transmitter_id: rf
+#             data: !lambda 'return id(jvc_data);'
+#             repeat:
+#               times: 40
+#               wait_time: 7ms
+
+# globals:
+#   - id: jvc_data
+#     type: uint16_t
+#     restore_value: yes
+#     initial_value: '0'
+#   - id: jvc_data_a
+#     type: uint8_t
+#     restore_value: yes
+#     initial_value: '0'
+#   - id: jvc_data_b
+#     type: uint8_t
+#     restore_value: yes
+#     initial_value: '0'
+
+status_led:
+  pin:
+    number: GPIO5
+    inverted: true
+
+remote_receiver:
+  id: ir_rx
+  dump: nec
+  pin:
+    inverted: true
+    number: GPIO36
+
+remote_transmitter:
+  - pin: GPIO2
+    id: rf
+    carrier_duty_percent: 100%
+
+binary_sensor:
+  - platform: gpio
+    id: leds_off_button
+    pin:
+      number: GPIO0
+      inverted: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: kitchen_under_cabinet_east
+        - light.turn_off:
+            id: kitchen_under_cabinet_west
+        - light.turn_off:
+            id: kitchen_uplight
+
+light:
+  - platform: monochromatic
+    id: kitchen_under_cabinet_east
+    name: ${node_friendly_name} Under Cabinet East
+    output: downlight_east_pwm_white_channel
+  - platform: monochromatic
+    id: kitchen_under_cabinet_west
+    name: ${node_friendly_name} Under Cabinet West
+    output: downlight_west_pwm_white_channel
+  - platform: rgbw
+    id: kitchen_uplight
+    name: ${node_friendly_name} Uplight
+    red: uplight_pwm_red_channel
+    green: uplight_pwm_green_channel
+    blue: uplight_pwm_blue_channel
+    white: uplight_pwm_white_channel
+    effects:
+      - random:
+      - strobe:
+      - flicker:
+
+output:
+  - platform: ledc
+    id: uplight_pwm_red_channel
+    pin: GPIO22
+  - platform: ledc
+    id: uplight_pwm_green_channel
+    pin: GPIO23
+  - platform: ledc
+    id: uplight_pwm_blue_channel
+    pin: GPIO21
+  - platform: ledc
+    id: uplight_pwm_white_channel
+    pin: GPIO19
+  - platform: ledc
+    id: downlight_east_pwm_white_channel
+    pin: GPIO18
+  - platform: ledc
+    id: downlight_west_pwm_white_channel
+    pin: GPIO17
+
+switch:
+  # uses modified JVC protocol: swap dst->item() bits and HEADER_HIGH_US = 2000, HEADER_LOW_US = 550, BIT_ONE_LOW_US = 1000, BIT_ZERO_LOW_US = 500, BIT_HIGH_US = 550
+  - platform: template
+    name: String Lights Off Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA01
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights On Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA08
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Brighter Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA04
+          repeat:
+            times: 12
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Dimmer Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA02
+          repeat:
+            times: 12
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Red Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA10
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Green Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA20
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Blue Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA40
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights White Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA80
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Amber Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA82
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Yellow Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA05
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Light Blue Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA09
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Pink Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA11
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Magenta Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA21
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Light Green Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA41
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Color Chase Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA81
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Color Jump Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA14
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Color Roll Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA22
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Color Alternate Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA12
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Chase with Color Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA0A
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: String Lights Cyan Red Blink Button
+    turn_on_action:
+      - remote_transmitter.transmit_jvc:
+          transmitter_id: rf
+          data: 0xAA42
+          repeat:
+            times: 40
+            wait_time: 7ms
+  - platform: template
+    name: Velleman Clock Button 1
+    turn_on_action:
+      - remote_transmitter.transmit_raw:
+          transmitter_id: rf
+          code: [320, -334, 645, -661, 318, -336, 646, -660, 320, -333, 645, -662, 317, -335, 645, -663, 316, -338, 642, -662, 320, -335, 644, -661, 319, -335, 644, -663, 316, -338, 642, -663, 317, -336, 643, -664, 318, -335, 644, -664, 316, -337, 642, -665, 316, -337, 642, -663, 317, -338, 640, -665, 314, -339, 641, -667, 313, -339, 639, -667, 315, -340, 639, -667, 313, -341, 638, -341, 641, -340, 639, -667, 314, -148]
+          repeat:
+            times: 40
+            wait_time: 35ms
+  - platform: template
+    name: Velleman Clock Button 2
+    turn_on_action:
+      - remote_transmitter.transmit_raw:
+          transmitter_id: rf
+          code: [318, -339, 638, -665, 315, -338, 642, -670, 308, -340, 640, -666, 315, -337, 642, -671, 308, -341, 638, -669, 309, -342, 639, -669, 308, -344, 637, -670, 311, -340, 639, -669, 309, -343, 637, -671, 310, -341, 636, -672, 309, -344, 634, -671, 310, -344, 634, -671, 310, -343, 635, -684, 295, -345, 636, -674, 303, -347, 635, -672, 304, -351, 631, -347, 630, -348, 633, -672, 306, -349, 631, -676, 306, -148]
+          repeat:
+            times: 40
+            wait_time: 35ms
