@@ -101,11 +101,12 @@ void display_refresh_sensor_names() {
 }
 
 void display_refresh_zone_names() {
-  id(nextionTextZone1Name).set_state(id(sprinkler_ctrlr).valve_name(0), false, true);
-  id(nextionTextZone2Name).set_state(id(sprinkler_ctrlr).valve_name(1), false, true);
-  id(nextionTextZone3Name).set_state(id(sprinkler_ctrlr).valve_name(2), false, true);
-  id(nextionTextZone4Name).set_state(id(sprinkler_ctrlr).valve_name(3), false, true);
-  id(nextionTextZone5Name).set_state(id(sprinkler_ctrlr).valve_name(4), false, true);
+  // ...the '+ 16's below are there to trim off our switches' name prefix "Lawn Sprinklers "
+  id(nextionTextZone1Name).set_state(id(sprinkler_ctrlr).valve_name(0) + 16, false, true);
+  id(nextionTextZone2Name).set_state(id(sprinkler_ctrlr).valve_name(1) + 16, false, true);
+  id(nextionTextZone3Name).set_state(id(sprinkler_ctrlr).valve_name(2) + 16, false, true);
+  id(nextionTextZone4Name).set_state(id(sprinkler_ctrlr).valve_name(3) + 16, false, true);
+  id(nextionTextZone5Name).set_state(id(sprinkler_ctrlr).valve_name(4) + 16, false, true);
 }
 
 void display_refresh_zone_run_durations() {
