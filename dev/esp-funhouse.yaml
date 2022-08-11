@@ -3,6 +3,11 @@ substitutions:
   node_name: esp-funhouse
   node_friendly_name: "Adafruit Funhouse"
 
+esphome:
+  platformio_options:
+    build_flags:
+      - -DBOARD_HAS_PSRAM
+
 esp32:
   board: featheresp32-s2
   framework:
@@ -36,62 +41,51 @@ status_led:
   pin:
     number: GPIO37
 
-globals:
-  - id: coord_x0
-    type: float
-    initial_value: '0'
-  - id: coord_y0
-    type: float
-    initial_value: '0'
-  - id: coord_x1
-    type: float
-    initial_value: '240'
-  - id: coord_y1
-    type: float
-    initial_value: '240'
-
 font:
+  - file: "../resources/Helvetica.ttf"
+    id: helvetica_xlarge
+    size: 64
   - file: "../resources/Helvetica.ttf"
     id: helvetica_large
     size: 48
   - file: "../resources/Helvetica.ttf"
     id: helvetica_med
-    size: 20
+    size: 28
   - file: "../resources/Helvetica.ttf"
     id: helvetica_small
     size: 12
 
 binary_sensor:
   - platform: status
-    name: "ST7789V Status"
-    id: st7789v_status
+    name: ${node_friendly_name} Status
+    id: funhouse_status
   - platform: gpio
     id: button_input_0
-    name: "Button Up"
+    name: ${node_friendly_name} Button Up
     pin:
       number: GPIO5
-    on_press:
-      - display.page.show: page1
-      - component.update: main_lcd
+    # on_press:
+    #   - display.page.show: page1
+    #   - component.update: main_lcd
   - platform: gpio
     id: button_input_1
-    name: "Button Select"
+    name: ${node_friendly_name} Button Select
     pin:
       number: GPIO4
-    on_press:
-      - display.page.show: page2
-      - component.update: main_lcd
+    # on_press:
+    #   - display.page.show: page2
+    #   - component.update: main_lcd
   - platform: gpio
     id: button_input_2
-    name: "Button Down"
+    name: ${node_friendly_name} Button Down
     pin:
       number: GPIO3
-    on_press:
-      - display.page.show: page3
-      - component.update: main_lcd
+    # on_press:
+    #   - display.page.show: page3
+    #   - component.update: main_lcd
   - platform: gpio
     id: motion_sense
-    name: Motion Detection
+    name: ${node_friendly_name} Motion Detection
     pin:
       number: GPIO16
 
@@ -116,6 +110,10 @@ color:
     red: 50%
     green: 50%
     blue: 50%
+  - id: kbx_white
+    red: 90%
+    green: 90%
+    blue: 90%
 
 output:
   - platform: ledc
@@ -125,88 +123,45 @@ output:
 light:
   - platform: monochromatic
     id: backlight
-    name: "Backlight"
+    name: ${node_friendly_name} Backlight
     output: backlight_pwm
     restore_mode: ALWAYS_ON
 #   - platform: fastled_spi
-#     name: "APA102"
+#     name: ${node_friendly_name} APA102
 #     chipset: DOTSTAR
 #     data_pin: GPIO14
 #     clock_pin: GPIO15
 #     num_leds: 5
 #     rgb_order: BRG
 
-number:
-  - platform: template
-    id: num_x0
-    name: ST7789 Test X0 Coordinate
-    min_value: 0
-    max_value: 1000
-    step: 1
-    lambda: 'return id(coord_x0);'
-    set_action:
-      then:
-        - globals.set:
-            id: coord_x0
-            value: !lambda 'return x;'
-        # - component.update: main_lcd
-  - platform: template
-    id: num_y0
-    name: ST7789 Test Y0 Coordinate
-    min_value: 0
-    max_value: 1000
-    step: 1
-    lambda: 'return id(coord_y0);'
-    set_action:
-      then:
-        - globals.set:
-            id: coord_y0
-            value: !lambda 'return x;'
-        # - component.update: main_lcd
-  - platform: template
-    id: num_x1
-    name: ST7789 Test X1 Coordinate
-    min_value: 0
-    max_value: 1000
-    step: 1
-    lambda: 'return id(coord_x1);'
-    set_action:
-      then:
-        - globals.set:
-            id: coord_x1
-            value: !lambda 'return x;'
-        # - component.update: main_lcd
-  - platform: template
-    id: num_y1
-    name: ST7789 Test Y1 Coordinate
-    min_value: 0
-    max_value: 1000
-    step: 1
-    lambda: 'return id(coord_y1);'
-    set_action:
-      then:
-        - globals.set:
-            id: coord_y1
-            value: !lambda 'return x;'
-        # - component.update: main_lcd
-  - platform: template
-    id: num_main_lcd_page
-    name: ST7789 Display Page
-    optimistic: true
-    min_value: 0
-    max_value: 2
-    step: 1
-    initial_value: 0
-    on_value:
-      then:
-        - display.page.show: !lambda |-
-            if (x == 1) {
-              return id(page2);
-            } else if (x == 2) {
-              return id(page3);
-            } else {
-              return id(page1);
-            }
+sensor:
+  # Phototransistor ADC sensor
+  # - platform: adc
+  #   id: esp_sprinkler_controller_adc_sensor_phototransistor
+  #   name: ${node_friendly_name} Phototransistor ADC
+  #   pin: 18
+  #   attenuation: 11db
+  #   update_interval: 1s
+  - platform: aht10
+    temperature:
+      id: funhouse_aht20_temperature
+      name: ${node_friendly_name} AHT20 Temperature
+      filters:
+        - offset: -2.0
+    humidity:
+      id: funhouse_aht20_humidity
+      name: ${node_friendly_name} AHT20 Humidity
+    update_interval: 15s
+  - platform: dps310
+    temperature:
+      id: funhouse_dps310_temperature
+      name: ${node_friendly_name} DPS310 Temperature
+      filters:
+        - offset: -2.0
+    pressure:
+      id: funhouse_dps310_pressure
+      name: ${node_friendly_name} DPS310 Pressure
+    update_interval: 15s
 
 display:
   - platform: st7789v
@@ -217,7 +172,7 @@ display:
     cs_pin: GPIO40
     dc_pin: GPIO39
     reset_pin: GPIO41
-    update_interval: 10 seconds
+    update_interval: 15 seconds
     pages:
       - id: page1
         lambda: |-
@@ -227,8 +182,8 @@ display:
           it.rectangle(0, 20, it.get_width(), it.get_height(), id(kbx_blue));   // header bar
 
           it.print(5, 5, id(helvetica_small), id(kbx_yellow), TextAlign::TOP_LEFT, "ESPHome");
-          
-          if (id(st7789v_status).state) {
+
+          if (id(funhouse_status).state) {
             it.print(235, 5, id(helvetica_small), id(kbx_green), TextAlign::TOP_RIGHT, "Online");
           }
           else {
@@ -237,31 +192,8 @@ display:
 
           // it.image(0, 0, id(my_image));
 
-          it.strftime((240 / 2), 5, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%Y-%m-%d", id(esptime).now());
-          it.strftime((240 / 2), 25, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%H:%M:%S", id(esptime).now());
+          it.strftime((it.get_width() / 2), 5, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%Y-%m-%d", id(esptime).now());
+          it.strftime((it.get_width() / 2), 25, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%H:%M", id(esptime).now());
 
-      - id: page2
-        lambda: |-
-          // id(test_gpio_pin).turn_on();
-
-          it.rectangle(0,  0, it.get_width(), it.get_height(), id(kbx_red));
-          it.rectangle(0, 20, it.get_width(), it.get_height(), id(kbx_red));   // header bar
-
-          it.print(5, 5, id(helvetica_small), id(kbx_yellow), TextAlign::TOP_LEFT, "ESPHome");
-          
-          if (id(st7789v_status).state) {
-            it.print(235, 5, id(helvetica_small), id(kbx_green), TextAlign::TOP_RIGHT, "Online");
-          }
-          else {
-            it.print(235, 5, id(helvetica_small), id(kbx_red), TextAlign::TOP_RIGHT, "Offline");
-          }
-
-          // it.image(20, 0, id(my_image));
-
-          it.strftime((240 / 2), 5, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%Y-%m-%d", id(esptime).now());
-          it.strftime((240 / 2), 25, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%H:%M:%S", id(esptime).now());
-
-      - id: page3
-        lambda: |-
-          it.rectangle((it.get_width() / 2) - 1, (it.get_height()) / 2 - 1, 3, 3, id(kbx_blue));
-          it.rectangle(id(coord_x0), id(coord_y0), id(coord_x1), id(coord_y1), id(kbx_green));
+          it.printf(it.get_width() / 2, it.get_height() / 2 - 40, id(helvetica_xlarge), id(kbx_white), TextAlign::TOP_CENTER, "%.1f°", id(funhouse_aht20_temperature).state * 1.8 + 32);
+          it.printf(it.get_width() / 2, it.get_height() / 2 + 40, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f%%", id(funhouse_aht20_humidity).state);
