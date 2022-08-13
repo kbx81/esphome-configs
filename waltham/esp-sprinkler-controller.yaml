@@ -595,11 +595,9 @@ sprinkler:
       on_turn_on:
         - lambda: "id(nextionSprinklerReverse).set_state(1);"
     manual_selection_delay: 3s
-    pump_start_valve_delay: 3s
-    pump_stop_valve_delay: 5s
+    pump_start_valve_delay: 5s
+    pump_stop_valve_delay: 10s
     valve_open_delay: 5s
-    # pump_switch_off_during_valve_open_delay: true
-    # valve_overlap: 5s
     valves:
       - valve_switch:
           name: Lawn Sprinklers Parkway
@@ -1192,7 +1190,7 @@ sensor:
   # DHT22 sensor
   - platform: dht
     pin: GPIO23
-    model: DHT22_TYPE2
+    model: DHT22
     temperature:
       id: esp_sprinkler_controller_dht22_temperature
       name: ${node_friendly_name} DHT22 Temperature

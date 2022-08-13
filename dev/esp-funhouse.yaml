@@ -60,6 +60,11 @@ binary_sensor:
     name: ${node_friendly_name} Status
     id: funhouse_status
   - platform: gpio
+    id: motion_sense
+    name: ${node_friendly_name} Motion Detection
+    pin:
+      number: GPIO16
+  - platform: gpio
     id: button_input_0
     name: ${node_friendly_name} Button Up
     pin:
@@ -84,10 +89,17 @@ binary_sensor:
     #   - display.page.show: page3
     #   - component.update: main_lcd
   - platform: gpio
-    id: motion_sense
-    name: ${node_friendly_name} Motion Detection
+    id: button_input_back
+    name: ${node_friendly_name} Button 0
     pin:
-      number: GPIO16
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    # on_press:
+    #   - display.page.show: page4
+    #   - component.update: main_lcd
 
 color:
   - id: kbx_red
@@ -157,7 +169,7 @@ sensor:
       id: funhouse_dps310_temperature
       name: ${node_friendly_name} DPS310 Temperature
       filters:
-        - offset: -2.0
+        - offset: -2.6
     pressure:
       id: funhouse_dps310_pressure
       name: ${node_friendly_name} DPS310 Pressure
@@ -176,10 +188,12 @@ display:
     pages:
       - id: page1
         lambda: |-
-          // id(test_gpio_pin).turn_on();
+          const uint8_t header_height = 20;
+          const uint8_t vert_spacing_offset = 45;
+          const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
           it.rectangle(0,  0, it.get_width(), it.get_height(), id(kbx_blue));
-          it.rectangle(0, 20, it.get_width(), it.get_height(), id(kbx_blue));   // header bar
+          it.rectangle(0, header_height, it.get_width(), it.get_height(), id(kbx_blue));   // header bar
 
           it.print(5, 5, id(helvetica_small), id(kbx_yellow), TextAlign::TOP_LEFT, "ESPHome");
 
@@ -190,10 +204,9 @@ display:
             it.print(235, 5, id(helvetica_small), id(kbx_red), TextAlign::TOP_RIGHT, "Offline");
           }
 
-          // it.image(0, 0, id(my_image));
-
           it.strftime((it.get_width() / 2), 5, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%Y-%m-%d", id(esptime).now());
           it.strftime((it.get_width() / 2), 25, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%H:%M", id(esptime).now());
 
-          it.printf(it.get_width() / 2, it.get_height() / 2 - 40, id(helvetica_xlarge), id(kbx_white), TextAlign::TOP_CENTER, "%.1f°", id(funhouse_aht20_temperature).state * 1.8 + 32);
-          it.printf(it.get_width() / 2, it.get_height() / 2 + 40, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f%%", id(funhouse_aht20_humidity).state);
+          it.printf(it.get_width() / 2, vert_center - vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "%.1f%%", id(funhouse_aht20_humidity).state);
+          it.printf(it.get_width() / 2, vert_center, id(helvetica_xlarge), id(kbx_white), TextAlign::CENTER, "%.1f°", id(funhouse_aht20_temperature).state * 1.8 + 32);
+          it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f hPa", id(funhouse_dps310_pressure).state);
