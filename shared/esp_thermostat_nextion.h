@@ -8,11 +8,12 @@ namespace esp32_thermostat {
 enum DisplaySensor : size_t {
   DS_CURRENT_TEMP = 0,
   DS_CURRENT_HUM = 1,
-  DS_WEATHER_TEMP = 2,
-  DS_WEATHER_HUM = 3,
-  DS_WEATHER_TEMPHIGH = 4,
-  DS_WEATHER_TEMPLOW = 5,
-  DS_NUM_OF_SENSORS = 6
+  DS_CURRENT_PRES = 2,
+  DS_WEATHER_TEMP = 3,
+  DS_WEATHER_HUM = 4,
+  DS_WEATHER_TEMPHIGH = 5,
+  DS_WEATHER_TEMPLOW = 6,
+  DS_NUM_OF_SENSORS = 7
 };
 
 enum DisplayConversion : uint8_t { DC_NONE = 0, DC_C_TO_F = 1, DC_F_TO_C = 2 };
@@ -105,10 +106,11 @@ nextion::NextionSensor *display_sensor(DisplaySensor sensor) {
     }
     sensor_vector[0] = nextionCurrentTemp;
     sensor_vector[1] = nextionCurrentHum;
-    sensor_vector[2] = nextionWeatherTemp;
-    sensor_vector[3] = nextionWeatherHum;
-    sensor_vector[4] = nextionWeatherTempHigh;
-    sensor_vector[5] = nextionWeatherTempLow;
+    sensor_vector[2] = nextionCurrentPres;
+    sensor_vector[3] = nextionWeatherTemp;
+    sensor_vector[4] = nextionWeatherHum;
+    sensor_vector[5] = nextionWeatherTempHigh;
+    sensor_vector[6] = nextionWeatherTempLow;
 
     return sensor_vector[sensor];
   }
@@ -175,10 +177,8 @@ void display_refresh_iaq_txt(float iaq_value, bool is_weather = false) {
     id(nextionTextWeatherAq).set_state(iaq_string, false, true);
     id(nextionTextWeatherAq).set_foreground_color(iaq_color);
   } else {
-    id(nextionTextCurrentAq1).set_state(iaq_string, false, true);
-    id(nextionTextCurrentAq1).set_foreground_color(iaq_color);
-    id(nextionTextCurrentAq2).set_state(iaq_string, false, true);
-    id(nextionTextCurrentAq2).set_foreground_color(iaq_color);
+    id(nextionTextCurrentAq).set_state(iaq_string, false, true);
+    id(nextionTextCurrentAq).set_foreground_color(iaq_color);
   }
 }
 
@@ -297,12 +297,8 @@ void display_refresh_status() {
   if (!status_message.empty())
     status_message[0] = toupper(status_message[0]);
 
-  if (id(nextionTextStatus1).state != status_message)
-    id(nextionTextStatus1).set_state(status_message, false, true);
-  if (id(nextionTextStatus2).state != status_message)
-    id(nextionTextStatus2).set_state(status_message, false, true);
-  if (id(nextionTextStatus3).state != status_message)
-    id(nextionTextStatus3).set_state(status_message, false, true);
+  if (id(nextionTextStatus).state != status_message)
+    id(nextionTextStatus).set_state(status_message, false, true);
 }
 
 void draw_main_screen(bool fullRefresh = false) {

@@ -1,0 +1,778 @@
+esp32:
+  board: featheresp32
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      # type: git
+      # url: https://github.com/kbx81/esphome_custom_components
+      type: local
+      path: ../esphome_custom_components/components
+    components: [dop_led_plus_h_bridge, remote_base, remote_transmitter]
+
+# captive_portal:
+
+# Enable logging
+# logger:
+
+# time:
+#   - platform: homeassistant
+#     id: esptime
+#     timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
+
+status_led:
+  pin:
+    number: 5
+
+remote_receiver:
+  - id: rf_rx
+    pin: 33
+    idle: 7ms
+    dump: honeywell_string_lights
+
+remote_transmitter:
+  - id: dop_port_a
+    carrier_duty_percent: 100%
+    # P1A
+    pin:
+      number: 13
+      mode: OUTPUT_OPEN_DRAIN
+  - id: dop_port_b
+    carrier_duty_percent: 100%
+    # P1B
+    pin:
+      number: 23
+      mode: OUTPUT_OPEN_DRAIN
+
+binary_sensor:
+  - platform: status
+    name: Status
+    id: esp_lights_status
+  - platform: gpio
+    id: button_gpio0
+    name: Button
+    pin:
+      number: 0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_press:
+      - light.toggle: string_lights_dop_led_a
+      - light.toggle: string_lights_dop_led_b
+  # RF receiver actions
+  - platform: remote_receiver
+    id: rf_rx_off
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA01
+    on_press:
+      - light.turn_off:
+          id: string_lights_dop_led_a
+      - light.turn_off:
+          id: string_lights_dop_led_b
+  - platform: remote_receiver
+    id: rf_rx_on
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA08
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+      - light.turn_on:
+          id: string_lights_dop_led_b
+  - platform: remote_receiver
+    id: rf_rx_brighter
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA04
+    on_press:
+      - light.dim_relative:
+          id: string_lights_dop_led_a
+          relative_brightness: 10%
+          transition_length: 100ms
+      - light.dim_relative:
+          id: string_lights_dop_led_b
+          relative_brightness: 10%
+          transition_length: 100ms
+  - platform: remote_receiver
+    id: rf_rx_dimmer
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA02
+    on_press:
+      - light.dim_relative:
+          id: string_lights_dop_led_a
+          relative_brightness: -10%
+          transition_length: 100ms
+      - light.dim_relative:
+          id: string_lights_dop_led_b
+          relative_brightness: -10%
+          transition_length: 100ms
+  - platform: remote_receiver
+    id: rf_rx_white
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA80
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: WHITE
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: WHITE
+  - platform: remote_receiver
+    id: rf_rx_red
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA10
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 0%
+          blue: 0%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 0%
+          blue: 0%
+  - platform: remote_receiver
+    id: rf_rx_green
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA20
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 0%
+          green: 100%
+          blue: 0%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 0%
+          green: 100%
+          blue: 0%
+  - platform: remote_receiver
+    id: rf_rx_blue
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA40
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 0%
+          green: 0%
+          blue: 100%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 0%
+          green: 0%
+          blue: 100%
+  - platform: remote_receiver
+    id: rf_rx_amber
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA82
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 50%
+          blue: 0%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 50%
+          blue: 0%
+  - platform: remote_receiver
+    id: rf_rx_yellow
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA05
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 70%
+          blue: 0%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 70%
+          blue: 0%
+  - platform: remote_receiver
+    id: rf_rx_light_blue
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA09
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 65%
+          green: 80%
+          blue: 100%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 65%
+          green: 80%
+          blue: 100%
+  - platform: remote_receiver
+    id: rf_rx_pink
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA11
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 35%
+          blue: 70%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 100%
+          green: 35%
+          blue: 70%
+  - platform: remote_receiver
+    id: rf_rx_magenta
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA21
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 95%
+          green: 0%
+          blue: 100%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 95%
+          green: 0%
+          blue: 100%
+  - platform: remote_receiver
+    id: rf_rx_light_green
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA41
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 80%
+          green: 100%
+          blue: 65%
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          brightness: 100%
+          effect: None
+          color_mode: RGB
+          red: 80%
+          green: 100%
+          blue: 65%
+  - platform: remote_receiver
+    id: rf_rx_flash
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA81
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          effect: "Random Color Wipe"
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          effect: "Random Color Wipe"
+  # - platform: remote_receiver
+  #   id: rf_rx_pulse
+  #   filters:
+  #     delayed_off: 500ms
+  #   honeywell_string_lights:
+  #     data: 0xAA14
+  #   on_press:
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_a
+  #         effect: "Pulse"
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_b
+  #         effect: "Pulse"
+  # - platform: remote_receiver
+  #   id: rf_rx_fade
+  #   filters:
+  #     delayed_off: 500ms
+  #   honeywell_string_lights:
+  #     data: 0xAA22
+  #   on_press:
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_a
+  #         effect: "Fade"
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_b
+  #         effect: "Fade"
+  # - platform: remote_receiver
+  #   id: rf_rx_strobe
+  #   filters:
+  #     delayed_off: 500ms
+  #   honeywell_string_lights:
+  #     data: 0xAA12
+  #   on_press:
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_a
+  #         effect: "Strobe"
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_b
+  #         effect: "Strobe"
+  # - platform: remote_receiver
+  #   id: rf_rx_dance
+  #   filters:
+  #     delayed_off: 500ms
+  #   honeywell_string_lights:
+  #     data: 0xAA0A
+  #   on_press:
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_a
+  #         effect: "Dance"
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_b
+  #         effect: "Dance"
+  # - platform: remote_receiver
+  #   id: rf_rx_flicker
+  #   filters:
+  #     delayed_off: 500ms
+  #   honeywell_string_lights:
+  #     data: 0xAA42
+  #   on_press:
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_a
+  #         effect: "Flicker"
+  #     - light.turn_on:
+  #         id: string_lights_dop_led_b
+  #         effect: "Flicker"
+
+output:
+  # PWM outputs
+  - platform: ledc
+    id: string_lights_pwm_a
+    # N1A
+    pin:
+      number: 18
+      mode: OUTPUT
+  - platform: ledc
+    id: string_lights_pwm_b
+    # N1B
+    pin:
+      number: 22
+      mode: OUTPUT
+  # Binary outputs
+  - platform: gpio
+    id: string_lights_output_2v5_a
+    pin:
+      number: 25
+      mode: OUTPUT
+  - platform: gpio
+    id: string_lights_output_2v5_b
+    pin:
+      number: 26
+      mode: OUTPUT
+  - platform: gpio
+    id: string_lights_output_p2_a
+    pin:
+      number: 17
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+  - platform: gpio
+    id: string_lights_output_p2_b
+    pin:
+      number: 21
+      mode: OUTPUT_OPEN_DRAIN
+      inverted: true
+  - platform: gpio
+    id: string_lights_output_n2_a
+    pin:
+      number: 16
+      mode: OUTPUT
+  - platform: gpio
+    id: string_lights_output_n2_b
+    pin:
+      number: 19
+      mode: OUTPUT
+
+light:
+  - platform: dop_led_plus_h_bridge
+    id: string_lights_dop_led_a
+    name: String A
+    restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 500ms
+    num_header_bits: 3
+    num_leds: 4
+    rgb_order: GRB
+    output_2v5_id: string_lights_output_2v5_a
+    output_p2_id: string_lights_output_p2_a
+    output_n1_pwm_id: string_lights_pwm_a
+    output_n2_id: string_lights_output_n2_a
+    transmitter_id: dop_port_a
+    # Effects notes:
+    #   it.size()  // Number of LEDs
+    #   it[num]   // Access the LED at index num.
+    # Set the LED at num to the given r, g, b values
+    #   it[num] = Color(r, g, b);
+    # Get the color at index num (Color instance)
+    #   it[num].get()
+    # Bonus: use .range() and .all() to set many LEDs without having to write a loop.
+    #   it.range(0, 50) = Color::BLACK;
+    #   it.all().fade_to_black(10);
+    effects:
+      - addressable_lambda:
+          name: Valentine's Day
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(255, 0, 255);
+              it[2] = Color(255, 112, 255);
+              it[3] = Color(144, 0, 255);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Saint Patrick's Day
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(0, 255, 0);
+              it[1] = Color(255, 224, 208);
+              it[2] = Color(0, 255, 0);
+              it[3] = Color(255, 120, 0);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Easter
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(248, 208, 80);
+              it[1] = Color(255, 144, 224);
+              it[2] = Color(148, 224, 255);
+              it[3] = Color(175, 255, 128);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: USA
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(255, 192, 180);
+              it[2] = Color(0, 0, 255);
+              it[3] = Color(255, 192, 180);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Halloween
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 120, 0);
+              it[1] = Color(144, 0, 255);
+              it[2] = Color(255, 120, 0);
+              it[3] = Color(160, 255, 0);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Thanksgiving
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 120, 0);
+              it[1] = Color(255, 160, 0);
+              it[2] = Color(255, 0, 0);
+              it[3] = Color(255, 160, 96);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Christmas
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(255, 192, 180);
+              it[2] = Color(0, 255, 0);
+              it[3] = Color(255, 192, 180);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Random Color Wipe
+          update_interval: 500ms
+          lambda: |-
+            for (int i = it.size() - 1; i > 0; i--) {
+              it[i] = it[i - 1].get();
+            }
+            it[0] = Color::random_color();
+      - addressable_lambda:
+          name: RGBW Chase
+          update_interval: 1s
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(0, 255, 0);
+              it[2] = Color(0, 0, 255);
+              it[3] = Color(255, 255, 255);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+  - platform: dop_led_plus_h_bridge
+    id: string_lights_dop_led_b
+    name: String B
+    restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 500ms
+    num_header_bits: 3
+    num_leds: 4
+    rgb_order: GRB
+    output_2v5_id: string_lights_output_2v5_b
+    output_p2_id: string_lights_output_p2_b
+    output_n1_pwm_id: string_lights_pwm_b
+    output_n2_id: string_lights_output_n2_b
+    transmitter_id: dop_port_b
+    effects:
+      - addressable_lambda:
+          name: Valentine's Day
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(255, 0, 255);
+              it[2] = Color(255, 112, 255);
+              it[3] = Color(144, 0, 255);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Saint Patrick's Day
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(0, 255, 0);
+              it[1] = Color(255, 224, 208);
+              it[2] = Color(0, 255, 0);
+              it[3] = Color(255, 120, 0);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Easter
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(248, 208, 80);
+              it[1] = Color(255, 144, 224);
+              it[2] = Color(148, 224, 255);
+              it[3] = Color(175, 255, 128);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: USA
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(255, 192, 180);
+              it[2] = Color(0, 0, 255);
+              it[3] = Color(255, 192, 180);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Halloween
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 120, 0);
+              it[1] = Color(144, 0, 255);
+              it[2] = Color(255, 120, 0);
+              it[3] = Color(160, 255, 0);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Thanksgiving
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 120, 0);
+              it[1] = Color(255, 160, 0);
+              it[2] = Color(255, 0, 0);
+              it[3] = Color(255, 160, 96);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Christmas
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(255, 192, 180);
+              it[2] = Color(0, 255, 0);
+              it[3] = Color(255, 192, 180);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: Random Color Wipe
+          update_interval: 500ms
+          lambda: |-
+            for (int i = it.size() - 1; i > 0; i--) {
+              it[i] = it[i - 1].get();
+            }
+            it[0] = Color::random_color();
+      - addressable_lambda:
+          name: RGBW Chase
+          update_interval: 1s
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 0, 0);
+              it[1] = Color(0, 255, 0);
+              it[2] = Color(0, 0, 255);
+              it[3] = Color(255, 255, 255);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }

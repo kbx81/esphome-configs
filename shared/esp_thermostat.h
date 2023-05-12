@@ -246,9 +246,9 @@ namespace esp32_thermostat
     else
       id(on_board_sensor_active) = false;
 
-    id(esp_thermostat_thermistor_vcc).turn_on();
-    id(adc_sensor_thermistor).update();
-    id(esp_thermostat_thermistor_vcc).turn_off();
+    // id(esp_thermostat_thermistor_vcc).turn_on();
+    // id(adc_sensor_thermistor).update();
+    // id(esp_thermostat_thermistor_vcc).turn_off();
 
     if (id(on_board_sensor_active) || !template_sensor_valid)
     {

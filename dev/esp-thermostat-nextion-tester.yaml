@@ -1,6 +1,5 @@
 esphome:
   platformio_options:
-    # 20211001: to enlarge stack, edit ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/config/sdkconfig.h
     build_flags:
       - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
       - -DBOARD_HAS_PSRAM

@@ -6,22 +6,22 @@ mcp23017:
 switch:
   # - platform: gpio
   #   id: esp_thermostat_dht22_vcc
-  #   name: ${node_friendly_name} DHT22 Vcc
+  #   name: DHT22 Vcc
   #   internal: true
   #   pin:
   #     number: 25
   #     mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_thermistor_vcc
-    name: ${node_friendly_name} Thermistor Vcc
+    name: Thermistor Vcc
     internal: true
-    restore_mode: ALWAYS_OFF
+    restore_mode: ALWAYS_ON
     pin:
       number: 33
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_mcp23017_reset
-    name: ${node_friendly_name} MCP23017 Reset
+    name: MCP23017 Reset
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -30,7 +30,7 @@ switch:
       inverted: true
   - platform: gpio
     id: esp_thermostat_fan
-    name: ${node_friendly_name} Fan
+    name: Fan
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -39,7 +39,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_cool_1
-    name: ${node_friendly_name} Cool 1
+    name: Cool 1
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -48,7 +48,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_cool_2
-    name: ${node_friendly_name} Cool 2
+    name: Cool 2
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -57,7 +57,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_heat_1
-    name: ${node_friendly_name} Heat 1
+    name: Heat 1
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -66,7 +66,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_heat_2
-    name: ${node_friendly_name} Heat 2
+    name: Heat 2
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -75,7 +75,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_humidify
-    name: ${node_friendly_name} Humidify
+    name: Humidify
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -84,7 +84,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_triac_misc_2
-    name: ${node_friendly_name} Misc 2
+    name: Misc 2
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -93,7 +93,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_triac_misc_3
-    name: ${node_friendly_name} Misc 3
+    name: Misc 3
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -102,7 +102,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_relay_1
-    name: ${node_friendly_name} Relay 1
+    name: Relay 1
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -111,7 +111,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_relay_2
-    name: ${node_friendly_name} Relay 2
+    name: Relay 2
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -120,7 +120,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_relay_3
-    name: ${node_friendly_name} Relay 3
+    name: Relay 3
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -129,7 +129,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_to_1
-    name: ${node_friendly_name} Test Output 1
+    name: Test Output 1
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -138,7 +138,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_to_2
-    name: ${node_friendly_name} Test Output 2
+    name: Test Output 2
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -147,7 +147,7 @@ switch:
       mode: OUTPUT
   - platform: gpio
     id: esp_thermostat_to_3
-    name: ${node_friendly_name} Test Output 3
+    name: Test Output 3
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -156,7 +156,7 @@ switch:
       mode: OUTPUT
   # - platform: gpio
   #   id: esp_thermostat_to_4
-  #   name: ${node_friendly_name} Test Output 4
+  #   name: Test Output 4
   #   internal: true
   #   restore_mode: ALWAYS_OFF
   #   pin:
@@ -165,7 +165,7 @@ switch:
   #     mode: OUTPUT
   # - platform: gpio
   #   id: esp_thermostat_to_5
-  #   name: ${node_friendly_name} Test Output 5
+  #   name: Test Output 5
   #   internal: true
   #   restore_mode: ALWAYS_OFF
   #   pin:

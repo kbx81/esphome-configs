@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp-lights-neon-butterfly
   node_friendly_name: "Neon Butterfly"
+  dac_min_power: "0.30"
   dac_max_power: "1.0"
 
 packages:

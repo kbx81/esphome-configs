@@ -26,52 +26,52 @@ sensor:
     model: DHT22
     temperature:
       id: esp_sensor_dht22_temperature
-      name: ${node_friendly_name} DHT22 Temperature
+      name: DHT22 Temperature
     humidity:
       id: esp_sensor_dht22_humidity
-      name: ${node_friendly_name} DHT22 Humidity
+      name: DHT22 Humidity
     update_interval: 15s
   # BME680 BSEC sensor
   - platform: bme680_bsec
     temperature:
       id: esp_sensor_bme680_temperature
-      name: ${node_friendly_name} BME680 Temperature
+      name: BME680 Temperature
       filters:
         - offset: -0.9
     humidity:
       id: esp_sensor_bme680_humidity
-      name: ${node_friendly_name} BME680 Humidity
+      name: BME680 Humidity
     pressure:
       id: esp_sensor_bme680_pressure
-      name: ${node_friendly_name} BME680 Pressure
+      name: BME680 Pressure
     gas_resistance:
       id: esp_sensor_bme680_gas_resistance
-      name: ${node_friendly_name} BME680 Gas Resistance
+      name: BME680 Gas Resistance
     iaq:
       id: esp_sensor_bme680_iaq
-      name: ${node_friendly_name} BME680 IAQ
+      name: BME680 IAQ
     co2_equivalent:
       id: esp_sensor_bme680_eco2
-      name: ${node_friendly_name} BME680 eCO2
+      name: BME680 eCO2
     breath_voc_equivalent:
       id: esp_sensor_bme680_evoc
-      name: ${node_friendly_name} BME680 Breath eVOC
+      name: BME680 Breath eVOC
   # SHTC3 sensor
   - platform: shtcx
     temperature:
       id: esp_sensor_shtcx_temperature
-      name: ${node_friendly_name} SHTC3 Temperature
+      name: SHTC3 Temperature
       filters:
         - offset: -1.1
     humidity:
       id: esp_sensor_shtcx_humidity
-      name: ${node_friendly_name} SHTC3 Humidity
+      name: SHTC3 Humidity
     update_interval: 15s
   # SGP40 sensor
   - platform: sgp4x
     voc:
       id: esp_sensor_sgp40_voc
-      name: ${node_friendly_name} SGP40 VOC
+      name: SGP40 VOC
       unit_of_measurement: VOC Index
     update_interval: 15s
     compensation:
@@ -82,4 +82,4 @@ text_sensor:
   - platform: bme680_bsec
     iaq_accuracy:
       id: esp_sensor_bme680_accuracy
-      name: ${node_friendly_name} BME680 Accuracy
+      name: BME680 Accuracy

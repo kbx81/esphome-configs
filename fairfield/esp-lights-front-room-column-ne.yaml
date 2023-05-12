@@ -91,7 +91,8 @@ binary_sensor:
 light:
   - platform: rgbw
     id: lamp_leds
-    name: ${node_friendly_name}
+    name: Head
+    restore_mode: RESTORE_DEFAULT_OFF
     red: lamp_pwm_red_channel
     green: lamp_pwm_green_channel
     blue: lamp_pwm_blue_channel
@@ -102,7 +103,8 @@ light:
       - flicker:
   - platform: rgbw
     id: lamp_uplight_leds
-    name: ${node_friendly_name} Uplight
+    name: Uplight
+    restore_mode: RESTORE_DEFAULT_OFF
     red: lamp_uplight_pwm_red_channel
     green: lamp_uplight_pwm_green_channel
     blue: lamp_uplight_pwm_blue_channel

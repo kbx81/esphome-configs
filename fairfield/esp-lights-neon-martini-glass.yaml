@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp-lights-neon-martini-glass
   node_friendly_name: "Neon Martini Glass"
+  dac_min_power: "0.05"
   dac_max_power: "0.92"
 
 packages:

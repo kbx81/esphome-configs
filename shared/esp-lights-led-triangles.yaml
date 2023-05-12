@@ -94,13 +94,13 @@ status_led:
 light:
   - platform: fastled_clockless
     id: pixel_strip2
-    name: ${node_friendly_name} HST Art Background
+    name: HST Art Background
     chipset: WS2811
     pin: GPIO15
     num_leds: 1
   - platform: fastled_spi
     id: pixel_strip1
-    name: ${node_friendly_name}
+    name: HST Art
     chipset: DOTSTAR
     data_pin: GPIO13
     clock_pin: GPIO14

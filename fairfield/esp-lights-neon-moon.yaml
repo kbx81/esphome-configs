@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp-lights-neon-moon
   node_friendly_name: "Neon Moon"
+  dac_min_power: "0.0"
   dac_max_power: "1.0"
 
 packages:

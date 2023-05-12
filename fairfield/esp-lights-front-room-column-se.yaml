@@ -131,7 +131,8 @@ binary_sensor:
 light:
   - platform: rgbw
     id: lamp_leds
-    name: ${node_friendly_name}
+    name: Head
+    restore_mode: RESTORE_DEFAULT_OFF
     red: lamp_pwm_red_channel
     green: lamp_pwm_green_channel
     blue: lamp_pwm_blue_channel
@@ -142,7 +143,8 @@ light:
       - flicker:
   - platform: rgbw
     id: lamp_uplight_leds
-    name: ${node_friendly_name} Uplight
+    name: Uplight
+    restore_mode: RESTORE_DEFAULT_OFF
     red: lamp_uplight_pwm_red_channel
     green: lamp_uplight_pwm_green_channel
     blue: lamp_uplight_pwm_blue_channel
@@ -153,7 +155,8 @@ light:
       - flicker:
   - platform: rgbw
     id: left_leds
-    name: ${node_friendly_name} Post Left
+    name: Post Left
+    restore_mode: RESTORE_DEFAULT_OFF
     red: left_pwm_red_channel
     green: left_pwm_green_channel
     blue: left_pwm_blue_channel
@@ -164,7 +167,8 @@ light:
       - flicker:
   - platform: rgbw
     id: right_leds
-    name: ${node_friendly_name} Post Right
+    name: Post Right
+    restore_mode: RESTORE_DEFAULT_OFF
     red: right_pwm_red_channel
     green: right_pwm_green_channel
     blue: right_pwm_blue_channel

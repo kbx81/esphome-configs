@@ -6,11 +6,12 @@
 
 namespace esp_sprinkler {
 enum DisplaySensor : size_t {
-  DS_WEATHER_TEMP = 0,
-  DS_WEATHER_HUM = 1,
-  DS_WEATHER_TEMPHIGH = 2,
-  DS_WEATHER_TEMPLOW = 3,
-  DS_NUM_OF_SENSORS = 4
+  DS_CURRENT_PRES = 0,
+  DS_WEATHER_TEMP = 1,
+  DS_WEATHER_HUM = 2,
+  DS_WEATHER_TEMPHIGH = 3,
+  DS_WEATHER_TEMPLOW = 4,
+  DS_NUM_OF_SENSORS = 5
 };
 
 enum DisplayConversion : uint8_t { DC_NONE = 0, DC_C_TO_F = 1, DC_F_TO_C = 2 };
@@ -50,10 +51,11 @@ nextion::NextionSensor *display_sensor(DisplaySensor sensor) {
     if (sensor_vector[sensor] != nullptr) {
       return sensor_vector[sensor];
     }
-    sensor_vector[0] = nextionWeatherTemp;
-    sensor_vector[1] = nextionWeatherHum;
-    sensor_vector[2] = nextionWeatherTempHigh;
-    sensor_vector[3] = nextionWeatherTempLow;
+    sensor_vector[0] = nextionCurrentPres;
+    sensor_vector[1] = nextionWeatherTemp;
+    sensor_vector[2] = nextionWeatherHum;
+    sensor_vector[3] = nextionWeatherTempHigh;
+    sensor_vector[4] = nextionWeatherTempLow;
 
     return sensor_vector[sensor];
   }
@@ -179,12 +181,8 @@ void display_refresh_status() {
   if (!status_message.empty())
     status_message[0] = toupper(status_message[0]);
 
-  if (id(nextionTextStatus1).state != status_message)
-    id(nextionTextStatus1).set_state(status_message, false, true);
-  if (id(nextionTextStatus2).state != status_message)
-    id(nextionTextStatus2).set_state(status_message, false, true);
-  if (id(nextionTextStatus3).state != status_message)
-    id(nextionTextStatus3).set_state(status_message, false, true);
+  if (id(nextionTextStatus).state != status_message)
+    id(nextionTextStatus).set_state(status_message, false, true);
 }
 
 void display_refresh_sprinkler_state() {
@@ -193,6 +191,9 @@ void display_refresh_sprinkler_state() {
   id(nextionSprinklerPausedZone).set_state(id(sprinkler_ctrlr).paused_valve().value_or(-1));
   id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
   id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+  id(nextionSprinklerStandby).set_state(id(sprinkler_ctrlr).standby());
+  id(nextionSprinklerMultiplier).set_state(id(sprinkler_ctrlr).multiplier() * 10.0);
+  id(nextionSprinklerRepeat).set_state(id(sprinkler_ctrlr).repeat().value_or(0));
   display_refresh_zone_run_enable_states();
 }
 
@@ -208,7 +209,15 @@ void draw_main_screen(bool fullRefresh = false) {
   }
 
   if (id(sprinkler_ctrlr).active_valve().has_value()) {
-    id(nextionSprinklerZoneTotalSecRemain).set_state(id(sprinkler_ctrlr).time_remaining().value_or(0));
+    id(nextionSprinklerZoneTotalSecRemain).set_state(id(sprinkler_ctrlr).time_remaining_active_valve().value_or(0));
+
+    // auto total_time_remaining = id(sprinkler_ctrlr).time_remaining_current_operation();
+    // if (total_time_remaining.has_value()) {
+    //   auto hours = total_time_remaining.value() / 3600;
+    //   auto minutes = (total_time_remaining.value() - (hours * 3600)) / 60;
+    //   auto seconds = total_time_remaining.value() - (hours * 3600) - (minutes * 60);
+    //   ESP_LOGD("sprinkler", "Total time remaining: %u:%u:%u", hours, minutes, seconds);
+    // }
   }
 
   if (fullRefresh) {

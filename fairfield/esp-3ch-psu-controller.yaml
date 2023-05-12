@@ -17,16 +17,16 @@ status_led:
 switch:
   - platform: gpio
     pin: GPIO1
-    name: ${node_friendly_name} Channel 1
+    name: Channel 1
     id: channel_1
     restore_mode: RESTORE_DEFAULT_ON
   - platform: gpio
     pin: GPIO2
-    name: ${node_friendly_name} Channel 2
+    name: Channel 2
     id: channel_2
     restore_mode: RESTORE_DEFAULT_ON
   - platform: gpio
     pin: GPIO3
-    name: ${node_friendly_name} Channel 3
+    name: Channel 3
     id: channel_3
     restore_mode: RESTORE_DEFAULT_ON

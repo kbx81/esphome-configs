@@ -364,7 +364,7 @@ remote_transmitter:
 binary_sensor:
   - platform: gpio
     id: gpio_0
-    name: ${node_friendly_name} IO0 Button
+    name: IO0 Button
     pin:
       number: GPIO0
       inverted: true

@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp-lights-neon-rainbow
   node_friendly_name: "Neon Rainbow"
+  dac_min_power: "0.08"
   dac_max_power: "0.96"
 
 packages:

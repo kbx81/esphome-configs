@@ -38,4 +38,8 @@ That said, the [ESPHome](https://esphome.io) configuration bits of interest are:
  - [`esp_led_triangles.h`](shared/esp_led_triangles.h) is the code that renders the display effects I ported from Andrei's [repo](https://github.com/ancalex/Half-Square-Triangles-LED-Art).
  - [`esp__common_core.yaml`](shared/esp__common_core.yaml) is also imported and required by the HST base configurations (above).
 
+---
+
+If you found any of this helpful and feel so inclined, please [Buy Me A Coffee](https://bmc.link/kbx81)! ☕️
+
 _Thanks for visiting!_

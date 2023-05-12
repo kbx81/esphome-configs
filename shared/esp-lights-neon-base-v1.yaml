@@ -57,7 +57,7 @@ binary_sensor:
             brightness: 1.0
             transition_length: 0s
   - platform: gpio
-    name: ${node_friendly_name} Fault
+    name: Fault
     id: fault_sensor
     pin:
       number: GPIO34
@@ -76,7 +76,7 @@ binary_sensor:
 switch:
   - platform: gpio
     id: neon_enable
-    name: ${node_friendly_name} Enable
+    name: Enable
     pin:
       number: 26
       mode: OUTPUT
@@ -84,7 +84,7 @@ switch:
 light:
   - platform: monochromatic
     id: neon_light_pwm
-    name: ${node_friendly_name} PWM
+    name: PWM
     output: neon_pwm_output
     on_turn_off:
       - switch.turn_off: neon_enable

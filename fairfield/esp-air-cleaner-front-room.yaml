@@ -1,0 +1,944 @@
+esphome:
+  platformio_options:
+    build_flags:
+      - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=16384
+
+esp32:
+  board: featheresp32
+  framework:
+    type: arduino
+
+substitutions:
+  node_name: esp-air-cleaner-front-room
+  node_friendly_name: "Front Room H300 Air Cleaner"
+
+packages:
+  esp_common: !include ../shared/esp__common_core.yaml
+
+api:
+  services:
+    - service: set_error_color
+      variables:
+        red: float
+        green: float
+        blue: float
+        brightness: float
+      then:
+        - lambda: |-
+            id(error_color)[0] = red;
+            id(error_color)[1] = green;
+            id(error_color)[2] = blue;
+            id(error_color)[3] = brightness;
+        - script.execute: update_bargraph_display
+        - script.execute: update_status_display
+    - service: set_filter_only_color
+      variables:
+        red: float
+        green: float
+        blue: float
+        brightness: float
+      then:
+        - lambda: |-
+            id(filter_only_color)[0] = red;
+            id(filter_only_color)[1] = green;
+            id(filter_only_color)[2] = blue;
+            id(filter_only_color)[3] = brightness;
+        - script.execute: update_bargraph_display
+        - script.execute: update_status_display
+    - service: set_humidify_color
+      variables:
+        red: float
+        green: float
+        blue: float
+        brightness: float
+      then:
+        - lambda: |-
+            id(humidify_color)[0] = red;
+            id(humidify_color)[1] = green;
+            id(humidify_color)[2] = blue;
+            id(humidify_color)[3] = brightness;
+        - script.execute: update_bargraph_display
+        - script.execute: update_status_display
+    - service: set_on_color
+      variables:
+        red: float
+        green: float
+        blue: float
+        brightness: float
+      then:
+        - lambda: |-
+            id(on_color)[0] = red;
+            id(on_color)[1] = green;
+            id(on_color)[2] = blue;
+            id(on_color)[3] = brightness;
+        - script.execute: update_bargraph_display
+        - script.execute: update_status_display
+    - service: set_warn_color
+      variables:
+        red: float
+        green: float
+        blue: float
+        brightness: float
+      then:
+        - lambda: |-
+            id(warn_color)[0] = red;
+            id(warn_color)[1] = green;
+            id(warn_color)[2] = blue;
+            id(warn_color)[3] = brightness;
+        - script.execute: update_bargraph_display
+        - script.execute: update_status_display
+
+globals:
+  # filter in-use timers
+  - id: hepa_filter_timer_counter
+    type: uint32_t
+    initial_value: "0"
+    restore_value: true
+  - id: screen_filter_timer_counter
+    type: uint32_t
+    initial_value: "0"
+    restore_value: true
+  # water present timer
+  - id: water_present_counter
+    type: uint32_t
+    initial_value: "0"
+    restore_value: true
+  # water present timer (average)
+  - id: water_present_counter_average
+    type: uint32_t
+    initial_value: "0"
+    restore_value: true
+  # water present timer (last run)
+  - id: water_present_counter_previous
+    type: uint32_t
+    initial_value: "0"
+    restore_value: true
+  # water tank empty caused shutdown
+  - id: water_shutdown_flag
+    type: bool
+    initial_value: "false"
+  # fan target speeds
+  - id: fan_predicted_speed_max
+    type: int
+    initial_value: "0"
+  - id: fan_predicted_speed_min
+    type: int
+    initial_value: "0"
+  # fan target speed miss counter
+  - id: fan_speed_misses
+    type: int
+    initial_value: "0"
+  # display page
+  - id: display_page
+    type: int
+    initial_value: "0"
+  # colors (R, G, B, brightness)
+  - id: error_color
+    type: std::vector<float>
+    initial_value: "{ 1.0, 0.0, 0.0, 1.0 }"
+  - id: filter_only_color
+    type: std::vector<float>
+    initial_value: "{ 0.0, 1.0, 0.2, 0.75 }"
+  - id: humidify_color
+    type: std::vector<float>
+    initial_value: "{ 0.0, 0.4, 1.0, 1.0 }"
+  - id: on_color
+    type: std::vector<float>
+    initial_value: "{ 1.0, 1.0, 1.0, 1.0 }"
+  - id: warn_color
+    type: std::vector<float>
+    initial_value: "{ 1.0, 0.5, 0.0, 1.0 }"
+
+script:
+  - id: activity
+    mode: restart
+    then:
+      - delay: 30s
+      - globals.set:
+          id: display_page
+          value: "0"
+      - script.execute: update_bargraph_display
+      - script.execute: update_status_display
+      - lambda: |-
+          // ***** get pointers to lights *****
+          std::vector<light::LightState*> lights = { id(bargraph_seg_0), id(bargraph_seg_1), id(bargraph_seg_2), id(bargraph_seg_3), id(bargraph_seg_4), id(bargraph_seg_5), id(status_1) };
+          // ***** set light states *****
+          for (uint8_t i = 0; i < lights.size(); i++) {
+            auto call = lights[i]->turn_on();
+            call.set_brightness(id(display_brightness).state / 100);
+            call.set_transition_length(15000);
+            call.perform();
+          }
+  - id: fan_speed_calculator
+    mode: restart
+    then:
+      - lambda: |-
+          const float fan_speed_max = 5650;
+          const float fan_speed_min = 2000;
+          const float fan_speed_max_min_delta = fan_speed_max - fan_speed_min;
+          const float fan_predicted_speed = ((id(main_fan).speed / 100.0) * fan_speed_max_min_delta) + fan_speed_min;
+          id(fan_predicted_speed_max) = fan_predicted_speed + 250;
+          id(fan_predicted_speed_min) = fan_predicted_speed - 250;
+          // ESP_LOGD("speed_predictor", "Predicted fan speed is %lf", fan_predicted_speed);
+          // ESP_LOGD("speed_predictor", "Actual fan speed is %lf", id(fan_tach).state);
+          // ESP_LOGD("speed_predictor", "Fan speed is valid: %s", YESNO(speed_is_valid));
+  - id: fan_speed_changing
+    mode: restart
+    then:
+      - delay: 10s
+  - id: fan_restarter
+    mode: restart
+    then:
+      - fan.turn_off: main_fan
+      - delay: 5s
+      - fan.turn_on: main_fan
+  - id: h2o_detected
+    mode: restart
+    then:
+      - delay: 1s
+      - script.stop: h2o_not_detected
+      - if:
+          condition:
+            lambda: "return id(humidify).state && id(water_shutdown_flag);"
+          then:
+            - switch.turn_on: wheel_rotation
+  - id: h2o_not_detected
+    mode: restart
+    then:
+      - script.stop: h2o_detected
+      - if:
+          condition:
+            switch.is_on: humidify
+          then:
+            - delay: 5s
+            - rtttl.play: "alert 1:d=8,o=5,b=100:e6,a,e6,a,2p,e6,a,e6,a"
+            - delay: 2min
+            - script.execute: h2o_reset_auto
+            - if:
+                condition:
+                  switch.is_on: humidify
+                then:
+                  - script.execute: h2o_shutdown
+  - id: h2o_sensor_state_changed
+    mode: restart
+    then:
+      - if:
+          condition:
+            binary_sensor.is_on: h2o_present
+          then:
+            - script.execute: h2o_detected
+          else:
+            - script.execute: h2o_not_detected
+  - id: h2o_reset_auto
+    mode: restart
+    then:
+      - globals.set:
+          id: water_present_counter_previous
+          value: !lambda "return id(water_present_counter);"
+      - globals.set:
+          id: water_present_counter_average
+          value: !lambda "return id(water_present_counter_average) ? (id(water_present_counter) + id(water_present_counter_average)) / 2 : id(water_present_counter);"
+      - globals.set:
+          id: water_present_counter
+          value: "0"
+  - id: h2o_reset_manual
+    mode: restart
+    then:
+      - globals.set:
+          id: water_present_counter
+          value: "0"
+  - id: h2o_shutdown
+    mode: restart
+    then:
+      - globals.set:
+          id: water_shutdown_flag
+          value: "true"
+      - fan.turn_off: main_fan
+      - delay: 500ms
+      - rtttl.play: "alert 2:d=16,o=6,b=100:g5,e5,c5,a4,4p,g5,e5,c5,a4,4p,g5,e5,c5,a4,4p,g5,e5,c5,a4,4p"
+  - id: update_bargraph_display
+    mode: restart
+    then:
+      - lambda: |-
+          // ***** get pointers to lights *****
+          std::vector<light::LightState*> lights = { id(bargraph_seg_0), id(bargraph_seg_1), id(bargraph_seg_2), id(bargraph_seg_3), id(bargraph_seg_4), id(bargraph_seg_5) };
+          std::vector<float> a_color, b_color;
+          float brightness = 0, raw_pct = 0;
+
+          if (id(main_fan).state) {
+            if (id(activity).is_running()) {
+              brightness = 1.0;
+            } else {
+              brightness = id(display_brightness).state / 100;
+            }
+          }
+
+          if (id(display_page) == 1) {  // water tank
+            raw_pct = id(water_approx_remain_pct).state * 6 / 100;
+            a_color = id(humidify_color);
+            b_color = id(error_color);
+          } else {  // default display (fan speed & mode)
+            raw_pct = (id(main_fan).speed / 100.0) * 6.0;
+            a_color = id(on_color);
+            b_color = id(humidify).state ? id(humidify_color) : id(filter_only_color);
+          }
+
+          for (uint8_t i = 0; i < lights.size(); i++) {
+            auto call = lights[i]->make_call();
+
+            call.set_state(brightness != 0);
+            
+            if (brightness > 0) {
+              call.set_transition_length(0);
+            } else {
+              call.set_transition_length(250);
+            }
+
+            if (raw_pct > 1) {
+              call.set_rgb(a_color[0], a_color[1], a_color[2]);
+              call.set_brightness(a_color[3] * brightness);
+            } else if (raw_pct > 0) {
+              std::vector<float> mix_color = { (a_color[0] * raw_pct) + (b_color[0] * (1 - raw_pct)),
+                                               (a_color[1] * raw_pct) + (b_color[1] * (1 - raw_pct)),
+                                               (a_color[2] * raw_pct) + (b_color[2] * (1 - raw_pct)),
+                                               (a_color[3] * raw_pct) + (b_color[3] * (1 - raw_pct)) };
+              call.set_rgb(mix_color[0], mix_color[1], mix_color[2]);
+              call.set_brightness(mix_color[3] * brightness);
+            } else {
+              call.set_rgb(b_color[0], b_color[1], b_color[2]);
+              call.set_brightness(b_color[3] * brightness);
+            }
+            raw_pct -= 1;
+
+            call.perform();
+          }
+  - id: update_status_display
+    mode: restart
+    then:
+      - lambda: |-
+          static int state = 0;
+          auto call = id(status_1).make_call();
+          float brightness = 0;
+
+          if (id(main_fan).state || id(water_shutdown_flag)) {
+            if (id(activity).is_running()) {
+              brightness = 1.0;
+            } else {
+              brightness = id(display_brightness).state / 100;
+            }
+          }
+
+          call.set_state(brightness != 0);
+          call.set_transition_length(50);
+
+          if (state == 0) {
+            if (!id(api_status).state) {
+              call.set_rgb(id(warn_color)[0], id(warn_color)[1], id(warn_color)[2]);
+              call.set_brightness(id(warn_color)[3] * brightness);
+            } else {
+              state++;
+            }
+          }
+          if (state == 1) {
+            if (id(humidify).state && (id(water_shutdown_flag) || id(water_warning).state)) {
+              call.set_rgb(id(error_color)[0], id(error_color)[1], id(error_color)[2]);
+              call.set_brightness(id(error_color)[3] * brightness);
+            } else {
+              state++;
+            }
+          }
+          if (state == 2) {
+            if ((id(humidify).state) || id(water_shutdown_flag)) {
+              float raw_pct = (id(water_shutdown_flag) || id(water_warning).state) ?  1 : id(water_approx_remain_pct).state / 100;
+
+              std::vector<float> mix_color = { (id(error_color)[0] * (1 - raw_pct)) + (id(humidify_color)[0] * raw_pct),
+                                                (id(error_color)[1] * (1 - raw_pct)) + (id(humidify_color)[1] * raw_pct),
+                                                (id(error_color)[2] * (1 - raw_pct)) + (id(humidify_color)[2] * raw_pct),
+                                                (id(error_color)[3] * (1 - raw_pct)) + (id(humidify_color)[3] * raw_pct) };
+              call.set_rgb(mix_color[0], mix_color[1], mix_color[2]);  // mixed color indicating approx % remaining
+              call.set_brightness(mix_color[3] * brightness);
+            } else {
+              call.set_rgb(id(filter_only_color)[0], id(filter_only_color)[1], id(filter_only_color)[2]);  // mode color
+              call.set_brightness(id(filter_only_color)[3] * brightness);
+            }
+          }
+          call.perform();
+          state++;
+          if (state > 2) {
+            state = 0;
+          }
+
+interval:
+  - interval: 500ms
+    then:
+      - script.execute: update_status_display
+
+time:
+  - platform: homeassistant
+    id: esptime
+
+i2c:
+  id: i2c_bus
+  frequency: 400kHz
+  sda: 27
+  scl: 26
+  scan: false
+
+# BME680 BSEC sensor
+bme680_bsec:
+  address: 0x76
+
+tlc5947:
+  data_pin: GPIO23
+  clock_pin: GPIO18
+  lat_pin: GPIO21
+
+rtttl:
+  output: rtttl_out
+
+button:
+  - platform: template
+    name: Reset HEPA Filter Timer
+    on_press:
+      - globals.set:
+          id: hepa_filter_timer_counter
+          value: "0"
+  - platform: template
+    name: Reset Screen Filter Timer
+    on_press:
+      - globals.set:
+          id: screen_filter_timer_counter
+          value: "0"
+  - platform: template
+    name: Reset Water Tank Status
+    on_press:
+      - script.execute: h2o_reset_manual
+
+fan:
+  - platform: speed
+    id: main_fan
+    restore_mode: RESTORE_DEFAULT_OFF
+    output: fan_speed_output
+    name: Fan
+    on_speed_set:
+      - script.execute: update_bargraph_display
+      - script.execute: fan_speed_changing
+      - script.execute: fan_speed_calculator
+    on_turn_off:
+      # - script.execute: update_bargraph_display
+      - script.execute: fan_speed_changing
+      - script.stop: h2o_detected
+      - script.stop: h2o_not_detected
+      - switch.turn_off: wheel_rotation
+    on_turn_on:
+      - if:
+          condition:
+            switch.is_on: humidify
+          then:
+            - switch.turn_on: wheel_rotation
+          else:
+            - script.execute: update_bargraph_display
+            - script.execute: update_status_display
+      - script.execute: fan_speed_changing
+      - script.execute: fan_speed_calculator
+      - if:
+          condition:
+            lambda: "return !id(h2o_present).state && id(water_shutdown_flag) && (id(water_present_counter) > 300);"
+          then:
+            - script.execute: h2o_reset_auto
+      - globals.set:
+          id: water_shutdown_flag
+          value: "false"
+
+binary_sensor:
+  - platform: status
+    id: api_status
+    name: API Status
+  - platform: gpio
+    id: encoder_button
+    name: Encoder Button
+    pin:
+      number: 0
+      mode: INPUT
+      inverted: true
+    on_multi_click:
+      - timing:
+          - ON for at most 1s
+          - OFF for at most 1s
+          - ON for at most 1s
+          - OFF for at least 0.2s
+        then:
+          - rtttl.play: "one short:d=4,o=5,b=100:16e"
+          - script.execute: activity
+          - globals.set:
+              id: display_page
+              value: !lambda |-
+                id(display_page)++;
+                if (id(display_page) > 1) {
+                  id(display_page) = 0;
+                }
+                return id(display_page);
+          - script.execute: update_bargraph_display
+      - timing:
+          - ON for 5s to 6s
+          - OFF for at least 0.5s
+        then:
+          - script.execute: h2o_reset_manual
+      - timing:
+          - ON for 1s to 2s
+          - OFF for at least 0.5s
+        then:
+          - script.execute: activity
+          - switch.toggle: humidify
+      - timing:
+          - ON for at most 1s
+          - OFF for at least 0.5s
+        then:
+          - script.execute: activity
+          - fan.toggle: main_fan
+  - platform: gpio
+    id: h2o_present
+    name: Water Present
+    pin: GPIO13
+    on_state:
+      - script.execute: h2o_sensor_state_changed
+  - platform: gpio
+    id: wheel_fault
+    name: Water Wheel Fault
+    pin:
+      number: 34
+      mode: INPUT
+      inverted: true
+  - platform: template
+    id: water_warning
+    name: Water Level Warning
+    lambda: "return id(h2o_not_detected).is_running() || !id(h2o_present).state;"
+  - platform: template
+    id: fan_speed_valid
+    name: Fan Speed Valid
+    lambda: |-
+      const bool fan_speed_is_valid = (id(fan_tach).state > id(fan_predicted_speed_min)) && (id(fan_tach).state < id(fan_predicted_speed_max));
+      return fan_speed_is_valid || id(fan_speed_changing).is_running() || (!id(main_fan).state);
+
+sensor:
+  - platform: pulse_counter
+    id: fan_tach
+    name: Fan Tach Pulse Counter
+    pin: GPIO35
+    update_interval: 1s
+    on_value:
+      - lambda: |-
+          if (id(h2o_present).state && id(wheel_rotation).state) {
+            id(water_present_counter)++;
+          }
+          if (id(fan_tach).state > 0) {
+            id(hepa_filter_timer_counter)++;
+            id(screen_filter_timer_counter)++;
+          }
+          if (id(fan_speed_valid).state) {
+            id(fan_speed_misses) = 0;
+            return;
+          }
+          if (id(fan_speed_misses) < 3) {
+            id(fan_speed_misses)++;
+            return;
+          }
+          id(fan_restarter).execute();
+  # Filter in-use timers
+  - platform: template
+    id: hepa_filter_days_since_replaced
+    name: Days Since HEPA Filter Replaced
+    unit_of_measurement: "days"
+    lambda: |-
+      return id(hepa_filter_timer_counter) / 86400.0;
+    update_interval: 60s
+  - platform: template
+    id: screen_filter_days_since_cleaned
+    name: Days Since Screen Filter Cleaned
+    unit_of_measurement: "days"
+    lambda: |-
+      return id(screen_filter_timer_counter) / 86400.0;
+    update_interval: 60s
+  # Water present timer
+  - platform: template
+    id: water_present_timer
+    name: Water Present Timer
+    unit_of_measurement: "s"
+    lambda: "return id(water_present_counter);"
+    update_interval: 1s
+  # Water present timer, average
+  - platform: template
+    id: water_present_average_time
+    name: Water Present Time Average
+    unit_of_measurement: "s"
+    lambda: "return id(water_present_counter_average);"
+    update_interval: 1s
+  # Water present timer, last run
+  - platform: template
+    id: water_present_previous_time
+    name: Water Present Time Previous
+    unit_of_measurement: "s"
+    lambda: "return id(water_present_counter_previous);"
+    update_interval: 1s
+  # Water approximate percentage remaining
+  - platform: template
+    id: water_approx_remain_pct
+    name: Approximate Percentage of Water Remaining
+    unit_of_measurement: "%"
+    lambda: |-
+      float raw_pct = (id(water_present_counter_average) > 0) ? static_cast<float>(id(water_present_counter)) / static_cast<float>(id(water_present_counter_average)) : 0;
+      if (raw_pct > 1) {
+        raw_pct = 1;
+      }
+      return id(h2o_present).state ? (1.0 - raw_pct) * 100 : 0.0;
+    update_interval: 1s
+  # Encoder sensor
+  - platform: rotary_encoder
+    id: encoder_wheel
+    name: Encoder
+    pin_a: GPIO39
+    pin_b: GPIO36
+    on_value:
+      - delay: 50ms
+      - script.execute: activity
+      - lambda: |-
+          auto new_speed = id(main_fan).speed + (id(encoder_wheel).state * 3);
+          if (new_speed < 1) {
+            new_speed = 1;
+          } else if (new_speed > 100) {
+            new_speed = 100;
+          }
+          auto call = id(main_fan).turn_on();
+          call.set_speed(new_speed);
+          call.perform();
+      - sensor.rotary_encoder.set_value:
+          id: encoder_wheel
+          value: 0
+  # BME680 BSEC sensor
+  - platform: bme680_bsec
+    temperature:
+      id: h300_bme680_temperature
+      name: BME680 Temperature
+      filters:
+        - offset: -1.2
+    humidity:
+      id: h300_bme680_humidity
+      name: BME680 Humidity
+    pressure:
+      id: h300_bme680_pressure
+      name: BME680 Pressure
+    gas_resistance:
+      id: h300_bme680_gas_resistance
+      name: BME680 Gas Resistance
+    iaq:
+      id: h300_bme680_iaq
+      name: BME680 IAQ
+    co2_equivalent:
+      id: h300_bme680_eco2
+      name: BME680 eCO2
+    breath_voc_equivalent:
+      id: h300_bme680_evoc
+      name: BME680 Breath eVOC
+  # SHTC3 sensor
+  - platform: shtcx
+    temperature:
+      id: h300_shtcx_temperature
+      name: SHTC3 Temperature
+      filters:
+        - offset: -1.4
+    humidity:
+      id: h300_shtcx_humidity
+      name: SHTC3 Humidity
+    update_interval: 15s
+  # SGP40 sensor
+  - platform: sgp4x
+    voc:
+      id: h300_sgp40_voc
+      name: SGP40 VOC
+      unit_of_measurement: VOC Index
+    update_interval: 15s
+    compensation:
+      humidity_source: h300_shtcx_humidity
+      temperature_source: h300_shtcx_temperature
+
+text_sensor:
+  - platform: bme680_bsec
+    iaq_accuracy:
+      id: h300_bme680_accuracy
+      name: BME680 Accuracy
+
+switch:
+  # TLC5947 IREF control
+  - platform: gpio
+    id: iref_b0
+    name: IREF B0
+    restore_mode: RESTORE_DEFAULT_OFF
+    pin: GPIO12
+  - platform: gpio
+    id: iref_b1
+    name: IREF B1
+    restore_mode: RESTORE_DEFAULT_OFF
+    pin: GPIO33
+  - platform: gpio
+    id: iref_b2
+    name: IREF B2
+    restore_mode: RESTORE_DEFAULT_OFF
+    pin: GPIO32
+  - platform: gpio
+    id: tlc5947_blank
+    name: TLC5947 Blank
+    pin: GPIO5
+    restore_mode: ALWAYS_OFF
+  # Water wheel power/sleep
+  - platform: gpio
+    id: wheel_power
+    name: Water Wheel Power
+    pin:
+      number: 22
+      mode: OUTPUT
+    on_turn_off:
+      - switch.turn_off: wheel_rotation
+  # Water wheel reset
+  - platform: gpio
+    id: wheel_reset
+    name: Water Wheel Reset
+    restore_mode: ALWAYS_ON
+    pin:
+      number: 15
+      mode: OUTPUT
+      inverted: true
+    on_turn_on:
+      - switch.turn_off: wheel_rotation
+  # Water wheel reverse
+  - platform: gpio
+    id: wheel_reverse
+    name: Water Wheel Reverse
+    restore_mode: RESTORE_DEFAULT_OFF
+    pin:
+      number: 17
+      mode: OUTPUT
+  # Humidify/Air Washing mode switch
+  - platform: template
+    id: humidify
+    name: Humidify
+    optimistic: true
+    restore_state: true
+    turn_off_action:
+      - rtttl.play: "one short low:d=4,o=5,b=100:16a"
+      - switch.turn_off: wheel_rotation
+      - if:
+          condition:
+            lambda: "return id(water_shutdown_flag);"
+          then:
+            - fan.turn_on: main_fan
+            - delay: 250ms
+            - script.execute: update_bargraph_display
+            - script.execute: update_status_display
+    turn_on_action:
+      - rtttl.play: "one short high:d=4,o=6,b=100:16e"
+      - delay: 1s
+      - switch.turn_on: wheel_rotation
+  # Start/stop wheel rotation
+  - platform: template
+    id: wheel_rotation
+    name: Water Wheel Rotation
+    optimistic: true
+    restore_state: true
+    turn_off_action:
+      - output.set_level:
+          id: wheel_speed_output
+          level: 0%
+      - switch.turn_off: wheel_power
+      - delay: 100ms
+      - script.execute: update_bargraph_display
+      - script.execute: update_status_display
+    turn_on_action:
+      - fan.turn_on: main_fan
+      - switch.turn_off: wheel_reset
+      - switch.turn_on: wheel_power
+      - delay: 250ms
+      - script.execute: update_bargraph_display
+      - script.execute: update_status_display
+      - script.execute: h2o_sensor_state_changed
+      - output.set_level:
+          id: h2o_check_output
+          level: 30%
+      - output.set_level:
+          id: wheel_speed_output
+          level: 50%
+
+light:
+  - platform: rgb
+    id: status_0
+    red: status_0_red
+    green: status_0_green
+    blue: status_0_blue
+  - platform: rgb
+    id: status_1
+    red: status_1_red
+    green: status_1_green
+    blue: status_1_blue
+  - platform: rgb
+    id: bargraph_seg_0
+    red: bargraph_seg_0_red
+    green: bargraph_seg_0_green
+    blue: bargraph_seg_0_blue
+  - platform: rgb
+    id: bargraph_seg_1
+    red: bargraph_seg_1_red
+    green: bargraph_seg_1_green
+    blue: bargraph_seg_1_blue
+  - platform: rgb
+    id: bargraph_seg_2
+    red: bargraph_seg_2_red
+    green: bargraph_seg_2_green
+    blue: bargraph_seg_2_blue
+  - platform: rgb
+    id: bargraph_seg_3
+    red: bargraph_seg_3_red
+    green: bargraph_seg_3_green
+    blue: bargraph_seg_3_blue
+  - platform: rgb
+    id: bargraph_seg_4
+    red: bargraph_seg_4_red
+    green: bargraph_seg_4_green
+    blue: bargraph_seg_4_blue
+  - platform: rgb
+    id: bargraph_seg_5
+    red: bargraph_seg_5_red
+    green: bargraph_seg_5_green
+    blue: bargraph_seg_5_blue
+
+number:
+  - platform: template
+    id: wheel_speed
+    name: Water Wheel Speed
+    initial_value: 185
+    min_value: 100
+    max_value: 800
+    step: 1
+    optimistic: true
+    set_action:
+      - output.set_level:
+          id: wheel_speed_output
+          level: 50%
+      - output.ledc.set_frequency:
+          id: wheel_speed_output
+          frequency: !lambda "return x;"
+  - platform: template
+    id: display_brightness
+    name: Display Brightness
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 50
+    restore_value: true
+    on_value:
+      then:
+        - script.execute: update_bargraph_display
+        - script.execute: update_status_display
+
+output:
+  # duty cycle adjusts speed
+  - platform: ledc
+    id: fan_speed_output
+    pin: GPIO14
+    channel: 0
+    frequency: 24000Hz
+    # inverted: true
+    min_power: 0.10
+    max_power: 0.35
+    zero_means_zero: true
+  # frequency adjusts speed
+  - platform: ledc
+    id: wheel_speed_output
+    channel: 2
+    pin: GPIO16
+    frequency: 184Hz
+    zero_means_zero: true
+  # frequency and duty cycle should be fixed; duty cycle should be 50%
+  - platform: ledc
+    id: h2o_check_output
+    pin: GPIO25
+    channel: 4
+    frequency: 440Hz
+    zero_means_zero: true
+  # Buzzer output
+  - platform: ledc
+    id: rtttl_out
+    channel: 6
+    pin: GPIO4
+  # LEDs
+  - platform: tlc5947
+    id: status_1_green
+    channel: 0
+  - platform: tlc5947
+    id: status_1_red
+    channel: 1
+  - platform: tlc5947
+    id: status_1_blue
+    channel: 2
+  - platform: tlc5947
+    id: status_0_green
+    channel: 3
+  - platform: tlc5947
+    id: status_0_red
+    channel: 4
+  - platform: tlc5947
+    id: status_0_blue
+    channel: 5
+  - platform: tlc5947
+    id: bargraph_seg_0_green
+    channel: 6
+  - platform: tlc5947
+    id: bargraph_seg_0_red
+    channel: 7
+  - platform: tlc5947
+    id: bargraph_seg_0_blue
+    channel: 8
+  - platform: tlc5947
+    id: bargraph_seg_1_green
+    channel: 9
+  - platform: tlc5947
+    id: bargraph_seg_1_red
+    channel: 10
+  - platform: tlc5947
+    id: bargraph_seg_1_blue
+    channel: 11
+  - platform: tlc5947
+    id: bargraph_seg_2_green
+    channel: 12
+  - platform: tlc5947
+    id: bargraph_seg_2_red
+    channel: 13
+  - platform: tlc5947
+    id: bargraph_seg_2_blue
+    channel: 14
+  - platform: tlc5947
+    id: bargraph_seg_3_green
+    channel: 15
+  - platform: tlc5947
+    id: bargraph_seg_3_red
+    channel: 16
+  - platform: tlc5947
+    id: bargraph_seg_3_blue
+    channel: 17
+  - platform: tlc5947
+    id: bargraph_seg_4_green
+    channel: 18
+  - platform: tlc5947
+    id: bargraph_seg_4_red
+    channel: 19
+  - platform: tlc5947
+    id: bargraph_seg_4_blue
+    channel: 20
+  - platform: tlc5947
+    id: bargraph_seg_5_green
+    channel: 21
+  - platform: tlc5947
+    id: bargraph_seg_5_red
+    channel: 22
+  - platform: tlc5947
+    id: bargraph_seg_5_blue
+    channel: 23

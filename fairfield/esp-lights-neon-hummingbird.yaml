@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp-lights-neon-hummingbird
   node_friendly_name: "Neon Hummingbird"
+  dac_min_power: "0.12"
   dac_max_power: "0.95"
 
 packages:

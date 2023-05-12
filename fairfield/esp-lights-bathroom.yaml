@@ -82,12 +82,12 @@ binary_sensor:
   # API status sensor
   - platform: status
     id: bathroom_vanity_api_status
-    name: ${node_friendly_name} API Status
+    name: API Status
     internal: true
   # motion sensor (PIR or RCWL-0516 nodule)
   - platform: gpio
     id: bathroom_vanity_motion_detection
-    name: ${node_friendly_name} Motion Detection
+    name: Motion Detection
     pin:
       number: GPIO2
     # stop the motion deactivation script and trigger the motion activation script when motion is sensed
@@ -96,14 +96,14 @@ binary_sensor:
         # only trigger the script if motion activation is enabled via the template switch
         - if:
             condition:
-              lambda: 'return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;'
+              lambda: "return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;"
             then:
               - script.stop: motion_deactivate_lower
               - script.execute: motion_activate_lower
         # only trigger the script if motion activation is enabled via the template switch
         - if:
             condition:
-              lambda: 'return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;'
+              lambda: "return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;"
             then:
               - script.stop: motion_deactivate_upper
               - script.execute: motion_activate_upper
@@ -113,13 +113,13 @@ binary_sensor:
         # only trigger the script if motion activation is enabled via the template switch
         - if:
             condition:
-              lambda: 'return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;'
+              lambda: "return id(bathroom_vanity_motion_activation_lower).state || !id(bathroom_vanity_api_status).state;"
             then:
               - script.execute: motion_deactivate_lower
         # only trigger the script if motion activation is enabled via the template switch
         - if:
             condition:
-              lambda: 'return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;'
+              lambda: "return id(bathroom_vanity_motion_activation_upper).state || !id(bathroom_vanity_api_status).state;"
             then:
               - script.execute: motion_deactivate_upper
   # sensors for buttons for manual control of lights
@@ -173,19 +173,22 @@ switch:
   # template switches to enable/disable motion activation of lights
   - platform: template
     id: bathroom_vanity_motion_activation_lower
-    name: ${node_friendly_name} Motion Activation Lower
+    name: Motion Activation Lower
     optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
     restore_state: true
   - platform: template
     id: bathroom_vanity_motion_activation_upper
-    name: ${node_friendly_name} Motion Activation Upper
+    name: Motion Activation Upper
     optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
     restore_state: true
 
 light:
   - platform: rgbw
     id: bathroom_vanity_uplight
-    name: ${node_friendly_name} Uplight
+    name: Uplight
+    restore_mode: RESTORE_DEFAULT_OFF
     red: bathroom_vanity_uplight_pwm_red_channel
     green: bathroom_vanity_uplight_pwm_green_channel
     blue: bathroom_vanity_uplight_pwm_blue_channel
@@ -196,7 +199,8 @@ light:
       - flicker:
   - platform: rgbw
     id: bathroom_vanity_downlight
-    name: ${node_friendly_name} Downlight
+    name: Downlight
+    restore_mode: RESTORE_DEFAULT_OFF
     red: bathroom_vanity_downlight_pwm_red_channel
     green: bathroom_vanity_downlight_pwm_green_channel
     blue: bathroom_vanity_downlight_pwm_blue_channel

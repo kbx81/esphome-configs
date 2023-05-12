@@ -18,7 +18,7 @@ esp8266:
 binary_sensor:
   - platform: gpio
     id: esp_pulse_counter_pulse_sensor
-    name: ${node_friendly_name} Pulse Sensor
+    name: Pulse Sensor
     pin:
       number: GPIO13
       inverted: true
@@ -50,7 +50,7 @@ binary_sensor:
 light:
   - platform: status_led
     id: esp_pulse_counter_alert
-    name: ${node_friendly_name} Alert Light
+    name: Alert Light
     pin:
       number: GPIO2
       inverted: true
@@ -58,13 +58,13 @@ light:
 switch:
   - platform: template
     id: esp_pulse_counter_count_down
-    name: ${node_friendly_name} Count Down
+    name: Count Down
     optimistic: true
 
 number:
   - platform: template
     id: esp_pulse_counter
-    name: ${node_friendly_name} Count
+    name: Count
     optimistic: true
     min_value: 0
     max_value: 1000000
@@ -72,7 +72,7 @@ number:
     initial_value: 0
   - platform: template
     id: esp_pulse_counter_target
-    name: ${node_friendly_name} Count Target
+    name: Count Target
     optimistic: true
     min_value: 0
     max_value: 1000000
@@ -80,7 +80,7 @@ number:
     initial_value: 0
   - platform: template
     id: esp_pulse_counter_auto_inc
-    name: ${node_friendly_name} Auto-Increment Value
+    name: Auto-Increment Value
     optimistic: true
     min_value: 0
     max_value: 1000000

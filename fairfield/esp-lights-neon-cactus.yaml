@@ -1,6 +1,7 @@
 substitutions:
   node_name: esp-lights-neon-cactus
   node_friendly_name: "Neon Cactus"
+  dac_min_power: "0.04"
   dac_max_power: "1.0"
 
 packages:

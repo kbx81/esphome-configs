@@ -43,7 +43,7 @@ remote_transmitter:
 binary_sensor:
   - platform: gpio
     id: gpio_0
-    # name: ${node_friendly_name} IO0 Button
+    # name: IO0 Button
     pin:
       number: GPIO0
       inverted: true
@@ -54,10 +54,40 @@ binary_sensor:
           - switch.turn_on: air_cleaner_power
 
 switch:
+  - platform: template
+    id: air_cleaner_power
+    name: Air Cleaner Power
+    lambda: "return id(air_cleaner_state);"
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(air_cleaner_state);"
+          then:
+            - globals.set:
+                id: air_cleaner_state
+                value: "false"
+            - remote_transmitter.transmit_nec:
+                transmitter_id: ir_tx
+                address: 0xFF00
+                command: 0xF20D
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(air_cleaner_state);"
+          then:
+            - globals.set:
+                id: air_cleaner_state
+                value: "true"
+            - remote_transmitter.transmit_nec:
+                transmitter_id: ir_tx
+                address: 0xFF00
+                command: 0xF20D
+
+button:
   # - platform: template
   #   id: nixie_a
   #   name: Nixie A
-  #   turn_on_action:
+  #   on_press:
   #     - remote_transmitter.transmit_nec:
   #         transmitter_id: ir_tx
   #         address: 0xBF00
@@ -65,7 +95,7 @@ switch:
   # - platform: template
   #   id: nixie_b
   #   name: Nixie B
-  #   turn_on_action:
+  #   on_press:
   #     - remote_transmitter.transmit_nec:
   #         transmitter_id: ir_tx
   #         address: 0xBF00
@@ -73,7 +103,7 @@ switch:
   # - platform: template
   #   id: nixie_c
   #   name: Nixie C
-  #   turn_on_action:
+  #   on_press:
   #     - remote_transmitter.transmit_nec:
   #         transmitter_id: ir_tx
   #         address: 0xBF00
@@ -81,7 +111,7 @@ switch:
   # - platform: template
   #   id: nixie_d
   #   name: Nixie D
-  #   turn_on_action:
+  #   on_press:
   #     - remote_transmitter.transmit_nec:
   #         transmitter_id: ir_tx
   #         address: 0xBF00
@@ -89,7 +119,7 @@ switch:
   # - platform: template
   #   id: nixie_e
   #   name: Nixie E
-  #   turn_on_action:
+  #   on_press:
   #     - remote_transmitter.transmit_nec:
   #         transmitter_id: ir_tx
   #         address: 0xBF00
@@ -97,43 +127,15 @@ switch:
   # - platform: template
   #   id: nixie_u
   #   name: Nixie U
-  #   turn_on_action:
+  #   on_press:
   #     - remote_transmitter.transmit_nec:
   #         transmitter_id: ir_tx
   #         address: 0xBF00
   #         command: 0xFA05
   - platform: template
-    id: air_cleaner_power
-    name: Air Cleaner Power
-    lambda: 'return id(air_cleaner_state);'
-    turn_off_action:
-      - if:
-          condition:
-            lambda: 'return id(air_cleaner_state);'
-          then:
-            - globals.set:
-                id: air_cleaner_state
-                value: 'false'
-            - remote_transmitter.transmit_nec:
-                transmitter_id: ir_tx
-                address: 0xFF00
-                command: 0xF20D
-    turn_on_action:
-      - if:
-          condition:
-            lambda: 'return !id(air_cleaner_state);'
-          then:
-            - globals.set:
-                id: air_cleaner_state
-                value: 'true'
-            - remote_transmitter.transmit_nec:
-                transmitter_id: ir_tx
-                address: 0xFF00
-                command: 0xF20D
-  - platform: template
     id: air_cleaner_sleep
     name: Air Cleaner Sleep
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -141,7 +143,7 @@ switch:
   - platform: template
     id: air_cleaner_fan_down
     name: Air Cleaner Fan Down
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -149,7 +151,7 @@ switch:
   - platform: template
     id: air_cleaner_fan_up
     name: Air Cleaner Fan Up
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -157,7 +159,7 @@ switch:
   - platform: template
     id: air_cleaner_purify_down
     name: Air Cleaner Purify Down
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -165,7 +167,7 @@ switch:
   - platform: template
     id: air_cleaner_purify_up
     name: Air Cleaner Purify Up
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -173,7 +175,7 @@ switch:
   - platform: template
     id: air_cleaner_anion
     name: Air Cleaner Anion
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -181,7 +183,7 @@ switch:
   - platform: template
     id: air_cleaner_sterilize
     name: Air Cleaner Sterilize
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00
@@ -189,7 +191,7 @@ switch:
   - platform: template
     id: air_cleaner_time_set
     name: Air Cleaner Time/Set
-    turn_on_action:
+    on_press:
       - remote_transmitter.transmit_nec:
           transmitter_id: ir_tx
           address: 0xFF00

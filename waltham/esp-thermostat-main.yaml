@@ -19,7 +19,7 @@ sensor:
   # Phototransistor ADC sensor
   - platform: adc
     id: adc_sensor_phototransistor
-    name: ${node_friendly_name} Phototransistor ADC
+    name: Phototransistor ADC
     pin: 32
     attenuation: 11db
     update_interval: 1s
@@ -42,14 +42,14 @@ sensor:
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
-    name: ${node_friendly_name} Thermistor ADC
+    name: Thermistor ADC
     pin: 34
     internal: true
-    update_interval: never
+    update_interval: 1s
   # NTC thermistor resistance sensor
   - platform: resistance
     id: thermistor_sensor
-    name: ${node_friendly_name} NTC Thermistor Resistance
+    name: NTC Thermistor Resistance
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
     reference_voltage: 0.86V
@@ -58,7 +58,7 @@ sensor:
   # NTC thermistor sensor
   - platform: ntc
     id: esp_thermostat_thermistor_temperature
-    name: ${node_friendly_name} NTC Thermistor Temperature
+    name: NTC Thermistor Temperature
     sensor: thermistor_sensor
     calibration:
       b_constant: 3380
@@ -66,9 +66,10 @@ sensor:
       reference_resistance: 10kOhm
     filters:
       - sliding_window_moving_average:
-          window_size: 8
-          send_every: 1
-          send_first_at: 1
+          window_size: 60
+          send_every: 15
+          send_first_at: 15
+      - offset: -78
     on_value:
       then:
         - lambda: |-
@@ -80,7 +81,7 @@ sensor:
     model: DHT22
     temperature:
       id: esp_thermostat_dht22_temperature
-      name: ${node_friendly_name} DHT22 Temperature
+      name: DHT22 Temperature
       filters:
         - offset: -1.0
       on_value:
@@ -90,7 +91,7 @@ sensor:
               id(nextionTextSensor5a).set_state(temperature_string, false, true);
     humidity:
       id: esp_thermostat_dht22_humidity
-      name: ${node_friendly_name} DHT22 Humidity
+      name: DHT22 Humidity
       on_value:
         then:
           - lambda: |-
@@ -102,7 +103,7 @@ sensor:
     address: 0x76
     temperature:
       id: esp_thermostat_bme280_temperature
-      name: ${node_friendly_name} BME280 Temperature
+      name: BME280 Temperature
       filters:
         - offset: -1.4
       on_value:
@@ -112,7 +113,7 @@ sensor:
               id(nextionTextSensor2a).set_state(temperature_string, false, true);
     humidity:
       id: esp_thermostat_bme280_humidity
-      name: ${node_friendly_name} BME280 Humidity
+      name: BME280 Humidity
       on_value:
         then:
           - lambda: |-
@@ -120,7 +121,7 @@ sensor:
               id(nextionTextSensor2b).set_state(humidity_string, false, true);
     pressure:
       id: esp_thermostat_bme280_pressure
-      name: ${node_friendly_name} BME280 Pressure
+      name: BME280 Pressure
       on_value:
         then:
           - lambda: |-
@@ -131,7 +132,7 @@ sensor:
   - platform: bme680_bsec
     temperature:
       id: esp_thermostat_bme680_temperature
-      name: ${node_friendly_name} BME680 Temperature
+      name: BME680 Temperature
       filters:
         - offset: -1.9
       on_value:
@@ -142,7 +143,7 @@ sensor:
               esp32_thermostat::display_refresh_table_temperature(id(climate_table_local_row), id(esp_thermostat_bme680_temperature).state);
     humidity:
       id: esp_thermostat_bme680_humidity
-      name: ${node_friendly_name} BME680 Humidity
+      name: BME680 Humidity
       on_value:
         then:
           - lambda: |-
@@ -151,15 +152,16 @@ sensor:
               esp32_thermostat::display_refresh_table_humidity(id(climate_table_local_row), id(esp_thermostat_bme680_humidity).state);
     pressure:
       id: esp_thermostat_bme680_pressure
-      name: ${node_friendly_name} BME680 Pressure
+      name: BME680 Pressure
       on_value:
         then:
           - lambda: |-
+              esp32_thermostat::display_refresh_sensor(id(esp_thermostat_bme680_pressure).state, esp32_thermostat::DS_CURRENT_PRES);
               std::string pressure_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_pressure).state) + "hPa";
               id(nextionTextSensor1c).set_state(pressure_string, false, true);
     gas_resistance:
       id: esp_thermostat_bme680_gas_resistance
-      name: ${node_friendly_name} BME680 Gas Resistance
+      name: BME680 Gas Resistance
       # on_value:
       #   then:
       #     - lambda: |-
@@ -167,7 +169,7 @@ sensor:
       #         id(nextionTextSensor1d).set_state(gas_res_string, false, true);
     iaq:
       id: esp_thermostat_bme680_iaq
-      name: ${node_friendly_name} BME680 IAQ
+      name: BME680 IAQ
       on_value:
         then:
           - lambda: |-
@@ -176,16 +178,16 @@ sensor:
               esp32_thermostat::display_refresh_iaq_txt(id(esp_thermostat_bme680_iaq).state);
     co2_equivalent:
       id: esp_thermostat_bme680_eco2
-      name: ${node_friendly_name} BME680 eCO2
+      name: BME680 eCO2
     breath_voc_equivalent:
       id: esp_thermostat_bme680_evoc
-      name: ${node_friendly_name} BME680 Breath eVOC
+      name: BME680 Breath eVOC
   # BME680 sensor
   # - platform: bme680
   #   address: 0x77
   #   temperature:
   #     id: esp_thermostat_bme680_temperature
-  #     name: ${node_friendly_name} BME680 Temperature
+  #     name: BME680 Temperature
   #     filters:
   #       - offset: -1.2
   #     on_value:
@@ -196,7 +198,7 @@ sensor:
   #             esp32_thermostat::display_refresh_table_temperature(id(climate_table_local_row), id(esp_thermostat_bme680_temperature).state);
   #   humidity:
   #     id: esp_thermostat_bme680_humidity
-  #     name: ${node_friendly_name} BME680 Humidity
+  #     name: BME680 Humidity
   #     on_value:
   #       then:
   #         - lambda: |-
@@ -205,7 +207,7 @@ sensor:
   #             esp32_thermostat::display_refresh_table_humidity(id(climate_table_local_row), id(esp_thermostat_bme680_humidity).state);
   #   pressure:
   #     id: esp_thermostat_bme680_pressure
-  #     name: ${node_friendly_name} BME680 Pressure
+  #     name: BME680 Pressure
   #     on_value:
   #       then:
   #         - lambda: |-
@@ -213,7 +215,7 @@ sensor:
   #             id(nextionTextSensor1c).set_state(pressure_string, false, true);
   #   gas_resistance:
   #     id: esp_thermostat_bme680_gas_resistance
-  #     name: ${node_friendly_name} BME680 Gas Resistance
+  #     name: BME680 Gas Resistance
   #     on_value:
   #       then:
   #         - lambda: |-
@@ -224,7 +226,7 @@ sensor:
   - platform: shtcx
     temperature:
       id: esp_thermostat_shtcx_temperature
-      name: ${node_friendly_name} SHTC3 Temperature
+      name: SHTC3 Temperature
       filters:
         - offset: -2.0
       on_value:
@@ -234,7 +236,7 @@ sensor:
               id(nextionTextSensor3a).set_state(temperature_string, false, true);
     humidity:
       id: esp_thermostat_shtcx_humidity
-      name: ${node_friendly_name} SHTC3 Humidity
+      name: SHTC3 Humidity
       on_value:
         then:
           - lambda: |-
@@ -244,7 +246,7 @@ sensor:
   # TMP117 sensor
   - platform: tmp117
     id: esp_thermostat_tmp117_temperature
-    name: ${node_friendly_name} TMP117 Temperature
+    name: TMP117 Temperature
     filters:
       - offset: -2.3
     on_value:
@@ -257,7 +259,7 @@ sensor:
   - platform: sgp4x
     voc:
       id: esp_thermostat_sgp40_voc
-      name: ${node_friendly_name} SGP40 VOC
+      name: SGP40 VOC
       unit_of_measurement: VOC Index
       on_value:
         then:
@@ -273,7 +275,7 @@ text_sensor:
   - platform: bme680_bsec
     iaq_accuracy:
       id: esp_thermostat_bme680_accuracy
-      name: ${node_friendly_name} BME680 Accuracy
+      name: BME680 Accuracy
 
 display:
   - platform: nextion

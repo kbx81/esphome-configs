@@ -3,6 +3,12 @@ esp32:
   framework:
     type: arduino
 
+ota:
+  on_begin:
+    then:
+      - switch.turn_off: neon_enable
+      - light.turn_off: neon_light_dac
+
 status_led:
   pin:
     number: GPIO5
@@ -64,7 +70,7 @@ binary_sensor:
         #     brightness: 1.0
         #     transition_length: 0s
   - platform: gpio
-    name: ${node_friendly_name} Fault
+    name: Fault
     id: fault_sensor
     pin:
       number: GPIO34
@@ -83,7 +89,7 @@ binary_sensor:
 switch:
   - platform: gpio
     id: neon_enable
-    # name: ${node_friendly_name} Enable
+    # name: Enable
     restore_mode: ALWAYS_OFF
     pin:
       number: 27
@@ -92,8 +98,8 @@ switch:
 light:
   - platform: monochromatic
     id: neon_light_dac
-    name: ${node_friendly_name}
-    # name: ${node_friendly_name} DAC
+    name: none
+    # name: DAC
     restore_mode: ALWAYS_OFF
     output: neon_dac_output
     on_turn_off:
@@ -102,7 +108,7 @@ light:
       - switch.turn_on: neon_enable
   - platform: monochromatic
     id: neon_light_pwm
-    # name: ${node_friendly_name} PWM
+    # name: PWM
     restore_mode: ALWAYS_OFF
     output: neon_pwm_output
     on_turn_off:
@@ -114,7 +120,9 @@ output:
   - platform: esp32_dac
     pin: 25
     id: neon_dac_output
+    min_power: ${dac_min_power}
     max_power: ${dac_max_power}
+    zero_means_zero: true
   - platform: ledc
     id: neon_pwm_output
     pin: 26

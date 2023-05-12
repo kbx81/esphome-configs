@@ -1,7 +1,6 @@
 esphome:
   includes: ../shared/esp_thermostat_nextion.h
   platformio_options:
-    # 20211001: to enlarge stack, edit ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/config/sdkconfig.h
     build_flags:
       - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
       - -DBOARD_HAS_PSRAM
@@ -220,12 +219,12 @@ uart:
   id: nextion_uart
   tx_pin: GPIO19
   rx_pin: GPIO18
-  baud_rate: 115200
+  baud_rate: 921600
 
 climate:
   - platform: thermostat
     id: esp_thermostat
-    name: ${node_friendly_name}
+    name: none
     sensor: esp_thermostat_temperature_sensor
     startup_delay: true
     supplemental_cooling_delta: 2.222222222222222
@@ -233,13 +232,13 @@ climate:
     cool_overrun: 0.5556
     min_cooling_off_time: 300s
     min_cooling_run_time: 300s
-    max_cooling_run_time: 600s
+    max_cooling_run_time: 1800s
     supplemental_heating_delta: 2.222222222222222
     heat_deadband: 0.5556
     heat_overrun: 0.5556
     min_heating_off_time: 300s
     min_heating_run_time: 300s
-    max_heating_run_time: 600s
+    max_heating_run_time: 1800s
     min_fan_mode_switching_time: 30s
     # min_fanning_off_time: 30s
     # min_fanning_run_time: 30s
@@ -253,22 +252,24 @@ climate:
       min_temperature: 60°F
       max_temperature: 90°F
       temperature_step: 0.1
-    # default_mode: auto
-    default_target_temperature_low: 72°F
-    default_target_temperature_high: 75°F
-    # away_config:
-    #   default_target_temperature_low: 68°F
-    #   default_target_temperature_high: 78°F
+    on_boot_restore_from: memory
+    default_preset: home
     preset:
-      - name: "boost"
-        default_target_temperature_low: 70°F
-        default_target_temperature_high: 72°F
-      - name: "comfort"
-        default_target_temperature_low: 74°F
-        default_target_temperature_high: 76°F
-      - name: "eco"
+      - name: "away"
         default_target_temperature_low: 68°F
         default_target_temperature_high: 78°F
+      - name: "boost"
+        default_target_temperature_low: 74°F
+        default_target_temperature_high: 76°F
+      - name: "comfort"
+        default_target_temperature_low: 70°F
+        default_target_temperature_high: 72°F
+      - name: "eco"
+        default_target_temperature_low: 72°F
+        default_target_temperature_high: 76°F
+      - name: "home"
+        default_target_temperature_low: 73°F
+        default_target_temperature_high: 75°F
     off_mode:
       - lambda: |-
           id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;
@@ -332,38 +333,38 @@ climate:
 binary_sensor:
   - platform: status
     id: esp_thermostat_api_status
-    name: ${node_friendly_name} API Status
+    name: API Status
     on_state:
       then:
         - lambda: "esp32_thermostat::display_refresh_status();"
   # flag to indicate when the on-board sensor is in use
   - platform: template
     id: esp_thermostat_on_board_sensor_active
-    name: ${node_friendly_name} On-board Sensor Active
+    name: On-board Sensor Active
     # if the API is connected, use the max_missed_online_updates as the max, else use max_missed_offline_updates
     lambda: |-
       uint32_t max_missed_updates = id(esp_thermostat_api_status).state ? esp32_thermostat::max_missed_online_updates : esp32_thermostat::max_missed_offline_updates;
       return id(missed_update_count) > max_missed_updates;
   # - platform: gpio
   #   id: esp_thermostat_tmp117_alert
-  #   name: ${node_friendly_name} TMP117 Alert
+  #   name: TMP117 Alert
   #   pin:
   #     mcp23017: mcp23017_hub
   #     number: 15
   #     mode: INPUT_PULLUP
   # - platform: gpio
   #   id: esp_thermostat_mcp23017_int_a
-  #   name: ${node_friendly_name} MCP23017 Interrupt A
+  #   name: MCP23017 Interrupt A
   #   pin:
   #     number: GPIO36
   # - platform: gpio
   #   id: esp_thermostat_mcp23017_int_b
-  #   name: ${node_friendly_name} MCP23017 Interrupt B
+  #   name: MCP23017 Interrupt B
   #   pin:
   #     number: GPIO39
   - platform: gpio
     id: esp_thermostat_motion_detection
-    name: ${node_friendly_name} Motion Detection
+    name: Motion Detection
     pin:
       number: GPIO27
     on_state:
@@ -375,7 +376,7 @@ binary_sensor:
               - script.execute: motion_sense
   - platform: gpio
     id: esp_thermostat_mode_button
-    name: ${node_friendly_name} Mode Button
+    name: Mode Button
     pin:
       number: GPIO0
       inverted: true
@@ -393,7 +394,7 @@ sensor:
   # template sensor used for thermostat component
   - platform: template
     id: esp_thermostat_temperature_sensor
-    name: ${node_friendly_name} Template Temperature Sensor
+    name: Template Temperature Sensor
     unit_of_measurement: "°C"
     lambda: "return esp32_thermostat::thermostat_temperature_sensor_value();"
     update_interval: 15s
@@ -403,7 +404,7 @@ sensor:
   # template sensor used for humidity
   - platform: template
     id: esp_thermostat_humidity_sensor
-    name: ${node_friendly_name} Template Humidity Sensor
+    name: Template Humidity Sensor
     unit_of_measurement: "%"
     lambda: "return esp32_thermostat::thermostat_humidity_sensor_value();"
     update_interval: 15s
@@ -448,6 +449,10 @@ sensor:
     nextion_id: main_lcd
     id: nextionCurrentHum
     variable_name: currentHum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentPres
+    variable_name: currentPres
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetHum
@@ -578,24 +583,12 @@ sensor:
 text_sensor:
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionTextStatus1
+    id: nextionTextStatus
     component_name: ${home_page_name}.txtStatus
   - platform: nextion
     nextion_id: main_lcd
-    id: nextionTextStatus2
-    component_name: ${rooms_page_name}.txtStatus
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionTextStatus3
-    component_name: ${sensors_page_name}.txtStatus
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionTextCurrentAq1
+    id: nextionTextCurrentAq
     component_name: ${home_page_name}.txtCurrentAq
-  - platform: nextion
-    nextion_id: main_lcd
-    id: nextionTextCurrentAq2
-    component_name: ${rooms_page_name}.txtCurrentAq
   - platform: nextion
     nextion_id: main_lcd
     id: nextionTextWeatherAq
@@ -801,7 +794,8 @@ switch:
   # display power (hard/physical)
   - platform: gpio
     id: esp_thermostat_display_power
-    name: ${node_friendly_name} Display Power
+    name: Display Power
+    entity_category: config
     restore_mode: ALWAYS_ON
     pin:
       number: 25
@@ -809,26 +803,31 @@ switch:
   # automatic display brightness control
   - platform: template
     id: esp_thermostat_display_auto_brightness
-    name: ${node_friendly_name} Display Automatic Brightness
+    name: Display Automatic Brightness
+    entity_category: config
     optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
     restore_state: true
   # display power (soft)
   - platform: template
     id: esp_thermostat_display
-    name: ${node_friendly_name} Display
+    name: Display
     optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
     restore_state: true
   # display brightness control by motion
   - platform: template
     id: esp_thermostat_display_on_motion
-    name: ${node_friendly_name} Display On Motion
+    name: Display On Motion
+    entity_category: config
     optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
     restore_state: true
 
 number:
   - platform: template
     id: esp_thermostat_target_humidity
-    name: ${node_friendly_name} Target Humidity
+    name: Target Humidity
     optimistic: true
     min_value: 0
     max_value: 100
@@ -837,10 +836,32 @@ number:
     restore_value: true
     on_value:
       then:
-        lambda: 'id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);'
+        lambda: "id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);"
+  # for determining sensor weights when used as a part of climate control system average
+  - platform: template
+    id: esp_thermostat_humidity_weight
+    name: Humidity Weight
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 10
+    step: 1
+    initial_value: 5
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_temperature_weight
+    name: Temperature Weight
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 10
+    step: 1
+    initial_value: 5
+    restore_value: true
+  # display brightness controls
   - platform: template
     id: esp_thermostat_display_brightness
-    name: ${node_friendly_name} Display Brightness
+    name: Display Brightness
     optimistic: true
     min_value: 0
     max_value: 100
@@ -854,7 +875,8 @@ number:
             id(nextionTargetBrightness).set_state(x, true, true);
   - platform: template
     id: esp_thermostat_display_minimum_brightness
-    name: ${node_friendly_name} Display Minimum Brightness
+    name: Display Minimum Brightness
+    entity_category: config
     optimistic: true
     min_value: 0
     max_value: 99
@@ -863,7 +885,8 @@ number:
     restore_value: true
   - platform: template
     id: esp_thermostat_display_maximum_brightness
-    name: ${node_friendly_name} Display Maximum Brightness
+    name: Display Maximum Brightness
+    entity_category: config
     optimistic: true
     min_value: 1
     max_value: 100
@@ -872,7 +895,8 @@ number:
     restore_value: true
   - platform: template
     id: esp_thermostat_display_brightness_idle_reduction
-    name: ${node_friendly_name} Display Brightness Idle Reduction
+    name: Display Brightness Idle Reduction
+    entity_category: config
     optimistic: true
     min_value: 0
     max_value: 1
