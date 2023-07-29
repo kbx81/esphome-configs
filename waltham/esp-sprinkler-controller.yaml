@@ -208,7 +208,7 @@ script:
   - id: motion_sense
     mode: restart
     then:
-      - delay: 120s
+      - lambda: "id(nextionIdleTimer).set_state(0, true, true);"
   # display screen management
   - id: button_press
     mode: restart
@@ -693,13 +693,12 @@ number:
     id: esp_sprinkler_controller_display_brightness
     name: Display Brightness
     entity_category: config
-    optimistic: true
     min_value: 0
     max_value: 100
     step: 1
-    initial_value: 50
-    restore_value: true
-    on_value:
+    lambda: "return id(nextionTargetBrightness).state;"
+    update_interval: 1s
+    set_action:
       then:
         lambda: |-
           if (id(nextionTargetBrightness).state != x)
@@ -734,6 +733,19 @@ number:
     step: 0.01
     initial_value: 0.80
     restore_value: true
+  - platform: template
+    id: esp_sprinkler_idle_timeout
+    name: Idle Timeout
+    entity_category: config
+    optimistic: true
+    min_value: 5
+    max_value: 900
+    step: 1
+    initial_value: 120
+    restore_value: true
+    on_value:
+      then:
+        lambda: "id(nextionIdleTimeout).set_state(x * 2, true, true);"
   # for determining sensor weights when used as a part of climate control system average
   - platform: template
     id: esp_sprinkler_controller_humidity_weight
@@ -772,8 +784,16 @@ switch:
     name: Display Automatic Brightness
     entity_category: config
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
     restore_state: true
+    on_turn_off:
+      then:
+        lambda: |-
+          id(nextionAutoBrightness).set_state(0, true, true);
+    on_turn_on:
+      then:
+        lambda: |-
+          id(nextionAutoBrightness).set_state(1, true, true);
   # display power (soft)
   - platform: template
     id: esp_sprinkler_controller_display
@@ -973,6 +993,30 @@ sensor:
     nextion_id: main_lcd
     id: nextionTargetBrightness
     variable_name: targetBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionMaxBrightness
+    variable_name: maxBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionMinBrightness
+    variable_name: minBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionIdleTimeout
+    variable_name: idleTimeout
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionIdleTimer
+    variable_name: idleTimer
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionAutoBrightness
+    variable_name: autoBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionAutoHome
+    variable_name: autoHome
   # Nextion sprinkler controller state sensors
   - platform: nextion
     nextion_id: main_lcd
@@ -980,7 +1024,6 @@ sensor:
     variable_name: sprinklerAutoAdv
     on_value:
       then:
-        - script.execute: motion_sense
         - lambda: "id(sprinkler_ctrlr).set_auto_advance(id(nextionSprinklerAutoAdv).state);"
   - platform: nextion
     nextion_id: main_lcd
@@ -988,7 +1031,6 @@ sensor:
     variable_name: sprinklerReverse
     on_value:
       then:
-        - script.execute: motion_sense
         - lambda: "id(sprinkler_ctrlr).set_reverse(id(nextionSprinklerReverse).state);"
   - platform: nextion
     nextion_id: main_lcd
@@ -996,7 +1038,6 @@ sensor:
     variable_name: sprinklerStandby
     on_value:
       then:
-        - script.execute: motion_sense
         - lambda: "id(sprinkler_ctrlr).set_standby(id(nextionSprinklerStandby).state);"
   - platform: nextion
     nextion_id: main_lcd
@@ -1004,7 +1045,6 @@ sensor:
     variable_name: sprinklerAutoStart
     on_value:
       then:
-        - script.execute: motion_sense
         - if:
             condition:
               lambda: "return id(nextionSprinklerAutoStart).state == 0;"
@@ -1018,7 +1058,6 @@ sensor:
     variable_name: sprinklerMult
     on_value:
       then:
-        - script.execute: motion_sense
         - sprinkler.set_multiplier:
             id: sprinkler_ctrlr
             multiplier: !lambda "return id(nextionSprinklerMultiplier).state / 10.0;"
@@ -1029,7 +1068,6 @@ sensor:
     variable_name: sprinklerRepeat
     on_value:
       then:
-        - script.execute: motion_sense
         - sprinkler.set_repeat:
             id: sprinkler_ctrlr
             repeat: !lambda "return id(nextionSprinklerRepeat).state;"
@@ -1147,15 +1185,19 @@ sensor:
           send_first_at: 1
     on_value:
       then:
-        - if:
-            condition:
-              switch.is_on: esp_sprinkler_controller_display_auto_brightness
-            then:
-              - lambda: |-
-                  auto brightness_mult = id(motion_sense).is_running() || !id(esp_sprinkler_controller_display_on_motion).state ? 100 : (1.0 - id(esp_sprinkler_controller_display_brightness_idle_reduction).state) * 100;
-                  auto number_call = id(esp_sprinkler_controller_display_brightness).make_call();
-                  number_call.set_value(id(esp_sprinkler_controller_display).state ? clamp<float>(roundf(id(esp_sprinkler_controller_adc_sensor_phototransistor).state / 3.9 * brightness_mult), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state) : 0);
-                  number_call.perform();
+        - lambda: |-
+            if (id(esp_sprinkler_controller_display).state) {
+              auto brightness_mult_max = 100.0;
+              auto brightness_mult_min = (1.0 - id(esp_sprinkler_controller_display_brightness_idle_reduction).state) * 100.0;
+              auto brightness_max = clamp<float>(roundf(id(esp_sprinkler_controller_adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
+              auto brightness_min = clamp<float>(roundf(id(esp_sprinkler_controller_adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
+              // ESP_LOGD("display_brightness", "Max: %f - Min: %f", brightness_max, brightness_min);
+              id(nextionMaxBrightness).set_state(brightness_max, true, true);
+              id(nextionMinBrightness).set_state(brightness_min, true, true);
+            } else {
+              id(nextionMaxBrightness).set_state(0, true, true);
+              id(nextionMinBrightness).set_state(0, true, true);
+            }
   # NTC thermistor ADC sensor
   - platform: adc
     id: esp_sprinkler_controller_adc_sensor_thermistor
@@ -1595,7 +1637,7 @@ display:
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 1s
-    tft_url: http://10.100.0.51/download/public/sprinkler/NX8048P070-011C.tft
+    tft_url: http://10.100.0.81/download/public/sprinkler/NX8048P070-011C.tft
     lambda: "esp_sprinkler::draw_main_screen();"
     on_setup:
       then:

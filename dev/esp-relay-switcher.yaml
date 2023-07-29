@@ -131,33 +131,33 @@ binary_sensor:
 switch:
   - platform: gpio
     pin: GPIO32
-    name: ${node_friendly_name} Relay 1
+    name: Relay 1
     id: relay_1
   - platform: gpio
     pin: GPIO33
-    name: ${node_friendly_name} Relay 2
+    name: Relay 2
     id: relay_2
   - platform: gpio
     pin: GPIO25
-    name: ${node_friendly_name} Relay 3
+    name: Relay 3
     id: relay_3
   - platform: gpio
     pin: GPIO26
-    name: ${node_friendly_name} Relay 4
+    name: Relay 4
     id: relay_4
   - platform: gpio
     pin: GPIO27
-    name: ${node_friendly_name} Relay 5
+    name: Relay 5
     id: relay_5
   - platform: gpio
     pin: GPIO14
-    name: ${node_friendly_name} Relay 6
+    name: Relay 6
     id: relay_6
   - platform: gpio
     pin: GPIO12
-    name: ${node_friendly_name} Relay 7
+    name: Relay 7
     id: relay_7
   - platform: gpio
     pin: GPIO13
-    name: ${node_friendly_name} Relay 8
+    name: Relay 8
     id: relay_8

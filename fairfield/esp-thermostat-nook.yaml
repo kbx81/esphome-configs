@@ -30,15 +30,19 @@ sensor:
           send_first_at: 1
     on_value:
       then:
-        - if:
-            condition:
-              switch.is_on: esp_thermostat_display_auto_brightness
-            then:
-              - lambda: |-
-                  auto brightness_mult = id(motion_sense).is_running() || !id(esp_thermostat_display_on_motion).state ? 100 : (1.0 - id(esp_thermostat_display_brightness_idle_reduction).state) * 100;
-                  auto number_call = id(esp_thermostat_display_brightness).make_call();
-                  number_call.set_value(id(esp_thermostat_display).state ? clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state) : 0);
-                  number_call.perform();
+        - lambda: |-
+            if (id(esp_thermostat_display).state) {
+              auto brightness_mult_max = 100.0;
+              auto brightness_mult_min = (1.0 - id(esp_thermostat_display_brightness_idle_reduction).state) * 100.0;
+              auto brightness_max = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state);
+              auto brightness_min = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state);
+              // ESP_LOGD("display_brightness", "Max: %f - Min: %f", brightness_max, brightness_min);
+              id(nextionMaxBrightness).set_state(brightness_max, true, true);
+              id(nextionMinBrightness).set_state(brightness_min, true, true);
+            } else {
+              id(nextionMaxBrightness).set_state(0, true, true);
+              id(nextionMinBrightness).set_state(0, true, true);
+            }
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
@@ -283,8 +287,8 @@ display:
     uart_id: nextion_uart
     update_interval: 15s
     # tft_url: https://www.kbx81.net/download/public/climate/NX8048P070-011C.tft
-    # tft_url: http://10.100.0.51/download/public/climate/NX8048K070.tft
-    tft_url: http://10.100.0.51/download/public/climate/NX8048P070-011C.tft
+    # tft_url: http://10.100.0.81/download/public/climate/NX8048K070.tft
+    tft_url: http://10.100.0.81/download/public/climate/NX8048P070-011C.tft
     lambda: "esp32_thermostat::draw_main_screen();"
     on_setup:
       then:

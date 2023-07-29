@@ -5,15 +5,39 @@ substitutions:
 
 esphome:
   platformio_options:
+    board_build.flash_mode: dio
     build_flags:
       - -DBOARD_HAS_PSRAM
 
 esp32:
-  board: featheresp32-s2
+  board: adafruit_funhouse_esp32s2
   framework:
+    # type: esp-idf
+    # version: 5.0.2
+    platform_version: 6.3.2
     type: arduino
-    version: 2.0.4
-    platform_version: 5.1.0
+    version: 2.0.9
+    # platform_version: 5.4.0
+
+# external_components:
+#   - source: github://pr#5101
+#     components: [esp32_spi_led_strip]
+
+esp32_touch:
+  # setup_mode: true
+  # sleep_duration: 10ms
+  # measurement_duration: 4095us
+  measurement_duration: 100us
+  # iir_filter: 12ms
+  denoise_grade: BIT12
+  denoise_cap_level: L0
+  debounce_count: 1
+  filter_mode: IIR_16
+  noise_threshold: 0
+  jitter_step: 0
+  smooth_mode: IIR_2
+  # waterproof_guard_ring: 5
+  # waterproof_shield_driver: L0
 
 packages:
   esp_common: !include ../shared/esp__common_core.yaml
@@ -22,11 +46,12 @@ packages:
 
 # Enable logging
 logger:
+  hardware_uart: UART1
 
-time:
-  - platform: homeassistant
-    id: esptime
-    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
+# time:
+#   - platform: homeassistant
+#     id: esptime
+#     timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
 
 i2c:
   id: i2c_bus
@@ -36,14 +61,51 @@ i2c:
   scan: false
 
 spi:
-  clk_pin: GPIO36
-  mosi_pin: GPIO35
+  clk_pin: 36
+  mosi_pin: 35
 
 status_led:
-  pin:
-    number: GPIO37
+  pin: 37
+
+script:
+  - id: update_color
+    mode: restart
+    then:
+      - lambda: |-
+          auto e_cost = id(electricity_cost).state;
+          if (!isnan(e_cost)) {
+            float b_pct = e_cost <= id(elec_cost_low).state ? 1 : 0;
+            float g_pct = 0;
+            float r_pct = e_cost >= id(elec_cost_high).state ? 1 : 0;
+
+            if ((e_cost > id(elec_cost_normal).state) && (e_cost < id(elec_cost_high).state)) {
+              g_pct = 1 - (e_cost - id(elec_cost_normal).state) / (id(elec_cost_high).state - id(elec_cost_normal).state);
+              r_pct = (e_cost - id(elec_cost_normal).state) / (id(elec_cost_high).state - id(elec_cost_normal).state);
+            } else if ((e_cost > id(elec_cost_low).state) && (e_cost <= id(elec_cost_normal).state)) {
+              b_pct = 1 - (e_cost - id(elec_cost_low).state) / (id(elec_cost_normal).state - id(elec_cost_low).state);
+              g_pct = (e_cost - id(elec_cost_low).state) / (id(elec_cost_normal).state - id(elec_cost_low).state);
+            }
+
+            auto max_pct = std::max(r_pct, std::max(g_pct, b_pct));
+            max_pct = (1 - max_pct) + 1;
+
+            id(elec_cost_color) = Color(r_pct * max_pct * 255, g_pct * max_pct * 255, b_pct * max_pct * 255);
+
+            if (id(auto_dotstar).state) {
+              auto call = id(dotstar_light).turn_on();
+              call.set_transition_length(1000); // in ms
+              call.set_brightness(id(light_brightness).state);
+              call.set_rgb(r_pct, g_pct, b_pct);
+              call.set_effect("None");
+              call.perform();
+            }
+          }
+      - component.update: main_lcd
 
 font:
+  - file: "../resources/Helvetica.ttf"
+    id: helvetica_xxlarge
+    size: 96
   - file: "../resources/Helvetica.ttf"
     id: helvetica_xlarge
     size: 64
@@ -59,49 +121,140 @@ font:
 
 binary_sensor:
   - platform: status
-    name: ${node_friendly_name} Status
-    id: funhouse_status
+    name: Status
+    id: conn_status
+    on_press:
+      then:
+        - if:
+            condition:
+              switch.is_on: auto_dotstar
+            then:
+              - light.control:
+                  id: dotstar_light
+                  state: on
+                  effect: None
+    on_release:
+      then:
+        - if:
+            condition:
+              switch.is_on: auto_dotstar
+            then:
+              - light.control:
+                  id: dotstar_light
+                  state: on
+                  effect: Random Twinkle
   - platform: gpio
     id: motion_sense
-    name: ${node_friendly_name} Motion Detection
+    name: Motion Detection
     pin:
-      number: GPIO16
+      number: 16
   - platform: gpio
     id: button_input_0
-    name: ${node_friendly_name} Button Up
+    name: Button Up
     pin:
-      number: GPIO5
-    # on_press:
-    #   - display.page.show: page1
-    #   - component.update: main_lcd
+      number: 5
+    on_press:
+      - switch.toggle: auto_dotstar
+      - script.execute: update_color
   - platform: gpio
     id: button_input_1
-    name: ${node_friendly_name} Button Select
+    name: Button Select
     pin:
-      number: GPIO4
-    # on_press:
-    #   - display.page.show: page2
-    #   - component.update: main_lcd
+      number: 4
+    on_press:
+      - display.page.show: page1
+      - component.update: main_lcd
   - platform: gpio
     id: button_input_2
-    name: ${node_friendly_name} Button Down
+    name: Button Down
     pin:
-      number: GPIO3
-    # on_press:
-    #   - display.page.show: page3
-    #   - component.update: main_lcd
+      number: 3
+    on_press:
+      - display.page.show: page2
+      - component.update: main_lcd
   - platform: gpio
     id: button_input_back
-    name: ${node_friendly_name} Button 0
+    name: Button 0
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
       mode:
         input: true
         pullup: true
-    # on_press:
-    #   - display.page.show: page4
-    #   - component.update: main_lcd
+    on_press:
+      - light.toggle: dotstar_light
+  - platform: esp32_touch
+    id: touchpad_left
+    name: Touchpad Left
+    pin: 6
+    threshold: 50000
+    on_press:
+      - rtttl.play: "alert 1:d=8,o=5,b=160:e"
+    on_release:
+      - rtttl.play: "alert 1:d=8,o=4,b=160:a"
+  - platform: esp32_touch
+    id: touchpad_center
+    name: Touchpad Middle
+    pin: 7
+    threshold: 50000
+    on_press:
+      - rtttl.play: "alert 1:d=8,o=6,b=160:e"
+    on_release:
+      - rtttl.play: "alert 1:d=8,o=5,b=160:a"
+  - platform: esp32_touch
+    id: touchpad_right
+    name: Touchpad Right
+    pin: 8
+    threshold: 50000
+    on_press:
+      - rtttl.play: "alert 1:d=8,o=7,b=160:e"
+    on_release:
+      - rtttl.play: "alert 1:d=8,o=6,b=160:a"
+  - platform: esp32_touch
+    id: touchpad_slider_a
+    name: Touchpad Slider A
+    pin: 9
+    threshold: 50000
+    on_press:
+      - light.turn_on:
+          id: dotstar_light
+          brightness: 100%
+  - platform: esp32_touch
+    id: touchpad_slider_b
+    name: Touchpad Slider B
+    pin: 10
+    threshold: 50000
+    on_press:
+      - light.turn_on:
+          id: dotstar_light
+          brightness: 80%
+  - platform: esp32_touch
+    id: touchpad_slider_c
+    name: Touchpad Slider C
+    pin: 11
+    threshold: 50000
+    on_press:
+      - light.turn_on:
+          id: dotstar_light
+          brightness: 60%
+  - platform: esp32_touch
+    id: touchpad_slider_d
+    name: Touchpad Slider D
+    pin: 12
+    threshold: 50000
+    on_press:
+      - light.turn_on:
+          id: dotstar_light
+          brightness: 40%
+  - platform: esp32_touch
+    id: touchpad_slider_e
+    name: Touchpad Slider E
+    pin: 13
+    threshold: 50000
+    on_press:
+      - light.turn_on:
+          id: dotstar_light
+          brightness: 20%
 
 color:
   - id: kbx_red
@@ -125,65 +278,177 @@ color:
     green: 50%
     blue: 50%
   - id: kbx_white
-    red: 90%
-    green: 90%
-    blue: 90%
-
-# output:
-#   - platform: ledc
-#     id: backlight_pwm
-#     pin: GPIO21
+    red: 100%
+    green: 100%
+    blue: 100%
+  - id: elec_cost_color
+    red: 100%
+    green: 0%
+    blue: 100%
 
 light:
-  # - platform: monochromatic
-  #   id: backlight
-  #   name: ${node_friendly_name} Backlight
-  #   output: backlight_pwm
-  #   restore_mode: ALWAYS_ON
+  - platform: monochromatic
+    id: lcd_backlight
+    name: Display Backlight
+    output: lcd_backlight_pwm
+    restore_mode: RESTORE_DEFAULT_ON
   - platform: fastled_spi
-    name: ${node_friendly_name} APA102
+    id: dotstar_light
+    name: APA102 LEDs
+    restore_mode: RESTORE_DEFAULT_OFF
     chipset: DOTSTAR
     data_pin: GPIO14
     clock_pin: GPIO15
     num_leds: 5
     rgb_order: BGR
+    effects:
+      - addressable_flicker:
+      - addressable_color_wipe:
+      - addressable_rainbow:
+      - addressable_scan:
+      - addressable_twinkle:
+      - addressable_random_twinkle:
+      - addressable_fireworks:
+  # - platform: esp32_spi_led_strip
+  #   id: dotstar_light
+  #   name: APA102 LEDs
+  #   restore_mode: RESTORE_DEFAULT_OFF
+  #   data_pin: GPIO14
+  #   clock_pin: GPIO15
+  #   num_leds: 5
+  #   rgb_order: BGR
+  #   effects:
+  #     - addressable_flicker:
+  #     - addressable_color_wipe:
+  #     - addressable_rainbow:
+  #     - addressable_scan:
+  #     - addressable_twinkle:
+  #     - addressable_random_twinkle:
+  #     - addressable_fireworks:
+
+output:
+  - platform: ledc
+    id: lcd_backlight_pwm
+    pin: 21
+    channel: 0
+  # Buzzer output
+  - platform: ledc
+    id: rtttl_out
+    pin: 42
+    channel: 2
+
+rtttl:
+  output: rtttl_out
 
 switch:
-  - platform: gpio
-    id: backlight
-    name: ${node_friendly_name} Backlight
-    restore_mode: ALWAYS_ON
-    pin:
-      number: GPIO21
-      mode: OUTPUT
+  - platform: template
+    id: auto_dotstar
+    name: Auto Light Color
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      then:
+        - script.execute: update_color
+
+number:
+  - platform: template
+    id: light_brightness
+    name: Auto Light Brightness
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.01
+    initial_value: 0.5
+    restore_value: true
+    on_value:
+      then:
+        - script.execute: update_color
+  - platform: template
+    id: elec_cost_high
+    name: Electricity Cost High Threshold
+    entity_category: config
+    optimistic: true
+    min_value: -100
+    max_value: 1000
+    step: 1
+    initial_value: 28
+    restore_value: true
+    on_value:
+      then:
+        - script.execute: update_color
+  - platform: template
+    id: elec_cost_normal
+    name: Electricity Cost Normal Threshold
+    entity_category: config
+    optimistic: true
+    min_value: -100
+    max_value: 1000
+    step: 1
+    initial_value: 7
+    restore_value: true
+    on_value:
+      then:
+        - script.execute: update_color
+  - platform: template
+    id: elec_cost_low
+    name: Electricity Cost Low Threshold
+    entity_category: config
+    optimistic: true
+    min_value: -100
+    max_value: 1000
+    step: 1
+    initial_value: 0
+    restore_value: true
+    on_value:
+      then:
+        - script.execute: update_color
+  # - platform: template
+  #   id: electricity_cost_test
+  #   name: Electricity Cost Test Value
+  #   optimistic: true
+  #   min_value: -100
+  #   max_value: 1000
+  #   step: 0.1
+  #   initial_value: 7
+  #   restore_value: true
+  #   on_value:
+  #     then:
+  #       - script.execute: update_color
 
 sensor:
-  # Phototransistor ADC sensor
+  - platform: homeassistant
+    id: electricity_cost
+    name: Electricity Cost
+    entity_id: sensor.comed_current_hour_average_price
+    on_value:
+      then:
+        - script.execute: update_color
+  # Phototransistor ADC sensor...can't use with Wi-Fi :(
   # - platform: adc
-  #   id: esp_sprinkler_controller_adc_sensor_phototransistor
-  #   name: ${node_friendly_name} Phototransistor ADC
+  #   id: phototransistor
+  #   name: Phototransistor ADC
   #   pin: 18
   #   attenuation: 11db
   #   update_interval: 1s
   - platform: aht10
     temperature:
-      id: funhouse_aht20_temperature
-      name: ${node_friendly_name} AHT20 Temperature
+      id: aht20_temperature
+      name: AHT20 Temperature
       filters:
         - offset: -2.0
     humidity:
-      id: funhouse_aht20_humidity
-      name: ${node_friendly_name} AHT20 Humidity
+      id: aht20_humidity
+      name: AHT20 Humidity
     update_interval: 15s
   - platform: dps310
     temperature:
-      id: funhouse_dps310_temperature
-      name: ${node_friendly_name} DPS310 Temperature
+      id: dps310_temperature
+      name: DPS310 Temperature
       filters:
         - offset: -2.6
     pressure:
-      id: funhouse_dps310_pressure
-      name: ${node_friendly_name} DPS310 Pressure
+      id: dps310_pressure
+      name: DPS310 Pressure
     update_interval: 15s
 
 display:
@@ -191,11 +456,11 @@ display:
     id: main_lcd
     model: Adafruit Funhouse 240x240
     rotation: 180
-    eightbitcolor: true
-    cs_pin: GPIO40
-    dc_pin: GPIO39
-    reset_pin: GPIO41
-    update_interval: 5 seconds
+    # eightbitcolor: true
+    cs_pin: 40
+    dc_pin: 39
+    reset_pin: 41
+    update_interval: 60s
     pages:
       - id: page1
         lambda: |-
@@ -203,21 +468,31 @@ display:
           const uint8_t vert_spacing_offset = 45;
           const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
-          it.rectangle(0,  0, it.get_width(), it.get_height(), id(kbx_blue));
-          it.rectangle(0, header_height, it.get_width(), it.get_height(), id(kbx_blue));   // header bar
+          auto logo_color = id(conn_status).state ? id(kbx_gray) : id(kbx_red);
+          it.print(it.get_width() / 2, 6, id(helvetica_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
 
-          it.print(5, 5, id(helvetica_small), id(kbx_yellow), TextAlign::TOP_LEFT, "ESPHome");
-
-          if (id(funhouse_status).state) {
-            it.print(235, 5, id(helvetica_small), id(kbx_green), TextAlign::TOP_RIGHT, "Online");
-          }
-          else {
-            it.print(235, 5, id(helvetica_small), id(kbx_red), TextAlign::TOP_RIGHT, "Offline");
+          if (!isnan(id(electricity_cost).state)) {
+            it.printf(it.get_width() / 2, vert_center - vert_spacing_offset - 15, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "Hour avg. price:");
+            it.printf(it.get_width() / 2, vert_center, id(helvetica_xxlarge), id(kbx_white), TextAlign::CENTER, "%.1f", id(electricity_cost).state);
+            it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "cents");
           }
 
-          it.strftime((it.get_width() / 2), 5, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%Y-%m-%d", id(esptime).now());
-          it.strftime((it.get_width() / 2), 25, id(helvetica_small), id(kbx_gray), TextAlign::TOP_CENTER, "%H:%M:%S", id(esptime).now());
+          it.rectangle(0,  0, it.get_width(), it.get_height(), id(elec_cost_color));
+          it.rectangle(1,  1, it.get_width() - 2, it.get_height() - 2, id(elec_cost_color));
+          it.rectangle(0, header_height, it.get_width(), 2, id(elec_cost_color));   // header bar
+      - id: page2
+        lambda: |-
+          const uint8_t header_height = 20;
+          const uint8_t vert_spacing_offset = 45;
+          const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
-          it.printf(it.get_width() / 2, vert_center - vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "%.1f%%", id(funhouse_aht20_humidity).state);
-          it.printf(it.get_width() / 2, vert_center, id(helvetica_xlarge), id(kbx_white), TextAlign::CENTER, "%.1f°", id(funhouse_aht20_temperature).state * 1.8 + 32);
-          it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f hPa", id(funhouse_dps310_pressure).state);
+          auto logo_color = id(conn_status).state ? id(kbx_gray) : id(kbx_red);
+          it.print(it.get_width() / 2, 6, id(helvetica_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
+
+          it.printf(it.get_width() / 2, vert_center - vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "%.1f hPa", id(dps310_pressure).state);
+          it.printf(it.get_width() / 2, vert_center, id(helvetica_xlarge), id(kbx_white), TextAlign::CENTER, "%.1f°", id(aht20_temperature).state * 1.8 + 32);
+          it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f%%", id(aht20_humidity).state);
+
+          it.rectangle(0,  0, it.get_width(), it.get_height(), id(elec_cost_color));
+          it.rectangle(1,  1, it.get_width() - 2, it.get_height() - 2, id(elec_cost_color));
+          it.rectangle(0, header_height, it.get_width(), 2, id(elec_cost_color));   // header bar

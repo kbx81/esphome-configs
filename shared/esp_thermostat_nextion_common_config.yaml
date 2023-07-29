@@ -185,7 +185,7 @@ script:
   - id: motion_sense
     mode: restart
     then:
-      - delay: 120s
+      - lambda: "id(nextionIdleTimer).set_state(0, true, true);"
   # display refresh coordination
   - id: climate_action_refresh
     mode: restart
@@ -422,7 +422,6 @@ sensor:
     variable_name: climateMode
     on_value:
       then:
-        - script.execute: motion_sense
         - climate.control:
             id: esp_thermostat
             mode: !lambda "return static_cast<climate::ClimateMode>(int(id(nextionClimateMode).state));"
@@ -432,7 +431,6 @@ sensor:
     variable_name: climateFanMode
     on_value:
       then:
-        - script.execute: motion_sense
         - climate.control:
             id: esp_thermostat
             fan_mode: !lambda "return static_cast<climate::ClimateFanMode>(int(id(nextionClimateFanMode).state));"
@@ -441,6 +439,30 @@ sensor:
     nextion_id: main_lcd
     id: nextionTargetBrightness
     variable_name: targetBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionMaxBrightness
+    variable_name: maxBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionMinBrightness
+    variable_name: minBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionIdleTimeout
+    variable_name: idleTimeout
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionIdleTimer
+    variable_name: idleTimer
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionAutoBrightness
+    variable_name: autoBrightness
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionAutoHome
+    variable_name: autoHome
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentTemp
@@ -463,7 +485,6 @@ sensor:
     variable_name: currentSetLower
     on_value:
       then:
-        - script.execute: motion_sense
         - climate.control:
             id: esp_thermostat
             target_temperature_low: !lambda "return ((id(nextionCurrentSetLower).state / 10) - 32) * 5 / 9;"
@@ -476,7 +497,6 @@ sensor:
     variable_name: currentSetUpper
     on_value:
       then:
-        - script.execute: motion_sense
         - climate.control:
             id: esp_thermostat
             target_temperature_high: !lambda "return ((id(nextionCurrentSetUpper).state / 10) - 32) * 5 / 9;"
@@ -806,8 +826,16 @@ switch:
     name: Display Automatic Brightness
     entity_category: config
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
     restore_state: true
+    on_turn_off:
+      then:
+        lambda: |-
+          id(nextionAutoBrightness).set_state(0, true, true);
+    on_turn_on:
+      then:
+        lambda: |-
+          id(nextionAutoBrightness).set_state(1, true, true);
   # display power (soft)
   - platform: template
     id: esp_thermostat_display
@@ -862,13 +890,12 @@ number:
   - platform: template
     id: esp_thermostat_display_brightness
     name: Display Brightness
-    optimistic: true
     min_value: 0
     max_value: 100
     step: 1
-    initial_value: 50
-    restore_value: true
-    on_value:
+    lambda: "return id(nextionTargetBrightness).state;"
+    update_interval: 1s
+    set_action:
       then:
         lambda: |-
           if (id(nextionTargetBrightness).state != x)
@@ -903,3 +930,16 @@ number:
     step: 0.01
     initial_value: 0.80
     restore_value: true
+  - platform: template
+    id: esp_thermostat_idle_timeout
+    name: Idle Timeout
+    entity_category: config
+    optimistic: true
+    min_value: 5
+    max_value: 900
+    step: 1
+    initial_value: 120
+    restore_value: true
+    on_value:
+      then:
+        lambda: "id(nextionIdleTimeout).set_state(x * 2, true, true);"
