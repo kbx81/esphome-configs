@@ -4,4 +4,4 @@
 archived/
 build/
 tests/
-shared/esp__common_secrets.yaml
+**/*secrets.yaml

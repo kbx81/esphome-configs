@@ -43,10 +43,10 @@ substitutions:
   button_valve8_objname: "btnZone8Power"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
 esphome:
-  includes: ../shared/esp_sprinkler_nextion.h
+  includes: shared/esp_sprinkler_nextion.h
   platformio_options:
     build_flags:
       - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
@@ -113,44 +113,6 @@ api:
             id: status_string
             value: !lambda "return message;"
         - lambda: "esp_sprinkler::display_refresh_status();"
-    - service: update_air_quality_data
-      variables:
-        aqi: float
-      then:
-        - lambda: |-
-            if (id(weather_air_quality) != aqi) {
-              id(weather_air_quality) = aqi;
-              esp_sprinkler::display_refresh_iaq_txt(id(weather_air_quality), true);
-            }
-    - service: update_weather_data
-      variables:
-        condition: string
-        humidity: float
-        temperature: float
-        temperature_high: float
-        temperature_low: float
-      then:
-        - lambda: |-
-            if (id(weather_condition) != condition) {
-              id(weather_condition) = condition;
-              esp_sprinkler::display_refresh_weather_cond();
-            }
-            if (id(weather_humidity) != humidity) {
-              id(weather_humidity) = humidity;
-              esp_sprinkler::display_refresh_sensor(id(weather_humidity), esp_sprinkler::DS_WEATHER_HUM);
-            }
-            if (id(weather_temperature) != temperature) {
-              id(weather_temperature) = temperature;
-              esp_sprinkler::display_refresh_sensor(id(weather_temperature), esp_sprinkler::DS_WEATHER_TEMP);
-            }
-            if (id(weather_temperature_high) != temperature_high) {
-              id(weather_temperature_high) = temperature_high;
-              esp_sprinkler::display_refresh_sensor(id(weather_temperature_high), esp_sprinkler::DS_WEATHER_TEMPHIGH);
-            }
-            if (id(weather_temperature_low) != temperature_low) {
-              id(weather_temperature_low) = temperature_low;
-              esp_sprinkler::display_refresh_sensor(id(weather_temperature_low), esp_sprinkler::DS_WEATHER_TEMPLOW);
-            }
 
 globals:
   # start time
@@ -255,6 +217,22 @@ uart:
   rx_pin: GPIO18
   baud_rate: 921600
 
+cover:
+  - platform: template
+    name: "Garage Door"
+    lambda: |-
+      if (id(esp_sprinkler_controller_door_sensor).state) {
+        return COVER_OPEN;
+      } else {
+        return COVER_CLOSED;
+      }
+    open_action:
+      - script.execute: pulse_door_opener_relay
+    close_action:
+      - script.execute: pulse_door_opener_relay
+    stop_action:
+      - script.execute: pulse_door_opener_relay
+
 binary_sensor:
   - platform: status
     id: esp_sprinkler_controller_api_status
@@ -282,6 +260,7 @@ binary_sensor:
   - platform: gpio
     id: esp_sprinkler_controller_motion_detection
     name: Motion Detection
+    device_class: motion
     pin:
       number: GPIO27
     on_state:
@@ -294,6 +273,7 @@ binary_sensor:
   - platform: gpio
     id: esp_sprinkler_controller_door_sensor
     name: Door Sensor
+    device_class: door
     pin:
       mcp23xxx: mcp23017_hub
       number: 13
@@ -1172,6 +1152,56 @@ sensor:
     nextion_id: main_lcd
     id: nextionWeatherTempLow
     variable_name: weatherTempLow
+  # HA sensors we track - weather
+  - platform: homeassistant
+    id: weather_air_quality_ha
+    entity_id: sensor.waqi_chi_com_illinois_usa
+    on_value:
+      then:
+        - globals.set:
+            id: weather_air_quality
+            value: !lambda "return x;"
+        - lambda: "esp_sprinkler::display_refresh_iaq_txt(x, true);"
+  - platform: homeassistant
+    id: weather_humidity_ha
+    entity_id: sensor.gw2000b_v2_2_4_humidity
+    on_value:
+      then:
+        - globals.set:
+            id: weather_humidity
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherHum).set_state(roundf(x * 10), false, true);
+  - platform: homeassistant
+    id: weather_temperature_ha
+    entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
+    on_value:
+      then:
+        - globals.set:
+            id: weather_temperature
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);
+  - platform: homeassistant
+    id: weather_forecasted_high_ha
+    entity_id: sensor.weather_forecasted_high
+    on_value:
+      then:
+        - globals.set:
+            id: weather_temperature_high
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherTempHigh).set_state(roundf(x * 10), false, true);
+  - platform: homeassistant
+    id: weather_forecasted_low_ha
+    entity_id: sensor.weather_forecasted_low
+    on_value:
+      then:
+        - globals.set:
+            id: weather_temperature_low
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);
   # Phototransistor ADC sensor
   - platform: adc
     id: esp_sprinkler_controller_adc_sensor_phototransistor
@@ -1232,7 +1262,7 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_thermistor_temperature).state * 1.8 + 32) + "\xB0";
+            std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_thermistor_temperature).state)) + "\xB0";
             id(nextionTextSensor6a).set_state(temperature_string, false, true);
   # DHT22 sensor
   - platform: dht
@@ -1244,7 +1274,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_dht22_temperature).state * 1.8 + 32) + "\xB0";
+              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_dht22_temperature).state)) + "\xB0";
               id(nextionTextSensor5a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_dht22_humidity
@@ -1266,7 +1296,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme280_temperature).state * 1.8 + 32) + "\xB0";
+              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_bme280_temperature).state)) + "\xB0";
               id(nextionTextSensor2a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_bme280_humidity
@@ -1295,7 +1325,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_temperature).state * 1.8 + 32) + "\xB0";
+              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
               id(nextionTextSensor1a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_bme680_humidity
@@ -1311,7 +1341,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              esp_sprinkler::display_refresh_sensor(id(esp_sprinkler_controller_bme680_pressure).state, esp_sprinkler::DS_CURRENT_PRES);
+              id(nextionCurrentPres).set_state(roundf(id(esp_sprinkler_controller_bme680_pressure).state * 10), false, true);
               std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_pressure).state) + "hPa";
               id(nextionTextSensor1c).set_state(pressure_string, false, true);
     gas_resistance:
@@ -1347,7 +1377,7 @@ sensor:
   #     on_value:
   #       then:
   #         - lambda: |-
-  #             std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_temperature).state * 1.8 + 32) + "\xB0";
+  #             std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
   #             id(nextionTextSensor1a).set_state(temperature_string, false, true);
   #   humidity:
   #     id: esp_sprinkler_controller_bme680_humidity
@@ -1384,7 +1414,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_shtcx_temperature).state * 1.8 + 32) + "\xB0";
+              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_shtcx_temperature).state)) + "\xB0";
               id(nextionTextSensor3a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_shtcx_humidity
@@ -1404,7 +1434,7 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            std::string temperature_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_tmp117_temperature).state * 1.8 + 32) + "\xB0";
+            std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_tmp117_temperature).state)) + "\xB0";
             id(nextionTextSensor4a).set_state(temperature_string, false, true);
     update_interval: 15s
   # SGP40 sensor
@@ -1428,6 +1458,17 @@ text_sensor:
     iaq_accuracy:
       id: esp_sprinkler_controller_bme680_accuracy
       name: BME680 Accuracy
+  # HA sensors we track - weather condition
+  - platform: homeassistant
+    id: weather_condition_ha
+    entity_id: weather.home_fairfield
+    on_value:
+      then:
+        - globals.set:
+            id: weather_condition
+            value: !lambda "return x;"
+        - lambda: "esp_sprinkler::display_refresh_weather_cond();"
+  # Nextion text sensors
   - platform: nextion
     nextion_id: main_lcd
     id: nextionTextStatus
@@ -1647,3 +1688,11 @@ display:
         - lambda: |-
             main_lcd->goto_page("main");
             esp_sprinkler::draw_main_screen(true);
+            id(nextionTextSensor1).set_state("BME680:", false, true);
+            id(nextionTextSensor2).set_state("BME280:", false, true);
+            id(nextionTextSensor3).set_state("SHTC3:", false, true);
+            id(nextionTextSensor4).set_state("TMP117:", false, true);
+            id(nextionTextSensor5).set_state("DHT22:", false, true);
+            id(nextionTextSensor6).set_state("Thermistor 1:", false, true);
+            id(nextionTextSensor7).set_state("Thermistor 2:", false, true);
+            id(nextionTextSensor8).set_state("SGP40:", false, true);

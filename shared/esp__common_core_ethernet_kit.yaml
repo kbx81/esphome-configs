@@ -1,13 +1,18 @@
-substitutions:
-  <<: !include esp__common_secrets.yaml
-
 esphome:
   friendly_name: ${node_friendly_name}
   name: ${node_name}
-  build_path: ../build/${node_name}
+  build_path: ../../build/${node_name}
 
 preferences:
   flash_write_interval: 2min
+
+ethernet:
+  type: IP101
+  mdc_pin: 23
+  mdio_pin: 18
+  clk_mode: GPIO0_IN
+  power_pin: 5
+  phy_addr: 1
 
 # captive_portal:
 
@@ -19,11 +24,11 @@ logger:
 # Enable Home Assistant API and define services
 api:
   encryption:
-    key: ${api_key}
+    key: !secret api_key
   reboot_timeout: 120min
 
 ota:
-  password: ${ota_password}
+  password: !secret ota_password
 
 button:
   - platform: restart

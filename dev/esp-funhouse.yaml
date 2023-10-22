@@ -6,29 +6,26 @@ substitutions:
 esphome:
   platformio_options:
     board_build.flash_mode: dio
-    build_flags:
-      - -DBOARD_HAS_PSRAM
 
 esp32:
   board: adafruit_funhouse_esp32s2
   framework:
-    # type: esp-idf
-    # version: 5.0.2
+    type: esp-idf
+    version: 5.0.2
     platform_version: 6.3.2
-    type: arduino
-    version: 2.0.9
+    # type: arduino
+    # version: 2.0.9
     # platform_version: 5.4.0
 
-# external_components:
-#   - source: github://pr#5101
-#     components: [esp32_spi_led_strip]
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+psram:
+  speed: 80MHz
 
 esp32_touch:
   # setup_mode: true
-  # sleep_duration: 10ms
-  # measurement_duration: 4095us
   measurement_duration: 100us
-  # iir_filter: 12ms
   denoise_grade: BIT12
   denoise_cap_level: L0
   debounce_count: 1
@@ -36,22 +33,15 @@ esp32_touch:
   noise_threshold: 0
   jitter_step: 0
   smooth_mode: IIR_2
-  # waterproof_guard_ring: 5
-  # waterproof_shield_driver: L0
-
-packages:
-  esp_common: !include ../shared/esp__common_core.yaml
-
-# captive_portal:
 
 # Enable logging
 logger:
-  hardware_uart: UART1
+  hardware_uart: USB_CDC
 
-# time:
-#   - platform: homeassistant
-#     id: esptime
-#     timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
+time:
+  - platform: homeassistant
+    id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
 
 i2c:
   id: i2c_bus
@@ -61,8 +51,12 @@ i2c:
   scan: false
 
 spi:
-  clk_pin: 36
-  mosi_pin: 35
+  - id: spi_lcd
+    clk_pin: 36
+    mosi_pin: 35
+  - id: spi_led
+    clk_pin: 15
+    mosi_pin: 14
 
 status_led:
   pin: 37
@@ -71,6 +65,11 @@ script:
   - id: update_color
     mode: restart
     then:
+      - if:
+          condition:
+            lambda: 'return id(electricity_cost).state >= id(elec_cost_high).state;'
+          then:
+            - rtttl.play: "alert 1:d=16,o=5,b=240:e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a,2p,e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a"
       - lambda: |-
           auto e_cost = id(electricity_cost).state;
           if (!isnan(e_cost)) {
@@ -100,22 +99,21 @@ script:
               call.perform();
             }
           }
-      - component.update: main_lcd
 
 font:
-  - file: "../resources/Helvetica.ttf"
+  - file: "resources/Helvetica.ttf"
     id: helvetica_xxlarge
     size: 96
-  - file: "../resources/Helvetica.ttf"
+  - file: "resources/Helvetica.ttf"
     id: helvetica_xlarge
     size: 64
-  - file: "../resources/Helvetica.ttf"
+  - file: "resources/Helvetica.ttf"
     id: helvetica_large
     size: 48
-  - file: "../resources/Helvetica.ttf"
+  - file: "resources/Helvetica.ttf"
     id: helvetica_med
     size: 28
-  - file: "../resources/Helvetica.ttf"
+  - file: "resources/Helvetica.ttf"
     id: helvetica_small
     size: 12
 
@@ -125,6 +123,7 @@ binary_sensor:
     id: conn_status
     on_press:
       then:
+        - display.page.show: page1
         - if:
             condition:
               switch.is_on: auto_dotstar
@@ -135,6 +134,7 @@ binary_sensor:
                   effect: None
     on_release:
       then:
+        - display.page.show: page2
         - if:
             condition:
               switch.is_on: auto_dotstar
@@ -146,6 +146,7 @@ binary_sensor:
   - platform: gpio
     id: motion_sense
     name: Motion Detection
+    device_class: motion
     pin:
       number: 16
   - platform: gpio
@@ -163,7 +164,6 @@ binary_sensor:
       number: 4
     on_press:
       - display.page.show: page1
-      - component.update: main_lcd
   - platform: gpio
     id: button_input_2
     name: Button Down
@@ -171,7 +171,6 @@ binary_sensor:
       number: 3
     on_press:
       - display.page.show: page2
-      - component.update: main_lcd
   - platform: gpio
     id: button_input_back
     name: Button 0
@@ -274,9 +273,9 @@ color:
     green: 0%
     blue: 100%
   - id: kbx_gray
-    red: 50%
-    green: 50%
-    blue: 50%
+    red: 60%
+    green: 60%
+    blue: 60%
   - id: kbx_white
     red: 100%
     green: 100%
@@ -292,15 +291,13 @@ light:
     name: Display Backlight
     output: lcd_backlight_pwm
     restore_mode: RESTORE_DEFAULT_ON
-  - platform: fastled_spi
+  - platform: spi_led_strip
     id: dotstar_light
+    spi_id: spi_led
+    data_rate: 40MHz
     name: APA102 LEDs
     restore_mode: RESTORE_DEFAULT_OFF
-    chipset: DOTSTAR
-    data_pin: GPIO14
-    clock_pin: GPIO15
     num_leds: 5
-    rgb_order: BGR
     effects:
       - addressable_flicker:
       - addressable_color_wipe:
@@ -309,22 +306,6 @@ light:
       - addressable_twinkle:
       - addressable_random_twinkle:
       - addressable_fireworks:
-  # - platform: esp32_spi_led_strip
-  #   id: dotstar_light
-  #   name: APA102 LEDs
-  #   restore_mode: RESTORE_DEFAULT_OFF
-  #   data_pin: GPIO14
-  #   clock_pin: GPIO15
-  #   num_leds: 5
-  #   rgb_order: BGR
-  #   effects:
-  #     - addressable_flicker:
-  #     - addressable_color_wipe:
-  #     - addressable_rainbow:
-  #     - addressable_scan:
-  #     - addressable_twinkle:
-  #     - addressable_random_twinkle:
-  #     - addressable_fireworks:
 
 output:
   - platform: ledc
@@ -346,8 +327,12 @@ switch:
     name: Auto Light Color
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_off:
+      then:
+        - rtttl.play: "alert 1:d=16,o=5,b=120:a"
     on_turn_on:
       then:
+        - rtttl.play: "alert 1:d=16,o=5,b=120:e6"
         - script.execute: update_color
 
 number:
@@ -454,13 +439,15 @@ sensor:
 display:
   - platform: st7789v
     id: main_lcd
+    spi_id: spi_lcd
     model: Adafruit Funhouse 240x240
     rotation: 180
+    data_rate: 80MHz
     # eightbitcolor: true
-    cs_pin: 40
-    dc_pin: 39
-    reset_pin: 41
-    update_interval: 60s
+    # cs_pin: 40
+    # dc_pin: 39
+    # reset_pin: 41
+    update_interval: 1s
     pages:
       - id: page1
         lambda: |-
@@ -469,6 +456,8 @@ display:
           const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
           auto logo_color = id(conn_status).state ? id(kbx_gray) : id(kbx_red);
+          it.strftime(6, 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
+          it.strftime((it.get_width() - 6), 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
           it.print(it.get_width() / 2, 6, id(helvetica_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
 
           if (!isnan(id(electricity_cost).state)) {
@@ -487,6 +476,8 @@ display:
           const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
           auto logo_color = id(conn_status).state ? id(kbx_gray) : id(kbx_red);
+          it.strftime(6, 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
+          it.strftime((it.get_width() - 6), 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
           it.print(it.get_width() / 2, 6, id(helvetica_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
 
           it.printf(it.get_width() / 2, vert_center - vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "%.1f hPa", id(dps310_pressure).state);

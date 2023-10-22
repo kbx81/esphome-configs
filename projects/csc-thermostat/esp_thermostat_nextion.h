@@ -122,15 +122,10 @@ void display_refresh_weather_cond() {
 
 void display_refresh_status() {
   std::string offline_message = "offline";
-  std::string sensor_message = "on-board sensor in use";
   std::string status_message;
 
-  if (id(esp_thermostat_api_status).state == false && id(esp_thermostat_on_board_sensor_active).state) {
-    status_message = offline_message + " - " + sensor_message;
-  } else if (id(esp_thermostat_api_status).state == false) {
+  if (id(esp_thermostat_api_status).state == false) {
     status_message = offline_message;
-  } else if (id(esp_thermostat_on_board_sensor_active).state) {
-    status_message = sensor_message;
   }
 
   if (status_message.empty()) {
@@ -161,78 +156,6 @@ void draw_main_screen(bool fullRefresh = false) {
     display_refresh_mode();
     display_refresh_fan_mode();
     display_refresh_set_points();
-  }
-}
-
-float thermostat_humidity_sensor_value() {
-  bool template_sensor_valid = id(current_humidity) > 0;
-  float sensor_value = id(esp_thermostat_bme680_humidity).state;
-  // determine what value to return for the sensor
-  // if the on-board sensor is flagged as active or if the template sensor's value (aka current_humidity) is not
-  // valid,
-  //  we must (try to) use the on-board hardware sensor
-  if (id(esp_thermostat_on_board_sensor_active).state || !template_sensor_valid) {
-    // if the hardware sensor is "ready" (not NaN), we use that value
-    if (!isnan(sensor_value)) {
-      id(sensor_ready) = true;
-      id(current_humidity) = sensor_value;
-    } else {
-      // if the hardware sensor is NOT "ready" (not NaN), we return a (fake) neutral value. not ideal but this should be
-      // only very rarely used
-      sensor_value = id(esp_thermostat_target_humidity).state;
-    }
-  } else {
-    // if the on-board sensor is NOT flagged as active and the template sensor's value (aka current_humidity)
-    //  is valid, we return that value
-    id(sensor_ready) = true;
-    sensor_value = id(current_humidity);
-  }
-  // switch humidifier on/off as required
-  if ((sensor_value >= id(esp_thermostat_target_humidity).state + 1) ||
-      (id(esp_thermostat).action != CLIMATE_ACTION_HEATING)) {
-    id(esp_thermostat_humidify).turn_off();
-  } else if (sensor_value <= id(esp_thermostat_target_humidity).state - 1) {
-    id(esp_thermostat_humidify).turn_on();
-  }
-
-  return sensor_value;
-}
-
-float thermostat_temperature_sensor_value() {
-  bool template_sensor_valid =
-      (id(current_temperature) >= id(esp_thermostat).get_traits().get_visual_min_temperature()) &&
-      (id(current_temperature) <= id(esp_thermostat).get_traits().get_visual_max_temperature());
-  float sensor_value = id(esp_thermostat_bme680_temperature).state;
-  // always increment the counter -- it'll get reset later if appropriate
-  id(missed_update_count) += 1;
-  // update the display to refresh the status as appropriate
-  esp32_thermostat::display_refresh_status();
-  // measure the thermistor (kind of arbitrary but we do it here)
-  id(esp_thermostat_thermistor_vcc).turn_on();
-  id(adc_sensor_thermistor).update();
-  // id(esp_thermostat_thermistor_vcc).turn_off();
-  // update the display to refresh the lockout status as appropriate
-  display_refresh_lockout_status();
-  // determine what value to return for the sensor
-  // if the on-board sensor is flagged as active or if the template sensor's value (aka current_temperature) is not
-  // valid,
-  //  we must (try to) use the on-board hardware sensor
-  if (id(esp_thermostat_on_board_sensor_active).state || !template_sensor_valid) {
-    // if the hardware sensor is "ready" (not NaN), we use that value
-    if (!isnan(sensor_value)) {
-      id(sensor_ready) = true;
-      id(current_temperature) = sensor_value;
-      return sensor_value;
-    } else {
-      // if the hardware sensor is NOT "ready" (not NaN), we return a (fake) neutral value. not ideal but this should be
-      // only very rarely used
-      return (id(esp_thermostat).target_temperature_low + id(esp_thermostat).target_temperature_high) / 2;
-    }
-  } else {
-    // if the on-board sensor is NOT flagged as active and the template sensor's value (aka current_temperature)
-    //  is valid, we return that value
-    id(sensor_ready) = true;
-    return id(current_temperature);
   }
 }
 }  // namespace esp32_thermostat

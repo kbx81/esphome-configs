@@ -1,0 +1,129 @@
+substitutions:
+  node_name: esp-ble-tracker-front-room
+  node_friendly_name: "Front Room BLE Tracker"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+    version: 5.0.2
+    platform_version: 6.3.2
+
+psram:
+  speed: 80MHz
+
+packages:
+  esp_common: !include ../shared/esp__common_core_ethernet_kit.yaml
+
+script:
+  # Publish event every 30 seconds when no RSSI received
+  - id: presence_timeout
+    mode: restart
+    then:
+      - delay: 30s
+      - lambda: "id(room_presence_debounce).publish_state(0);"
+      - script.execute: presence_timeout
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1.2s
+    window: 500ms
+    active: false
+  on_ble_advertise:
+    - then:
+        # Look for manufacturer data of form: 4c00 10 05 YY 98 XXXXXX
+        # Where YY can be 01..0F or 20..2F; and XXXXXX is ignored
+        - lambda: |-
+            int16_t best_rssi = INT16_MIN;
+            for (auto data : x.get_manufacturer_datas()) {
+              // Guard against non-Apple datagrams or those that are too small
+              if (data.data.size() < 4 || data.uuid.to_string() != "0x004C" || data.data[0] != 0x10 || data.data[1] < 5) {
+                continue;
+              }
+              const int16_t rssi = x.get_rssi();
+              const uint8_t status_flags = data.data[2] >> 4;  // High nibble
+              const uint8_t data_flags = data.data[3];
+              
+              if (data_flags == 0x98) {  // Match Apple Watch; unlocked = 0x98, locked = 0x18
+                if (status_flags == 0 || status_flags == 2) {
+                  best_rssi = max(rssi, best_rssi);
+                  ESP_LOGD("ble_adv", "Found Apple Watch (MAC %s) RSSI %i", x.address_str().c_str(), rssi);
+                } else {
+                  ESP_LOGD("ble_adv", "Possible Apple Watch? (MAC %s) RSSI %i, unrecognized status/action flags %#04x", x.address_str().c_str(), rssi, data.data[2]);
+                }
+              }
+            }
+            if (best_rssi > INT16_MIN) {
+              id(apple_watch_rssi).publish_state(best_rssi);
+            }
+
+number:
+  - platform: template
+    id: rssi_present
+    name: RSSI Present Value
+    device_class: signal_strength
+    unit_of_measurement: dBm
+    entity_category: config
+    optimistic: true
+    min_value: -100
+    max_value: 0
+    step: 1
+    initial_value: -60
+    restore_value: true
+  - platform: template
+    id: rssi_not_present
+    name: RSSI Not-Present Value
+    device_class: signal_strength
+    unit_of_measurement: dBm
+    entity_category: config
+    optimistic: true
+    min_value: -100
+    max_value: 0
+    step: 1
+    initial_value: -75
+    restore_value: true
+
+binary_sensor:
+  - platform: status
+    name: Status
+    id: devkit_status
+  - platform: template
+    id: room_presence
+    name: Occupied
+    device_class: occupancy
+    lambda: |-
+      if (id(room_presence_debounce).state > 0.99) {
+        return true;
+      } else if (id(room_presence_debounce).state < 0.01) {
+        return false;
+      } else {
+        return id(room_presence).state;
+      }
+
+sensor:
+  - platform: template
+    id: apple_watch_rssi
+    name: Apple Watch RSSI
+    device_class: signal_strength
+    unit_of_measurement: dBm
+    accuracy_decimals: 0
+    filters:
+      - exponential_moving_average:
+          alpha: 0.3
+          send_every: 1
+    on_value:
+      then:
+        - lambda: |-
+            if (id(apple_watch_rssi).state > id(rssi_present).state) {
+              id(room_presence_debounce).publish_state(1);
+            } else if (id(apple_watch_rssi).state < id(rssi_not_present).state) {
+              id(room_presence_debounce).publish_state(0);
+            }
+        # Publish 0 if no RSSI received
+        - script.execute: presence_timeout
+  - platform: template
+    id: room_presence_debounce
+    filters:
+      - sliding_window_moving_average:
+          window_size: 3
+          send_every: 1

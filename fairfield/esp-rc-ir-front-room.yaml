@@ -3,35 +3,14 @@ substitutions:
   node_friendly_name: "Front Room IR Controller"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
-esphome:
-  platform: ESP32
+esp32:
   board: featheresp32
-  platformio_options:
-    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
-
-api:
-  services:
-    - service: update_ac_current_temperature
-      variables:
-        temperature: float
-      then:
-        - globals.set:
-            id: current_temperature
-            # value: !lambda 'return temperature - 0.4;'
-            value: !lambda |-
-              switch (id(toshiba_ac_front_room).mode) {
-                case climate::CLIMATE_MODE_COOL:
-                  return static_cast<float>(temperature + 0.4);
-                case climate::CLIMATE_MODE_HEAT:
-                  return static_cast<float>(temperature + 1.6);
-                default:
-                  return temperature;
-              }
-        - globals.set:
-            id: missed_update_count
-            value: "0"
+  framework:
+    type: esp-idf
+    version: 5.0.2
+    platform_version: 6.3.2
 
 globals:
   # the temperature periodically transmitted to the AC unit
@@ -39,7 +18,7 @@ globals:
     type: float
     restore_value: yes
     initial_value: "24"
-  # number of missed updates; reset when API service is called to update temp
+  # number of missed updates; reset when toshiba_ac_temperature_sensor is updated
   - id: missed_update_count
     type: int
     restore_value: no
@@ -59,7 +38,7 @@ interval:
 status_led:
   pin:
     inverted: true
-    number: GPIO13
+    number: 13
 
 remote_receiver:
   id: ir_rx
@@ -68,13 +47,13 @@ remote_receiver:
   # dump: raw
   pin:
     inverted: true
-    number: GPIO34
+    number: 34
 
 remote_transmitter:
   - id: ir_tx
-    pin: GPIO12
+    pin: 12
     carrier_duty_percent: 50%
-  # - pin: GPIO15
+  # - pin: 15
   #   id: rf_tx
   #   carrier_duty_percent: 100%
 
@@ -92,7 +71,7 @@ binary_sensor:
     id: gpio_0
     # name: IO0 Button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       - min_length: 50ms
@@ -111,6 +90,64 @@ sensor:
     unit_of_measurement: "°C"
     lambda: "return id(current_temperature);"
     update_interval: 30s
+  - platform: template
+    id: missed_update_count_sensor
+    name: Missed Temperature Update Count
+    lambda: "return id(missed_update_count);"
+    accuracy_decimals: 0
+    state_class: measurement
+    update_interval: 30s
+  # HA sensors we track - temperature
+  - platform: homeassistant
+    id: system_temperature_ha
+    entity_id: sensor.thermostat_system_temperature
+    on_value:
+      then:
+        - globals.set:
+            id: current_temperature
+            value: !lambda |-
+              auto temperature = x;
+              switch (id(toshiba_ac_front_room).mode) {
+                case climate::CLIMATE_MODE_COOL:
+                  temperature += id(cool_offset).state;
+                  break;
+                case climate::CLIMATE_MODE_HEAT:
+                  temperature += id(heat_offset).state;
+                  break;
+                default:
+                  break;
+              }
+              ESP_LOGD("homeassistant.sensor.system_temperature_ha", "Adjusted temperature: %.1f°F", temperature);
+              return (temperature - 32.0) * 5.0 / 9.0;
+        - globals.set:
+            id: missed_update_count
+            value: "0"
+
+number:
+  - platform: template
+    id: cool_offset
+    name: Cool Mode Temperature Offset
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: -5
+    max_value: 5
+    step: 0.1
+    initial_value: 0.5
+    restore_value: true
+    unit_of_measurement: °F
+  - platform: template
+    id: heat_offset
+    name: Heat Mode Temperature Offset
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: -5
+    max_value: 5
+    step: 0.1
+    initial_value: 1.5
+    restore_value: true
+    unit_of_measurement: °F
 
 switch:
   - platform: gpio
@@ -121,8 +158,14 @@ switch:
       mode: OUTPUT
       number: 15
   - platform: template
+    id: ac_unit_sync
+    name: AC Unit Sync
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
     id: front_room_infotainment
     name: Infotainment System
+    lambda: "return id(pioneer_power).state || id(panasonic_power).state;"
     turn_off_action:
       - switch.turn_off: panasonic_power
       - delay: 250ms
@@ -131,13 +174,11 @@ switch:
       - switch.turn_on: pioneer_power
       - delay: 250ms
       - switch.turn_on: panasonic_power
-    lambda: "return id(pioneer_power).state | id(panasonic_power).state;"
   - platform: template
     id: panasonic_power
     name: Panasonic Power
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    restore_state: true
     turn_off_action:
       - remote_transmitter.transmit_panasonic:
           transmitter_id: ir_tx
@@ -153,7 +194,6 @@ switch:
     name: Pioneer Power
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    restore_state: true
     turn_off_action:
       - remote_transmitter.transmit_pioneer:
           transmitter_id: ir_tx

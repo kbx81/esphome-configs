@@ -1,13 +1,12 @@
 esphome:
-  includes: ../shared/esp_thermostat_nextion.h
+  includes: shared/esp_thermostat_nextion.h
   platformio_options:
     build_flags:
-      - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
       - -DBOARD_HAS_PSRAM
       - -mfix-esp32-psram-cache-issue
 
 esp32:
-  board: featheresp32
+  board: esp32dev
   framework:
     type: arduino
 
@@ -24,54 +23,6 @@ api:
     - service: update_nextion
       then:
         - lambda: "main_lcd->upload_tft();"
-    - service: update_climate_current_temperature
-      variables:
-        temperature: float
-      then:
-        - globals.set:
-            id: current_temperature
-            value: !lambda "return temperature;"
-        - if:
-            condition:
-              lambda: "return temperature != id(esp_thermostat_temperature_sensor).state;"
-            then:
-              - globals.set:
-                  id: missed_update_count
-                  value: "0"
-        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
-    - service: update_climate_current_humidity
-      variables:
-        humidity: float
-      then:
-        - globals.set:
-            id: current_humidity
-            value: !lambda "return humidity;"
-        - if:
-            condition:
-              lambda: "return humidity != id(esp_thermostat_humidity_sensor).state;"
-            then:
-              - globals.set:
-                  id: missed_update_count
-                  value: "0"
-        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
-    - service: update_climate_table_name
-      variables:
-        row: int
-        name: string
-      then:
-        - lambda: "esp32_thermostat::display_refresh_table_name(row, name);"
-    - service: update_climate_table_humidity
-      variables:
-        row: int
-        humidity: float
-      then:
-        - lambda: "esp32_thermostat::display_refresh_table_humidity(row, humidity);"
-    - service: update_climate_table_temperature
-      variables:
-        row: int
-        temperature: float
-      then:
-        - lambda: "esp32_thermostat::display_refresh_table_temperature(row, temperature);"
     - service: update_status
       variables:
         message: string
@@ -80,44 +31,6 @@ api:
             id: status_string
             value: !lambda "return message;"
         - lambda: "esp32_thermostat::display_refresh_status();"
-    - service: update_air_quality_data
-      variables:
-        aqi: float
-      then:
-        - lambda: |-
-            if (id(weather_air_quality) != aqi) {
-              id(weather_air_quality) = aqi;
-              esp32_thermostat::display_refresh_iaq_txt(id(weather_air_quality), true);
-            }
-    - service: update_weather_data
-      variables:
-        condition: string
-        humidity: float
-        temperature: float
-        temperature_high: float
-        temperature_low: float
-      then:
-        - lambda: |-
-            if (id(weather_condition) != condition) {
-              id(weather_condition) = condition;
-              esp32_thermostat::display_refresh_weather_cond();
-            }
-            if (id(weather_humidity) != humidity) {
-              id(weather_humidity) = humidity;
-              esp32_thermostat::display_refresh_sensor(id(weather_humidity), esp32_thermostat::DS_WEATHER_HUM);
-            }
-            if (id(weather_temperature) != temperature) {
-              id(weather_temperature) = temperature;
-              esp32_thermostat::display_refresh_sensor(id(weather_temperature), esp32_thermostat::DS_WEATHER_TEMP);
-            }
-            if (id(weather_temperature_high) != temperature_high) {
-              id(weather_temperature_high) = temperature_high;
-              esp32_thermostat::display_refresh_sensor(id(weather_temperature_high), esp32_thermostat::DS_WEATHER_TEMPHIGH);
-            }
-            if (id(weather_temperature_low) != temperature_low) {
-              id(weather_temperature_low) = temperature_low;
-              esp32_thermostat::display_refresh_sensor(id(weather_temperature_low), esp32_thermostat::DS_WEATHER_TEMPLOW);
-            }
 
 globals:
   # the temperature/humidity that guides the thermostat controller
@@ -365,6 +278,7 @@ binary_sensor:
   - platform: gpio
     id: esp_thermostat_motion_detection
     name: Motion Detection
+    device_class: motion
     pin:
       number: GPIO27
     on_state:
@@ -400,7 +314,7 @@ sensor:
     update_interval: 15s
     on_value:
       then:
-        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_temperature_sensor).state, esp32_thermostat::DS_CURRENT_TEMP, esp32_thermostat::DC_C_TO_F);"
+        - lambda: "id(nextionCurrentTemp).set_state(roundf(esp32_thermostat::c_to_f(id(esp_thermostat_temperature_sensor).state) * 10), false, true);"
   # template sensor used for humidity
   - platform: template
     id: esp_thermostat_humidity_sensor
@@ -410,7 +324,7 @@ sensor:
     update_interval: 15s
     on_value:
       then:
-        - lambda: "esp32_thermostat::display_refresh_sensor(id(esp_thermostat_humidity_sensor).state, esp32_thermostat::DS_CURRENT_HUM);"
+        - lambda: "id(nextionCurrentHum).set_state(roundf(id(esp_thermostat_humidity_sensor).state * 10), false, true);"
   # Nextion climate state (action/mode/fan_mode) sensors
   - platform: nextion
     nextion_id: main_lcd
@@ -487,10 +401,10 @@ sensor:
       then:
         - climate.control:
             id: esp_thermostat
-            target_temperature_low: !lambda "return ((id(nextionCurrentSetLower).state / 10) - 32) * 5 / 9;"
+            target_temperature_low: !lambda "return esp32_thermostat::f_to_c(id(nextionCurrentSetLower).state / 10);"
         - lambda: |-
-            if (id(nextionCurrentSetLower).state != (id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10)
-              id(nextionCurrentSetLower).set_state((id(esp_thermostat).target_temperature_low * 1.8 + 32) * 10, false, true);
+            if (id(nextionCurrentSetLower).state != (esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_low)) * 10)
+              id(nextionCurrentSetLower).set_state(esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_low) * 10, false, true);
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetUpper
@@ -499,10 +413,10 @@ sensor:
       then:
         - climate.control:
             id: esp_thermostat
-            target_temperature_high: !lambda "return ((id(nextionCurrentSetUpper).state / 10) - 32) * 5 / 9;"
+            target_temperature_high: !lambda "return esp32_thermostat::f_to_c(id(nextionCurrentSetUpper).state / 10);"
         - lambda: |-
-            if (id(nextionCurrentSetUpper).state != (id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10)
-              id(nextionCurrentSetUpper).set_state((id(esp_thermostat).target_temperature_high * 1.8 + 32) * 10, false, true);
+            if (id(nextionCurrentSetUpper).state != (esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_high)) * 10)
+              id(nextionCurrentSetUpper).set_state(esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_high) * 10, false, true);
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetMin
@@ -827,7 +741,6 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    restore_state: true
     on_turn_off:
       then:
         lambda: |-
@@ -841,8 +754,7 @@ switch:
     id: esp_thermostat_display
     name: Display
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    restore_state: true
+    restore_mode: RESTORE_DEFAULT_ON
   # display brightness control by motion
   - platform: template
     id: esp_thermostat_display_on_motion
@@ -850,18 +762,19 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    restore_state: true
 
 number:
   - platform: template
     id: esp_thermostat_target_humidity
     name: Target Humidity
     optimistic: true
+    mode: box
     min_value: 0
     max_value: 100
     step: 0.1
     initial_value: 30
     restore_value: true
+    unit_of_measurement: "%"
     on_value:
       then:
         lambda: "id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);"
@@ -890,10 +803,12 @@ number:
   - platform: template
     id: esp_thermostat_display_brightness
     name: Display Brightness
+    mode: box
     min_value: 0
     max_value: 100
     step: 1
     lambda: "return id(nextionTargetBrightness).state;"
+    unit_of_measurement: "%"
     update_interval: 1s
     set_action:
       then:
@@ -904,7 +819,9 @@ number:
     id: esp_thermostat_display_minimum_brightness
     name: Display Minimum Brightness
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: "%"
     min_value: 0
     max_value: 99
     step: 1
@@ -914,7 +831,9 @@ number:
     id: esp_thermostat_display_maximum_brightness
     name: Display Maximum Brightness
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: "%"
     min_value: 1
     max_value: 100
     step: 1
@@ -924,17 +843,21 @@ number:
     id: esp_thermostat_display_brightness_idle_reduction
     name: Display Brightness Idle Reduction
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: "%"
     min_value: 0
-    max_value: 1
-    step: 0.01
-    initial_value: 0.80
+    max_value: 100
+    step: 1
+    initial_value: 80
     restore_value: true
   - platform: template
     id: esp_thermostat_idle_timeout
     name: Idle Timeout
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: s
     min_value: 5
     max_value: 900
     step: 1

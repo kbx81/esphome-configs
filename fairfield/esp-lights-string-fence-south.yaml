@@ -3,5 +3,5 @@ substitutions:
   node_friendly_name: "String Lights Fence South"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
-  esp_lights_neon_base: !include ../shared/esp-lights-string-base.yaml
+  esp_common: !include shared/esp__common_core.yaml
+  esp_lights_string_base: !include shared/esp-lights-string-base.yaml

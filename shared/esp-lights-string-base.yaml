@@ -1,7 +1,9 @@
 esp32:
-  board: featheresp32
+  board: esp32dev
   framework:
     type: esp-idf
+    # version: 5.0.2
+    # platform_version: 6.3.2
 
 external_components:
   - source:
@@ -571,6 +573,22 @@ light:
               it[0] = temp;
             }
       - addressable_lambda:
+          name: HalloweenWithPink
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 120, 0);
+              it[1] = Color(144, 0, 255);
+              it[2] = Color(255, 120, 0);
+              it[3] = Color(255, 0, 176);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
           name: Thanksgiving
           update_interval: 750ms
           lambda: |-
@@ -713,6 +731,22 @@ light:
               it[1] = Color(144, 0, 255);
               it[2] = Color(255, 120, 0);
               it[3] = Color(160, 255, 0);
+            } else {
+              auto temp = it[3].get();
+              for (int i = it.size() - 1; i > 0; i--) {
+                it[i] = it[i - 1].get();
+              }
+              it[0] = temp;
+            }
+      - addressable_lambda:
+          name: HalloweenWithPink
+          update_interval: 750ms
+          lambda: |-
+            if (initial_run) {
+              it[0] = Color(255, 120, 0);
+              it[1] = Color(144, 0, 255);
+              it[2] = Color(255, 120, 0);
+              it[3] = Color(255, 0, 176);
             } else {
               auto temp = it[3].get();
               for (int i = it.size() - 1; i > 0; i--) {
