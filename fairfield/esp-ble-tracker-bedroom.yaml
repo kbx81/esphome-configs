@@ -13,7 +13,7 @@ psram:
   speed: 80MHz
 
 packages:
-  esp_common: !include ../shared/esp__common_core_ethernet_kit.yaml
+  esp_common: !include shared/esp__common_core_ethernet_kit.yaml
 
 script:
   # Publish event every 30 seconds when no RSSI received

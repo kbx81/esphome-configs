@@ -3,7 +3,7 @@ substitutions:
   node_friendly_name: "Pulse Counter"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
 esp8266:
   board: d1_mini
@@ -12,7 +12,7 @@ esp8266:
 
 # status_led:
 #   pin:
-#     number: GPIO2
+#     number: 2
 #     inverted: true
 
 binary_sensor:
@@ -20,7 +20,7 @@ binary_sensor:
     id: esp_pulse_counter_pulse_sensor
     name: Pulse Sensor
     pin:
-      number: GPIO13
+      number: 13
       inverted: true
       mode:
         input: true
@@ -52,7 +52,7 @@ light:
     id: esp_pulse_counter_alert
     name: Alert Light
     pin:
-      number: GPIO2
+      number: 2
       inverted: true
 
 switch:

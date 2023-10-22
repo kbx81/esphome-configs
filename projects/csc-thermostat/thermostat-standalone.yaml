@@ -11,15 +11,13 @@ esphome:
   name: ${node_name}
   # build_path: ../../build/${node_name}
   includes: esp_thermostat_nextion.h
-  platformio_options:
-    build_flags:
-      - -DBOARD_HAS_PSRAM
-      - -mfix-esp32-psram-cache-issue
 
 esp32:
   board: esp32dev
   framework:
     type: arduino
+
+psram:
 
 wifi:
   ssid: !secret wifi_ssid

@@ -1,19 +1,14 @@
-esphome:
-  platformio_options:
-    build_flags:
-      - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=16384
-
-esp32:
-  board: featheresp32
-  framework:
-    type: arduino
-
 substitutions:
   node_name: esp-air-cleaner-front-room
   node_friendly_name: "Front Room H300 Air Cleaner"
 
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
 api:
   services:
@@ -379,7 +374,7 @@ time:
 
 i2c:
   id: i2c_bus
-  frequency: 400kHz
+  frequency: 200kHz
   sda: 27
   scl: 26
   scan: false
@@ -389,9 +384,9 @@ bme680_bsec:
   address: 0x76
 
 tlc5947:
-  data_pin: GPIO23
-  clock_pin: GPIO18
-  lat_pin: GPIO21
+  data_pin: 23
+  clock_pin: 18
+  lat_pin: 21
 
 rtttl:
   output: rtttl_out
@@ -499,7 +494,7 @@ binary_sensor:
   - platform: gpio
     id: h2o_present
     name: Water Present
-    pin: GPIO13
+    pin: 13
     on_state:
       - script.execute: h2o_sensor_state_changed
   - platform: gpio
@@ -524,7 +519,7 @@ sensor:
   - platform: pulse_counter
     id: fan_tach
     name: Fan Tach Pulse Counter
-    pin: GPIO35
+    pin: 35
     update_interval: 1s
     on_value:
       - lambda: |-
@@ -596,8 +591,8 @@ sensor:
   - platform: rotary_encoder
     id: encoder_wheel
     name: Encoder
-    pin_a: GPIO39
-    pin_b: GPIO36
+    pin_a: 39
+    pin_b: 36
     on_value:
       - delay: 50ms
       - script.execute: activity
@@ -673,21 +668,21 @@ switch:
     id: iref_b0
     name: IREF B0
     restore_mode: RESTORE_DEFAULT_OFF
-    pin: GPIO12
+    pin: 12
   - platform: gpio
     id: iref_b1
     name: IREF B1
     restore_mode: RESTORE_DEFAULT_OFF
-    pin: GPIO33
+    pin: 33
   - platform: gpio
     id: iref_b2
     name: IREF B2
     restore_mode: RESTORE_DEFAULT_OFF
-    pin: GPIO32
+    pin: 32
   - platform: gpio
     id: tlc5947_blank
     name: TLC5947 Blank
-    pin: GPIO5
+    pin: 5
     restore_mode: ALWAYS_OFF
   # Water wheel power/sleep
   - platform: gpio
@@ -722,7 +717,7 @@ switch:
     id: humidify
     name: Humidify
     optimistic: true
-    restore_state: true
+    restore_mode: RESTORE_DEFAULT_OFF
     turn_off_action:
       - rtttl.play: "one short low:d=4,o=5,b=100:16a"
       - switch.turn_off: wheel_rotation
@@ -743,7 +738,7 @@ switch:
     id: wheel_rotation
     name: Water Wheel Rotation
     optimistic: true
-    restore_state: true
+    restore_mode: RESTORE_DEFAULT_OFF
     turn_off_action:
       - output.set_level:
           id: wheel_speed_output
@@ -843,7 +838,7 @@ output:
   # duty cycle adjusts speed
   - platform: ledc
     id: fan_speed_output
-    pin: GPIO14
+    pin: 14
     channel: 0
     frequency: 24000Hz
     # inverted: true
@@ -854,13 +849,13 @@ output:
   - platform: ledc
     id: wheel_speed_output
     channel: 2
-    pin: GPIO16
+    pin: 16
     frequency: 184Hz
     zero_means_zero: true
   # frequency and duty cycle should be fixed; duty cycle should be 50%
   - platform: ledc
     id: h2o_check_output
-    pin: GPIO25
+    pin: 25
     channel: 4
     frequency: 440Hz
     zero_means_zero: true
@@ -868,7 +863,7 @@ output:
   - platform: ledc
     id: rtttl_out
     channel: 6
-    pin: GPIO4
+    pin: 4
   # LEDs
   - platform: tlc5947
     id: status_1_green

@@ -6,7 +6,7 @@ packages:
   esp_common: !include shared/esp__common_core.yaml
 
 esp32:
-  board: featheresp32
+  board: esp32dev
   framework:
     type: esp-idf
     version: 5.0.2

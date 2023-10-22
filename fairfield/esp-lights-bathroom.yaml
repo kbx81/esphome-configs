@@ -3,11 +3,10 @@ substitutions:
   node_friendly_name: "Bathroom Vanity"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
-esphome:
-  platform: ESP32
-  board: featheresp32
+esp32:
+  board: esp32dev
 
 script:
   # motion actiavte lower light
@@ -75,7 +74,7 @@ script:
 
 status_led:
   pin:
-    number: GPIO5
+    number: 5
     inverted: true
 
 binary_sensor:
@@ -89,7 +88,7 @@ binary_sensor:
     id: bathroom_vanity_motion_detection
     name: Motion Detection
     pin:
-      number: GPIO2
+      number: 2
     # stop the motion deactivation script and trigger the motion activation script when motion is sensed
     on_press:
       then:
@@ -126,7 +125,7 @@ binary_sensor:
   - platform: gpio
     id: bathroom_lights_off_button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       min_length: 50ms
@@ -139,7 +138,7 @@ binary_sensor:
   - platform: gpio
     id: bathroom_vanity_uplight_on_button
     pin:
-      number: GPIO36
+      number: 36
       inverted: true
     on_click:
       min_length: 50ms
@@ -155,7 +154,7 @@ binary_sensor:
   - platform: gpio
     id: bathroom_vanity_downlight_on_button
     pin:
-      number: GPIO39
+      number: 39
       inverted: true
     on_click:
       min_length: 50ms
@@ -176,13 +175,11 @@ switch:
     name: Motion Activation Lower
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    restore_state: true
   - platform: template
     id: bathroom_vanity_motion_activation_upper
     name: Motion Activation Upper
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    restore_state: true
 
 light:
   - platform: rgbw
@@ -213,25 +210,25 @@ light:
 output:
   - platform: ledc
     id: bathroom_vanity_downlight_pwm_red_channel
-    pin: GPIO16
+    pin: 16
   - platform: ledc
     id: bathroom_vanity_downlight_pwm_green_channel
-    pin: GPIO18
+    pin: 18
   - platform: ledc
     id: bathroom_vanity_downlight_pwm_blue_channel
-    pin: GPIO13
+    pin: 13
   - platform: ledc
     id: bathroom_vanity_downlight_pwm_white_channel
-    pin: GPIO27
+    pin: 27
   - platform: ledc
     id: bathroom_vanity_uplight_pwm_red_channel
-    pin: GPIO25
+    pin: 25
   - platform: ledc
     id: bathroom_vanity_uplight_pwm_green_channel
-    pin: GPIO26
+    pin: 26
   - platform: ledc
     id: bathroom_vanity_uplight_pwm_blue_channel
-    pin: GPIO33
+    pin: 33
   - platform: ledc
     id: bathroom_vanity_uplight_pwm_white_channel
-    pin: GPIO32
+    pin: 32

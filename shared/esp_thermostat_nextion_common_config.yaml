@@ -1,14 +1,12 @@
 esphome:
   includes: shared/esp_thermostat_nextion.h
-  platformio_options:
-    build_flags:
-      - -DBOARD_HAS_PSRAM
-      - -mfix-esp32-psram-cache-issue
 
 esp32:
   board: esp32dev
   framework:
     type: arduino
+
+psram:
 
 wifi:
   power_save_mode: none

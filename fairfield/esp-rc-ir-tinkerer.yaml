@@ -3,13 +3,14 @@ substitutions:
   node_friendly_name: "IR Tinkerer"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
 esphome:
-  platform: ESP32
-  board: featheresp32
   platformio_options:
-    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768 -D_GLIBCXX_USE_C99=1
+    build_flags: -D_GLIBCXX_USE_C99=1
+
+esp32:
+  board: esp32dev
 
 api:
   services:

@@ -47,11 +47,6 @@ packages:
 
 esphome:
   includes: shared/esp_sprinkler_nextion.h
-  platformio_options:
-    build_flags:
-      - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
-      - -DBOARD_HAS_PSRAM
-      - -mfix-esp32-psram-cache-issue
   on_boot:
     priority: 0
     then:
@@ -61,6 +56,8 @@ esp32:
   board: featheresp32
   framework:
     type: arduino
+
+psram:
 
 preferences:
   flash_write_interval: 2min

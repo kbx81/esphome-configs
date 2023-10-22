@@ -3,11 +3,10 @@ substitutions:
   node_friendly_name: "Kitchen"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
-esphome:
-  platform: ESP32
-  board: featheresp32
+esp32:
+  board: esp32dev
 
 external_components:
   - source:
@@ -57,7 +56,7 @@ external_components:
 
 status_led:
   pin:
-    number: GPIO5
+    number: 5
     inverted: true
 
 remote_receiver:
@@ -65,10 +64,10 @@ remote_receiver:
   dump: nec
   pin:
     inverted: true
-    number: GPIO36
+    number: 36
 
 remote_transmitter:
-  - pin: GPIO2
+  - pin: 2
     id: rf
     carrier_duty_percent: 100%
 
@@ -76,7 +75,7 @@ binary_sensor:
   - platform: gpio
     id: leds_off_button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       min_length: 50ms
@@ -116,22 +115,22 @@ light:
 output:
   - platform: ledc
     id: uplight_pwm_red_channel
-    pin: GPIO22
+    pin: 22
   - platform: ledc
     id: uplight_pwm_green_channel
-    pin: GPIO23
+    pin: 23
   - platform: ledc
     id: uplight_pwm_blue_channel
-    pin: GPIO21
+    pin: 21
   - platform: ledc
     id: uplight_pwm_white_channel
-    pin: GPIO19
+    pin: 19
   - platform: ledc
     id: downlight_east_pwm_white_channel
-    pin: GPIO18
+    pin: 18
   - platform: ledc
     id: downlight_west_pwm_white_channel
-    pin: GPIO17
+    pin: 17
 
 button:
   - platform: template

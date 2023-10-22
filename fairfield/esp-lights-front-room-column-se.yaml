@@ -3,15 +3,14 @@ substitutions:
   node_friendly_name: "Front Room Southeast Column Lamp"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
-esphome:
-  platform: ESP32
-  board: featheresp32
+esp32:
+  board: esp32dev
 
 status_led:
   pin:
-    number: GPIO5
+    number: 5
     inverted: true
 
 remote_receiver:
@@ -19,7 +18,7 @@ remote_receiver:
   dump: nec
   pin:
     inverted: true
-    number: GPIO36
+    number: 36
   on_nec:
     then:
       lambda: |-
@@ -49,7 +48,7 @@ binary_sensor:
   - platform: gpio
     id: leds_off_button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       min_length: 50ms
@@ -66,7 +65,7 @@ binary_sensor:
   # - platform: gpio
   #   id: lamp_leds_on_button
   #   pin:
-  #     number: GPIO35
+  #     number: 35
   #     inverted: true
   #   on_click:
   #     min_length: 50ms
@@ -82,7 +81,7 @@ binary_sensor:
   # - platform: gpio
   #   id: lamp_uplight_leds_on_button
   #   pin:
-  #     number: GPIO34
+  #     number: 34
   #     inverted: true
   #   on_click:
   #     min_length: 50ms
@@ -98,7 +97,7 @@ binary_sensor:
   # - platform: gpio
   #   id: left_leds_on_button
   #   pin:
-  #     number: GPIO39
+  #     number: 39
   #     inverted: true
   #   on_click:
   #     min_length: 50ms
@@ -114,7 +113,7 @@ binary_sensor:
   # - platform: gpio
   #   id: right_leds_on_button
   #   pin:
-  #     number: GPIO36
+  #     number: 36
   #     inverted: true
   #   on_click:
   #     min_length: 50ms
@@ -181,49 +180,49 @@ light:
 output:
   - platform: ledc
     id: lamp_pwm_red_channel
-    pin: GPIO16
+    pin: 16
   - platform: ledc
     id: lamp_pwm_green_channel
-    pin: GPIO18
+    pin: 18
   - platform: ledc
     id: lamp_pwm_blue_channel
-    pin: GPIO13
+    pin: 13
   - platform: ledc
     id: lamp_pwm_white_channel
-    pin: GPIO27
+    pin: 27
   - platform: ledc
     id: lamp_uplight_pwm_red_channel
-    pin: GPIO15
+    pin: 15
   - platform: ledc
     id: lamp_uplight_pwm_green_channel
-    pin: GPIO17
+    pin: 17
   - platform: ledc
     id: lamp_uplight_pwm_blue_channel
-    pin: GPIO12
+    pin: 12
   - platform: ledc
     id: lamp_uplight_pwm_white_channel
-    pin: GPIO14
+    pin: 14
   - platform: ledc
     id: left_pwm_red_channel
-    pin: GPIO22
+    pin: 22
   - platform: ledc
     id: left_pwm_green_channel
-    pin: GPIO23
+    pin: 23
   - platform: ledc
     id: left_pwm_blue_channel
-    pin: GPIO19
+    pin: 19
   - platform: ledc
     id: left_pwm_white_channel
-    pin: GPIO21
+    pin: 21
   - platform: ledc
     id: right_pwm_red_channel
-    pin: GPIO25
+    pin: 25
   - platform: ledc
     id: right_pwm_green_channel
-    pin: GPIO26
+    pin: 26
   - platform: ledc
     id: right_pwm_blue_channel
-    pin: GPIO32
+    pin: 32
   - platform: ledc
     id: right_pwm_white_channel
-    pin: GPIO33
+    pin: 33

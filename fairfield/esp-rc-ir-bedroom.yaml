@@ -3,13 +3,10 @@ substitutions:
   node_friendly_name: "Bedroom IR Controller"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
+  esp_common: !include shared/esp__common_core.yaml
 
-esphome:
-  platform: ESP32
-  board: featheresp32
-  platformio_options:
-    build_flags: -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
+esp32:
+  board: esp32dev
 
 globals:
   # makes sure we don't switch the air cleaner state if it's already in the desired state
@@ -20,7 +17,7 @@ globals:
 status_led:
   pin:
     # inverted: true
-    number: GPIO13
+    number: 13
 
 remote_receiver:
   id: ir_rx
@@ -30,13 +27,13 @@ remote_receiver:
   # dump: raw
   pin:
     inverted: true
-    number: GPIO34
+    number: 34
 
 remote_transmitter:
   - id: ir_tx
-    pin: GPIO12
+    pin: 12
     carrier_duty_percent: 50%
-  # - pin: GPIO15
+  # - pin: 15
   #   id: rf_tx
   #   carrier_duty_percent: 100%
 
@@ -45,7 +42,7 @@ binary_sensor:
     id: gpio_0
     # name: IO0 Button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       - min_length: 50ms
