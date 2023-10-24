@@ -11,25 +11,35 @@ esphome:
   name: ${node_name}
   # build_path: ../../build/${node_name}
   includes: esp_thermostat_nextion.h
+  name_add_mac_suffix: true
+  project:
+    name: kbx81.esp-thermostat
+    version: "1.0"
+  min_version: 2023.9.0
 
 esp32:
   board: esp32dev
   framework:
     type: arduino
 
+dashboard_import:
+  package_import_url: github://kbx81/projects/csc-thermostat/thermostat-standalone.yaml@main
+  import_full_config: true
+
 psram:
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
   # power_save_mode: none
   reboot_timeout: 120min
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: ${node_name}
-    password: !secret ap_password
+    password: "12345678"
 
 # captive_portal:
+
+esp32_improv:
+  authorizer: none
 
 improv_serial:
 
@@ -38,8 +48,6 @@ logger:
 
 # Enable Home Assistant API and define services
 api:
-  # encryption:
-  #   key: !secret api_key
   reboot_timeout: 120min
   services:
     - service: update_nextion
@@ -55,7 +63,6 @@ api:
         - lambda: "esp32_thermostat::display_refresh_status();"
 
 ota:
-  password: !secret ota_password
 
 button:
   - platform: restart
@@ -703,7 +710,7 @@ sensor:
       id: esp_thermostat_dht22_temperature
       name: DHT22 Temperature
       filters:
-        - offset: -1.8
+        - offset: -1.2
       on_value:
         then:
           - lambda: |-
@@ -725,7 +732,7 @@ sensor:
       id: esp_thermostat_bme280_temperature
       name: BME280 Temperature
       filters:
-        - offset: -1.0
+        - offset: -1.2
       on_value:
         then:
           - lambda: |-
@@ -754,7 +761,7 @@ sensor:
       id: esp_thermostat_bme680_temperature
       name: BME680 Temperature
       filters:
-        - offset: -1.8
+        - offset: -1.6
       on_value:
         then:
           - lambda: |-
@@ -848,7 +855,7 @@ sensor:
       id: esp_thermostat_shtcx_temperature
       name: SHTC3 Temperature
       filters:
-        - offset: -2.0
+        - offset: -1.5
       on_value:
         then:
           - lambda: |-
@@ -868,7 +875,7 @@ sensor:
     id: esp_thermostat_tmp117_temperature
     name: TMP117 Temperature
     filters:
-      - offset: -2.4
+      - offset: -2.0
     on_value:
       then:
         - lambda: |-
