@@ -23,7 +23,7 @@ esp32:
     type: arduino
 
 dashboard_import:
-  package_import_url: github://kbx81/projects/csc-thermostat/thermostat-standalone.yaml@main
+  package_import_url: github://kbx81/esphome-configs/projects/csc-thermostat/thermostat-standalone.yaml@main
   import_full_config: true
 
 psram:
