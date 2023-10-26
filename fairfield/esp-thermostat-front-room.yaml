@@ -5,6 +5,16 @@ substitutions:
   rooms_page_name: "rooms"
   sensors_page_name: "sensors"
   weather_page_name: "weather"
+  # weather entity name
+  weather_entity: "weather.home_fairfield"
+  # temperature sensor offsets
+  ntc_reference_voltage: "0.92V"
+  ntc_temperature_offset: "0.0"
+  dht22_temperature_offset: "-2.0"
+  bme280_temperature_offset: "-1.6"
+  bme680_temperature_offset: "-2.0"
+  shtc3_temperature_offset: "-2.1"
+  tmp117_temperature_offset: "-2.4"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
@@ -17,22 +27,6 @@ bme680_bsec:
 
 sensor:
   # HA sensors we track - humidity
-  - platform: homeassistant
-    id: system_humidity_ha
-    entity_id: sensor.thermostat_system_humidity
-    on_value:
-      then:
-        - globals.set:
-            id: current_humidity
-            value: !lambda "return x;"
-        - if:
-            condition:
-              lambda: "return x != id(esp_thermostat_humidity_sensor).state;"
-            then:
-              - globals.set:
-                  id: missed_update_count
-                  value: "0"
-        # - lambda: "id(nextionCurrentHum).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: room_bedroom_humidity_ha
     entity_id: sensor.bedroom_thermostat_bme680_humidity
@@ -59,22 +53,6 @@ sensor:
         - lambda: "id(nextionRoom5Hum).set_state(roundf(x * 10), false, true);"
   # HA sensors we track - temperature
   - platform: homeassistant
-    id: system_temperature_ha
-    entity_id: sensor.thermostat_system_temperature
-    on_value:
-      then:
-        - globals.set:
-            id: current_temperature
-            value: !lambda "return esp32_thermostat::f_to_c(x);"
-        - if:
-            condition:
-              lambda: "return x != id(esp_thermostat_temperature_sensor).state;"
-            then:
-              - globals.set:
-                  id: missed_update_count
-                  value: "0"
-        # - lambda: "id(nextionCurrentTemp).set_state(roundf(x * 10), false, true);"
-  - platform: homeassistant
     id: room_bedroom_temperature_ha
     entity_id: sensor.bedroom_thermostat_bme680_temperature
     on_value:
@@ -98,133 +76,19 @@ sensor:
     on_value:
       then:
         - lambda: "id(nextionRoom5Temp).set_state(roundf(x * 10), false, true);"
-  # HA sensors we track - weather
-  - platform: homeassistant
-    id: weather_air_quality_ha
-    entity_id: sensor.waqi_chi_com_illinois_usa
-    on_value:
-      then:
-        - globals.set:
-            id: weather_air_quality
-            value: !lambda "return x;"
-        - lambda: "esp32_thermostat::display_refresh_iaq_txt(x, true);"
-  - platform: homeassistant
-    id: weather_humidity_ha
-    entity_id: sensor.gw2000b_v2_2_4_humidity
-    on_value:
-      then:
-        - globals.set:
-            id: weather_humidity
-            value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherHum).set_state(roundf(x * 10), false, true);
-            id(nextionRoom7Hum).set_state(roundf(x * 10), false, true);
-  - platform: homeassistant
-    id: weather_temperature_ha
-    entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
-    on_value:
-      then:
-        - globals.set:
-            id: weather_temperature
-            value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);
-            id(nextionRoom7Temp).set_state(roundf(x * 10), false, true);
-  - platform: homeassistant
-    id: weather_forecasted_high_ha
-    entity_id: sensor.weather_forecasted_high
-    on_value:
-      then:
-        - globals.set:
-            id: weather_temperature_high
-            value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherTempHigh).set_state(roundf(x * 10), false, true);
-  - platform: homeassistant
-    id: weather_forecasted_low_ha
-    entity_id: sensor.weather_forecasted_low
-    on_value:
-      then:
-        - globals.set:
-            id: weather_temperature_low
-            value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);
-  # Phototransistor ADC sensor
-  - platform: adc
-    id: adc_sensor_phototransistor
-    name: Phototransistor ADC
-    pin: 32
-    attenuation: 11db
-    update_interval: 1s
-    filters:
-      - sliding_window_moving_average:
-          window_size: 5
-          send_every: 3
-          send_first_at: 1
-    on_value:
-      then:
-        - lambda: |-
-            if (id(esp_thermostat_display).state) {
-              auto brightness_mult_max = 100.0;
-              auto brightness_mult_min = 100.0 - id(esp_thermostat_display_brightness_idle_reduction).state;
-              auto brightness_max = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state);
-              auto brightness_min = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state);
-              // ESP_LOGD("display_brightness", "Max: %f - Min: %f", brightness_max, brightness_min);
-              id(nextionMaxBrightness).set_state(brightness_max, true, true);
-              id(nextionMinBrightness).set_state(brightness_min, true, true);
-            } else {
-              id(nextionMaxBrightness).set_state(0, true, true);
-              id(nextionMinBrightness).set_state(0, true, true);
-            }
-  # NTC thermistor ADC sensor
-  - platform: adc
-    id: adc_sensor_thermistor
-    name: Thermistor ADC
-    pin: 34
-    internal: true
-    update_interval: 1s
-  # NTC thermistor resistance sensor
-  - platform: resistance
-    id: thermistor_sensor
-    name: NTC Thermistor Resistance
-    sensor: adc_sensor_thermistor
-    configuration: DOWNSTREAM
-    reference_voltage: 0.92V
-    resistor: 10kOhm
-    internal: true
-  # NTC thermistor sensor
-  - platform: ntc
-    id: esp_thermostat_thermistor_temperature
-    name: NTC Thermistor Temperature
-    sensor: thermistor_sensor
-    calibration:
-      b_constant: 3380
-      reference_temperature: 25°C
-      reference_resistance: 10kOhm
-    filters:
-      - sliding_window_moving_average:
-          window_size: 60
-          send_every: 15
-          send_first_at: 15
-    on_value:
-      then:
-        - lambda: |-
-            std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_thermistor_temperature).state)) + "\xB0";
-            id(nextionTextSensor6a).set_state(temperature_string, false, true);
   # DHT22 sensor
   - platform: dht
-    pin: GPIO23
+    pin: 23
     model: DHT22
     temperature:
       id: esp_thermostat_dht22_temperature
       name: DHT22 Temperature
       filters:
-        - offset: -1.6
+        - offset: ${dht22_temperature_offset}
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_dht22_temperature).state)) + "\xB0";
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_dht22_temperature).state)) + "\xB0";
               id(nextionTextSensor5a).set_state(temperature_string, false, true);
     humidity:
       id: esp_thermostat_dht22_humidity
@@ -232,197 +96,9 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_dht22_humidity).state) + "%";
+              auto humidity_string = str_sprintf("%.1f", id(esp_thermostat_dht22_humidity).state) + "%";
               id(nextionTextSensor5b).set_state(humidity_string, false, true);
     update_interval: 15s
-  # BME280 sensor
-  - platform: bme280
-    address: 0x76
-    temperature:
-      id: esp_thermostat_bme280_temperature
-      name: BME280 Temperature
-      filters:
-        - offset: -1.5
-      on_value:
-        then:
-          - lambda: |-
-              std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_bme280_temperature).state)) + "\xB0";
-              id(nextionTextSensor2a).set_state(temperature_string, false, true);
-    humidity:
-      id: esp_thermostat_bme280_humidity
-      name: BME280 Humidity
-      on_value:
-        then:
-          - lambda: |-
-              std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme280_humidity).state) + "%";
-              id(nextionTextSensor2b).set_state(humidity_string, false, true);
-    pressure:
-      id: esp_thermostat_bme280_pressure
-      name: BME280 Pressure
-      on_value:
-        then:
-          - lambda: |-
-              std::string pressure_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme280_pressure).state) + "hPa";
-              id(nextionTextSensor2c).set_state(pressure_string, false, true);
-    update_interval: 15s
-  # BME680 BSEC sensor
-  - platform: bme680_bsec
-    temperature:
-      id: esp_thermostat_bme680_temperature
-      name: BME680 Temperature
-      filters:
-        - offset: -2.0
-      on_value:
-        then:
-          - lambda: |-
-              id(nextionRoom1Temp).set_state(roundf((esp32_thermostat::c_to_f(id(esp_thermostat_bme680_temperature).state)) * 10), false, true);
-              std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_bme680_temperature).state)) + "\xB0";
-              id(nextionTextSensor1a).set_state(temperature_string, false, true);
-    humidity:
-      id: esp_thermostat_bme680_humidity
-      name: BME680 Humidity
-      on_value:
-        then:
-          - lambda: |-
-              id(nextionRoom1Hum).set_state(roundf(id(esp_thermostat_bme680_humidity).state * 10), false, true);
-              std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_humidity).state) + "%";
-              id(nextionTextSensor1b).set_state(humidity_string, false, true);
-    pressure:
-      id: esp_thermostat_bme680_pressure
-      name: BME680 Pressure
-      on_value:
-        then:
-          - lambda: |-
-              id(nextionCurrentPres).set_state(roundf(id(esp_thermostat_bme680_pressure).state * 10), false, true);
-              std::string pressure_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_pressure).state) + "hPa";
-              id(nextionTextSensor1c).set_state(pressure_string, false, true);
-    gas_resistance:
-      id: esp_thermostat_bme680_gas_resistance
-      name: BME680 Gas Resistance
-      # on_value:
-      #   then:
-      #     - lambda: |-
-      #         std::string gas_res_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_gas_resistance).state);
-      #         id(nextionTextSensor1d).set_state(gas_res_string, false, true);
-    iaq:
-      id: esp_thermostat_bme680_iaq
-      name: BME680 IAQ
-      on_value:
-        then:
-          - lambda: |-
-              esp32_thermostat::display_refresh_iaq_txt(id(esp_thermostat_bme680_iaq).state);
-              std::string iaq_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_iaq).state);
-              id(nextionTextSensor1d).set_state(iaq_string, false, true);
-    co2_equivalent:
-      id: esp_thermostat_bme680_eco2
-      name: BME680 eCO2
-    breath_voc_equivalent:
-      id: esp_thermostat_bme680_evoc
-      name: BME680 Breath eVOC
-  # BME680 sensor
-  # - platform: bme680
-  #   address: 0x77
-  #   temperature:
-  #     id: esp_thermostat_bme680_temperature
-  #     name: BME680 Temperature
-  #     filters:
-  #       - offset: -1.2
-  #     on_value:
-  #       then:
-  #         - lambda: |-
-  #             std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_bme680_temperature).state)) + "\xB0";
-  #             id(nextionTextSensor1a).set_state(temperature_string, false, true);
-  #             esp32_thermostat::display_refresh_table_temperature(id(climate_table_local_row), id(esp_thermostat_bme680_temperature).state);
-  #   humidity:
-  #     id: esp_thermostat_bme680_humidity
-  #     name: BME680 Humidity
-  #     on_value:
-  #       then:
-  #         - lambda: |-
-  #             std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_humidity).state) + "%";
-  #             id(nextionTextSensor1b).set_state(humidity_string, false, true);
-  #             esp32_thermostat::display_refresh_table_humidity(id(climate_table_local_row), id(esp_thermostat_bme680_humidity).state);
-  #   pressure:
-  #     id: esp_thermostat_bme680_pressure
-  #     name: BME680 Pressure
-  #     on_value:
-  #       then:
-  #         - lambda: |-
-  #             std::string pressure_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_pressure).state) + "hPa";
-  #             id(nextionTextSensor1c).set_state(pressure_string, false, true);
-  #   gas_resistance:
-  #     id: esp_thermostat_bme680_gas_resistance
-  #     name: BME680 Gas Resistance
-  #     on_value:
-  #       then:
-  #         - lambda: |-
-  #             std::string gas_res_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_bme680_gas_resistance).state);
-  #             id(nextionTextSensor1d).set_state(gas_res_string, false, true);
-  #   update_interval: 15s
-  # SHTC3 sensor
-  - platform: shtcx
-    temperature:
-      id: esp_thermostat_shtcx_temperature
-      name: SHTC3 Temperature
-      filters:
-        - offset: -2.1
-      on_value:
-        then:
-          - lambda: |-
-              std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_shtcx_temperature).state)) + "\xB0";
-              id(nextionTextSensor3a).set_state(temperature_string, false, true);
-    humidity:
-      id: esp_thermostat_shtcx_humidity
-      name: SHTC3 Humidity
-      on_value:
-        then:
-          - lambda: |-
-              std::string humidity_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_shtcx_humidity).state) + "%";
-              id(nextionTextSensor3b).set_state(humidity_string, false, true);
-    update_interval: 15s
-  # TMP117 sensor
-  - platform: tmp117
-    id: esp_thermostat_tmp117_temperature
-    name: TMP117 Temperature
-    filters:
-      - offset: -2.4
-    on_value:
-      then:
-        - lambda: |-
-            std::string temperature_string = esp32_thermostat::round_float_to_string(esp32_thermostat::c_to_f(id(esp_thermostat_tmp117_temperature).state)) + "\xB0";
-            id(nextionTextSensor4a).set_state(temperature_string, false, true);
-    update_interval: 15s
-  # SGP40 sensor
-  - platform: sgp4x
-    voc:
-      id: esp_thermostat_sgp40_voc
-      name: SGP40 VOC
-      unit_of_measurement: VOC Index
-      on_value:
-        then:
-          - lambda: |-
-              std::string voc_string = esp32_thermostat::round_float_to_string(id(esp_thermostat_sgp40_voc).state);
-              id(nextionTextSensor8d).set_state(voc_string, false, true);
-    update_interval: 15s
-    compensation:
-      humidity_source: esp_thermostat_shtcx_humidity
-      temperature_source: esp_thermostat_shtcx_temperature
-
-text_sensor:
-  - platform: bme680_bsec
-    iaq_accuracy:
-      id: esp_thermostat_bme680_accuracy
-      name: BME680 Accuracy
-  # HA sensors we track - weather condition
-  - platform: homeassistant
-    id: weather_condition_ha
-    entity_id: weather.home_fairfield
-    on_value:
-      then:
-        - globals.set:
-            id: weather_condition
-            value: !lambda "return x;"
-        - lambda: "esp32_thermostat::display_refresh_weather_cond();"
 
 display:
   - platform: nextion
@@ -432,12 +108,22 @@ display:
     # tft_url: https://www.kbx81.net/download/public/climate/NX8048P070-011C.tft
     # tft_url: http://10.100.0.81/download/public/climate/NX8048K070.tft
     tft_url: http://10.100.0.81/download/public/climate/NX8048P070-011C.tft
-    lambda: "esp32_thermostat::draw_main_screen();"
+    lambda: |-
+      auto dateTime = id(esptime).now();
+      // update the Nextion's clock once per hour (and at start-up)
+      if (id(display_last_full_refresh) != dateTime.hour) {
+        id(display_last_full_refresh) = dateTime.hour;
+        main_lcd->set_nextion_rtc_time(dateTime);
+      }
     on_setup:
       then:
+        - script.execute: refresh_display_status_string
+        - script.execute: refresh_display_climate_mode
+        - script.execute: refresh_display_climate_fan_mode
+        - script.execute: refresh_display_set_points
         - lambda: |-
             main_lcd->goto_page("weather");
-            esp32_thermostat::draw_main_screen(true);
+
             id(nextionTextRoom1).set_state("Local:", false, true);
             id(nextionTextRoom2).set_state("Bedroom:", false, true);
             id(nextionTextRoom3).set_state("Nook:", false, true);

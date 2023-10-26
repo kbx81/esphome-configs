@@ -1,6 +1,3 @@
-esphome:
-  includes: shared/esp_thermostat_nextion.h
-
 esp32:
   board: esp32dev
   framework:
@@ -28,7 +25,7 @@ api:
         - globals.set:
             id: status_string
             value: !lambda "return message;"
-        - lambda: "esp32_thermostat::display_refresh_status();"
+        - script.execute: refresh_display_status_string
 
 globals:
   # the temperature/humidity that guides the thermostat controller
@@ -97,16 +94,149 @@ script:
     mode: restart
     then:
       - lambda: "id(nextionIdleTimer).set_state(0, true, true);"
-  # display refresh coordination
-  - id: climate_action_refresh
+  # update climate action on display
+  - id: refresh_display_climate_action
     mode: restart
     then:
-      - delay: 1s
-      - lambda: "esp32_thermostat::display_refresh_action();"
+      - lambda: |-
+          id(nextionClimateAction).set_state(static_cast<float>(id(esp_thermostat).action), false, true);
+      - script.execute: refresh_display_lockout_state
+  # update climate mode on display
+  - id: refresh_display_climate_mode
+    mode: restart
+    then:
+      - lambda: |-
+          id(nextionClimateMode).set_state(static_cast<float>(id(esp_thermostat).mode), false, true);
+      - script.execute: refresh_display_climate_action
+  # update fan mode on display
+  - id: refresh_display_climate_fan_mode
+    mode: restart
+    then:
+      - lambda: |-
+          id(nextionClimateFanMode).set_state(static_cast<float>(id(esp_thermostat).fan_mode.value_or(CLIMATE_FAN_AUTO)), false, true);
+      - script.execute: refresh_display_lockout_state
+  # update lockout state on display
+  - id: refresh_display_lockout_state
+    mode: restart
+    then:
+      - lambda: |-
+          float lockout = (id(esp_thermostat).climate_action_change_delayed() || id(esp_thermostat).fan_mode_change_delayed()) ? 1 : 0;
+          id(nextionLockoutState).set_state(lockout, false, true);
+  # update set points on display
+  - id: refresh_display_set_points
+    mode: restart
+    then:
+      - lambda: |-
+          id(nextionCurrentSetLower).set_state(roundf((celsius_to_fahrenheit(id(esp_thermostat).target_temperature_low)) * 10), false, true);
+          id(nextionCurrentSetUpper).set_state(roundf((celsius_to_fahrenheit(id(esp_thermostat).target_temperature_high)) * 10), false, true);
+          id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);
+          if (id(nextionCurrentSetMin).state != (celsius_to_fahrenheit(id(esp_thermostat).get_traits().get_visual_min_temperature())) * 10) {
+            id(nextionCurrentSetMin).set_state((celsius_to_fahrenheit(id(esp_thermostat).get_traits().get_visual_min_temperature())) * 10, true, true);
+          }
+          if (id(nextionCurrentSetMax).state != (celsius_to_fahrenheit(id(esp_thermostat).get_traits().get_visual_max_temperature())) * 10) {
+            id(nextionCurrentSetMax).set_state((celsius_to_fahrenheit(id(esp_thermostat).get_traits().get_visual_max_temperature())) * 10, true, true);
+          }
+  # update status string on display
+  - id: refresh_display_status_string
+    mode: restart
+    then:
+      - lambda: |-
+          const std::string offline_message = "offline";
+          std::string status_message;
+
+          if (id(esp_thermostat_api_status).state == false) {
+            status_message = offline_message;
+          }
+
+          if (status_message.empty()) {
+            status_message = id(status_string);
+          } else if (!id(status_string).empty()) {
+            status_message = status_message + " - " + id(status_string);
+          }
+
+          if (!status_message.empty()) {
+            status_message[0] = toupper(status_message[0]);
+          }
+
+          if (id(nextionTextStatus).state != status_message) {
+            id(nextionTextStatus).set_state(status_message, false, true);
+          }
+  # update AQI/IAQ on display
+  - id: refresh_display_iaq
+    mode: restart
+    parameters:
+      iaq_value: float
+      is_weather: bool
+    then:
+      - lambda: |-
+          struct IaqCondPairing {
+            const uint16_t threshold;
+            const Color color;
+            const std::string condition;
+          };
+
+          static const std::vector<IaqCondPairing> iaq_cond_text{
+              {50, Color(0, 255, 96), "Excellent"},        {100, Color(160, 255, 0), "Good"},
+              {150, Color(255, 255, 0), "Moderate"},       {200, Color(255, 127, 0), "Unhealthy"},
+              {300, Color(255, 32, 32), "Very Unhealthy"}, {9000, Color(160, 24, 64), "Hazardous"}};
+
+          auto iaq_string = str_sprintf("%.1f", iaq_value);
+          auto iaq_color = Color::WHITE;
+
+          for (IaqCondPairing i : iaq_cond_text) {
+            if (iaq_value < i.threshold) {
+              iaq_string += " - " + i.condition;
+              iaq_color = i.color;
+              break;
+            }
+          }
+
+          if (is_weather) {
+            id(nextionTextWeatherAq).set_state(iaq_string, false, true);
+            id(nextionTextWeatherAq).set_foreground_color(iaq_color);
+          } else {
+            id(nextionTextCurrentAq).set_state(iaq_string, false, true);
+            id(nextionTextCurrentAq).set_foreground_color(iaq_color);
+          }
+  # update weather condition on display
+  - id: refresh_display_weather_condition
+    mode: restart
+    then:
+      - lambda: |-
+          struct WeatherCondPairing {
+            const char icon_id;
+            const std::string condition;
+          };
+
+          static const std::vector<WeatherCondPairing> weather_cond_icon{
+              {'F', "clear-night"}, {'A', "cloudy"},          {'O', "exceptional"},  {'B', "fog"},     {'C', "hail"},
+              {'E', "lightning"},   {'D', "lightning-rainy"}, {'G', "partlycloudy"}, {'H', "pouring"}, {'I', "rainy"},
+              {'K', "snowy"},       {'J', "snowy-rainy"},     {'L', "sunny"},        {'M', "windy"},   {'N', "windy-variant"}};
+
+          const char default_weather_cond_icon_id = 'O';
+          std::string icon_id(1, default_weather_cond_icon_id);
+
+          for (WeatherCondPairing i : weather_cond_icon) {
+            if (i.condition == id(weather_condition)) {
+              icon_id[0] = i.icon_id;
+              break;
+            }
+          }
+          id(nextionTextWeatherIcon).set_state(icon_id, false, true);
+
+          auto capitalized_weather_condition = id(weather_condition);
+          if (capitalized_weather_condition == "partlycloudy")
+            capitalized_weather_condition = "partly cloudy";
+          if (capitalized_weather_condition == "sunny")
+            capitalized_weather_condition = "clear";
+
+          capitalized_weather_condition.append(":");
+          capitalized_weather_condition[0] = toupper(capitalized_weather_condition[0]);
+          id(nextionTextRoom7).set_state(capitalized_weather_condition, false, true);
 
 status_led:
   pin:
-    number: GPIO5
+    number: 5
     inverted: true
 
 time:
@@ -122,14 +252,14 @@ i2c:
   scan: false
 
 # spi:
-#   clk_pin: GPIO14
-#   mosi_pin: GPIO13
-#   miso_pin: GPIO12
+#   clk_pin: 14
+#   mosi_pin: 13
+#   miso_pin: 12
 
 uart:
   id: nextion_uart
-  tx_pin: GPIO19
-  rx_pin: GPIO18
+  tx_pin: 19
+  rx_pin: 18
   baud_rate: 921600
 
 climate:
@@ -182,38 +312,37 @@ climate:
         default_target_temperature_low: 73°F
         default_target_temperature_high: 75°F
     off_mode:
-      - lambda: |-
-          id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;
-          esp32_thermostat::display_refresh_mode();
-          esp32_thermostat::display_refresh_fan_mode();
+      - lambda: "id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;"
+      - script.execute: refresh_display_climate_mode
+      - script.execute: refresh_display_climate_fan_mode
     auto_mode:
-      - lambda: |-
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: refresh_display_climate_mode
     cool_mode:
-      - lambda: |-
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: refresh_display_climate_mode
     heat_mode:
-      - lambda: |-
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: refresh_display_climate_mode
     fan_only_mode:
-      - lambda: |-
-          esp32_thermostat::display_refresh_mode();
+      - script.execute: refresh_display_climate_mode
     cool_action:
       - switch.turn_off: esp_thermostat_heat_2
       - switch.turn_off: esp_thermostat_heat_1
       - switch.turn_on: esp_thermostat_cool_1
-      - script.execute: climate_action_refresh
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
     supplemental_cooling_action:
       - switch.turn_on: esp_thermostat_cool_2
-      - script.execute: climate_action_refresh
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
     heat_action:
       - switch.turn_off: esp_thermostat_cool_2
       - switch.turn_off: esp_thermostat_cool_1
       - switch.turn_on: esp_thermostat_heat_1
-      - script.execute: climate_action_refresh
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
     supplemental_heating_action:
       - switch.turn_on: esp_thermostat_heat_2
-      - script.execute: climate_action_refresh
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
     idle_action:
       - switch.turn_off: esp_thermostat_cool_2
       - switch.turn_off: esp_thermostat_cool_1
@@ -223,23 +352,27 @@ climate:
       - lambda: |-
           if (id(esp_thermostat).fan_mode == climate::CLIMATE_FAN_AUTO)
             id(esp_thermostat_fan).turn_off();
-      - script.execute: climate_action_refresh
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
     fan_only_action:
       - switch.turn_on: esp_thermostat_fan
-      - script.execute: climate_action_refresh
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
     fan_mode_auto_action:
       - lambda: |-
           if ((id(esp_thermostat).action != climate::CLIMATE_ACTION_COOLING)
            && (id(esp_thermostat).action != climate::CLIMATE_ACTION_FAN))
             id(esp_thermostat_fan).turn_off();
-          esp32_thermostat::display_refresh_fan_mode();
+      - delay: 250ms
+      - script.execute: refresh_display_climate_fan_mode
     fan_mode_on_action:
       - switch.turn_on: esp_thermostat_fan
-      - lambda: |-
-          esp32_thermostat::display_refresh_fan_mode();
+      - delay: 250ms
+      - script.execute: refresh_display_climate_fan_mode
     target_temperature_change_action:
-      - lambda: |-
-          esp32_thermostat::display_refresh_set_points();
+      - script.execute: refresh_display_set_points
+      - delay: 250ms
+      - script.execute: refresh_display_climate_action
 
 binary_sensor:
   - platform: status
@@ -247,14 +380,16 @@ binary_sensor:
     name: API Status
     on_state:
       then:
-        - lambda: "esp32_thermostat::display_refresh_status();"
+        - script.execute: refresh_display_status_string
   # flag to indicate when the on-board sensor is in use
   - platform: template
     id: esp_thermostat_on_board_sensor_active
     name: On-board Sensor Active
     # if the API is connected, use the max_missed_online_updates as the max, else use max_missed_offline_updates
     lambda: |-
-      uint32_t max_missed_updates = id(esp_thermostat_api_status).state ? esp32_thermostat::max_missed_online_updates : esp32_thermostat::max_missed_offline_updates;
+      const uint8_t max_missed_online_updates = 60 * (60 / 15);
+      const uint8_t max_missed_offline_updates = 5 * (60 / 15);
+      const uint32_t max_missed_updates = id(esp_thermostat_api_status).state ? max_missed_online_updates : max_missed_offline_updates;
       return id(missed_update_count) > max_missed_updates;
   # - platform: gpio
   #   id: esp_thermostat_tmp117_alert
@@ -267,18 +402,18 @@ binary_sensor:
   #   id: esp_thermostat_mcp23017_int_a
   #   name: MCP23017 Interrupt A
   #   pin:
-  #     number: GPIO36
+  #     number: 36
   # - platform: gpio
   #   id: esp_thermostat_mcp23017_int_b
   #   name: MCP23017 Interrupt B
   #   pin:
-  #     number: GPIO39
+  #     number: 39
   - platform: gpio
     id: esp_thermostat_motion_detection
     name: Motion Detection
     device_class: motion
     pin:
-      number: GPIO27
+      number: 27
     on_state:
       then:
         - if:
@@ -290,7 +425,7 @@ binary_sensor:
     id: esp_thermostat_mode_button
     name: Mode Button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       min_length: 50ms
@@ -308,21 +443,435 @@ sensor:
     id: esp_thermostat_temperature_sensor
     name: Template Temperature Sensor
     unit_of_measurement: "°C"
-    lambda: "return esp32_thermostat::thermostat_temperature_sensor_value();"
+    lambda: |-
+      bool template_sensor_valid =
+          (id(current_temperature) >= id(esp_thermostat).get_traits().get_visual_min_temperature()) &&
+          (id(current_temperature) <= id(esp_thermostat).get_traits().get_visual_max_temperature());
+      float sensor_value = id(esp_thermostat_bme680_temperature).state;
+      // always increment the counter -- it'll get reset later if appropriate
+      id(missed_update_count) += 1;
+      // update the display to refresh the status as appropriate
+      id(refresh_display_status_string)->execute();
+      // measure the thermistor (kind of arbitrary but we do it here)
+      id(esp_thermostat_thermistor_vcc).turn_on();
+      id(adc_sensor_thermistor).update();
+      // id(esp_thermostat_thermistor_vcc).turn_off();
+      // update the display to refresh the lockout status as appropriate
+      id(refresh_display_lockout_state)->execute();
+      // determine what value to return for the sensor
+      // if the on-board sensor is flagged as active or if the template sensor's value (aka current_temperature)
+      //  is not valid, we must (try to) use the on-board hardware sensor
+      if (id(esp_thermostat_on_board_sensor_active).state || !template_sensor_valid) {
+        // if the hardware sensor is "ready" (not NaN), we use that value
+        if (!isnan(sensor_value)) {
+          id(sensor_ready) = true;
+          id(current_temperature) = sensor_value;
+          return sensor_value;
+        } else {
+          // if the hardware sensor is NOT "ready" (not NaN), we return a (fake) neutral value.
+          // not ideal but this should be only very rarely used
+          return (id(esp_thermostat).target_temperature_low + id(esp_thermostat).target_temperature_high) / 2;
+        }
+      } else {
+        // if the on-board sensor is NOT flagged as active and the template sensor's value (aka current_temperature)
+        //  is valid, we return that value
+        id(sensor_ready) = true;
+        return id(current_temperature);
+      }
     update_interval: 15s
     on_value:
       then:
-        - lambda: "id(nextionCurrentTemp).set_state(roundf(esp32_thermostat::c_to_f(id(esp_thermostat_temperature_sensor).state) * 10), false, true);"
+        - lambda: "id(nextionCurrentTemp).set_state(roundf(celsius_to_fahrenheit(id(esp_thermostat_temperature_sensor).state) * 10), false, true);"
   # template sensor used for humidity
   - platform: template
     id: esp_thermostat_humidity_sensor
     name: Template Humidity Sensor
     unit_of_measurement: "%"
-    lambda: "return esp32_thermostat::thermostat_humidity_sensor_value();"
+    lambda: |-
+      bool template_sensor_valid = id(current_humidity) > 0;
+      float sensor_value = id(esp_thermostat_bme680_humidity).state;
+      // determine what value to return for the sensor
+      // if the on-board sensor is flagged as active or if the template sensor's value (aka current_humidity)
+      //  is not valid, we must (try to) use the on-board hardware sensor
+      if (id(esp_thermostat_on_board_sensor_active).state || !template_sensor_valid) {
+        // if the hardware sensor is "ready" (not NaN), we use that value
+        if (!isnan(sensor_value)) {
+          id(sensor_ready) = true;
+          id(current_humidity) = sensor_value;
+        } else {
+          // if the hardware sensor is NOT "ready" (not NaN), we return a (fake) neutral value.
+          // not ideal but this should be only very rarely used
+          sensor_value = id(esp_thermostat_target_humidity).state;
+        }
+      } else {
+        // if the on-board sensor is NOT flagged as active and the template sensor's value (aka current_humidity)
+        //  is valid, we return that value
+        id(sensor_ready) = true;
+        sensor_value = id(current_humidity);
+      }
+      // switch humidifier on/off as required
+      if ((sensor_value >= id(esp_thermostat_target_humidity).state + 1) ||
+          (id(esp_thermostat).action != CLIMATE_ACTION_HEATING)) {
+        id(esp_thermostat_humidify).turn_off();
+      } else if (sensor_value <= id(esp_thermostat_target_humidity).state - 1) {
+        id(esp_thermostat_humidify).turn_on();
+      }
+
+      return sensor_value;
     update_interval: 15s
     on_value:
       then:
         - lambda: "id(nextionCurrentHum).set_state(roundf(id(esp_thermostat_humidity_sensor).state * 10), false, true);"
+  # HA sensors we track - humidity
+  - platform: homeassistant
+    id: system_humidity_ha
+    entity_id: sensor.thermostat_system_humidity
+    on_value:
+      then:
+        - globals.set:
+            id: current_humidity
+            value: !lambda "return x;"
+        - if:
+            condition:
+              lambda: "return x != id(esp_thermostat_humidity_sensor).state;"
+            then:
+              - globals.set:
+                  id: missed_update_count
+                  value: "0"
+        # - lambda: "id(nextionCurrentHum).set_state(roundf(x * 10), false, true);"
+  # HA sensors we track - temperature
+  - platform: homeassistant
+    id: system_temperature_ha
+    entity_id: sensor.thermostat_system_temperature
+    on_value:
+      then:
+        - globals.set:
+            id: current_temperature
+            value: !lambda "return fahrenheit_to_celsius(x);"
+        - if:
+            condition:
+              lambda: "return x != id(esp_thermostat_temperature_sensor).state;"
+            then:
+              - globals.set:
+                  id: missed_update_count
+                  value: "0"
+        # - lambda: "id(nextionCurrentTemp).set_state(roundf(x * 10), false, true);"
+  # HA sensors we track - weather
+  - platform: homeassistant
+    id: weather_air_quality_ha
+    entity_id: sensor.waqi_chi_com_illinois_usa
+    on_value:
+      then:
+        - globals.set:
+            id: weather_air_quality
+            value: !lambda "return x;"
+        - script.execute:
+            id: refresh_display_iaq
+            iaq_value: !lambda "return x;"
+            is_weather: true
+  - platform: homeassistant
+    id: weather_humidity_ha
+    entity_id: sensor.gw2000b_v2_2_4_humidity
+    on_value:
+      then:
+        - globals.set:
+            id: weather_humidity
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherHum).set_state(roundf(x * 10), false, true);
+            id(nextionRoom7Hum).set_state(roundf(x * 10), false, true);
+  - platform: homeassistant
+    id: weather_temperature_ha
+    entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
+    on_value:
+      then:
+        - globals.set:
+            id: weather_temperature
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);
+            id(nextionRoom7Temp).set_state(roundf(x * 10), false, true);
+  - platform: homeassistant
+    id: weather_forecasted_high_ha
+    entity_id: sensor.weather_forecasted_high
+    on_value:
+      then:
+        - globals.set:
+            id: weather_temperature_high
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherTempHigh).set_state(roundf(x * 10), false, true);
+  - platform: homeassistant
+    id: weather_forecasted_low_ha
+    entity_id: sensor.weather_forecasted_low
+    on_value:
+      then:
+        - globals.set:
+            id: weather_temperature_low
+            value: !lambda "return x;"
+        - lambda: |-
+            id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);
+  # Phototransistor ADC sensor
+  - platform: adc
+    id: adc_sensor_phototransistor
+    name: Phototransistor ADC
+    pin: 32
+    attenuation: 11db
+    update_interval: 1s
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 3
+          send_first_at: 1
+    on_value:
+      then:
+        - lambda: |-
+            if (id(esp_thermostat_display).state) {
+              auto brightness_mult_max = 100.0;
+              auto brightness_mult_min = 100.0 - id(esp_thermostat_display_brightness_idle_reduction).state;
+              auto brightness_max = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state);
+              auto brightness_min = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_thermostat_display_minimum_brightness).state, id(esp_thermostat_display_maximum_brightness).state);
+              // ESP_LOGD("display_brightness", "Max: %f - Min: %f", brightness_max, brightness_min);
+              id(nextionMaxBrightness).set_state(brightness_max, true, true);
+              id(nextionMinBrightness).set_state(brightness_min, true, true);
+            } else {
+              id(nextionMaxBrightness).set_state(0, true, true);
+              id(nextionMinBrightness).set_state(0, true, true);
+            }
+  # NTC thermistor ADC sensor
+  - platform: adc
+    id: adc_sensor_thermistor
+    name: Thermistor ADC
+    pin: 34
+    internal: true
+    update_interval: 1s
+  # NTC thermistor resistance sensor
+  - platform: resistance
+    id: thermistor_sensor
+    name: NTC Thermistor Resistance
+    sensor: adc_sensor_thermistor
+    configuration: DOWNSTREAM
+    reference_voltage: ${ntc_reference_voltage}
+    resistor: 10kOhm
+    internal: true
+  # NTC thermistor sensor
+  - platform: ntc
+    id: esp_thermostat_thermistor_temperature
+    name: NTC Thermistor Temperature
+    sensor: thermistor_sensor
+    calibration:
+      b_constant: 3380
+      reference_temperature: 25°C
+      reference_resistance: 10kOhm
+    filters:
+      - offset: ${ntc_temperature_offset}
+      - sliding_window_moving_average:
+          window_size: 60
+          send_every: 15
+          send_first_at: 15
+    on_value:
+      then:
+        - lambda: |-
+            auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_thermistor_temperature).state)) + "\xB0";
+            id(nextionTextSensor6a).set_state(temperature_string, false, true);
+  # DHT22 sensor
+  # - platform: dht
+  #   pin: 23
+  #   model: DHT22
+  #   temperature:
+  #     id: esp_thermostat_dht22_temperature
+  #     name: DHT22 Temperature
+  #     filters:
+  #       - offset: ${dht22_temperature_offset}
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_dht22_temperature).state)) + "\xB0";
+  #             id(nextionTextSensor5a).set_state(temperature_string, false, true);
+  #   humidity:
+  #     id: esp_thermostat_dht22_humidity
+  #     name: DHT22 Humidity
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             auto humidity_string = str_sprintf("%.1f", id(esp_thermostat_dht22_humidity).state) + "%";
+  #             id(nextionTextSensor5b).set_state(humidity_string, false, true);
+  #   update_interval: 15s
+  # BME280 sensor
+  - platform: bme280
+    address: 0x76
+    temperature:
+      id: esp_thermostat_bme280_temperature
+      name: BME280 Temperature
+      filters:
+        - offset: ${bme280_temperature_offset}
+      on_value:
+        then:
+          - lambda: |-
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_bme280_temperature).state)) + "\xB0";
+              id(nextionTextSensor2a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_bme280_humidity
+      name: BME280 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              auto humidity_string = str_sprintf("%.1f", id(esp_thermostat_bme280_humidity).state) + "%";
+              id(nextionTextSensor2b).set_state(humidity_string, false, true);
+    pressure:
+      id: esp_thermostat_bme280_pressure
+      name: BME280 Pressure
+      on_value:
+        then:
+          - lambda: |-
+              auto pressure_string = str_sprintf("%.1f", id(esp_thermostat_bme280_pressure).state) + "hPa";
+              id(nextionTextSensor2c).set_state(pressure_string, false, true);
+    update_interval: 15s
+  # BME680 BSEC sensor
+  - platform: bme680_bsec
+    temperature:
+      id: esp_thermostat_bme680_temperature
+      name: BME680 Temperature
+      filters:
+        - offset: ${bme680_temperature_offset}
+      on_value:
+        then:
+          - lambda: |-
+              id(nextionRoom1Temp).set_state(roundf((celsius_to_fahrenheit(id(esp_thermostat_bme680_temperature).state)) * 10), false, true);
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_bme680_temperature).state)) + "\xB0";
+              id(nextionTextSensor1a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_bme680_humidity
+      name: BME680 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              id(nextionRoom1Hum).set_state(roundf(id(esp_thermostat_bme680_humidity).state * 10), false, true);
+              auto humidity_string = str_sprintf("%.1f", id(esp_thermostat_bme680_humidity).state) + "%";
+              id(nextionTextSensor1b).set_state(humidity_string, false, true);
+    pressure:
+      id: esp_thermostat_bme680_pressure
+      name: BME680 Pressure
+      on_value:
+        then:
+          - lambda: |-
+              id(nextionCurrentPres).set_state(roundf(id(esp_thermostat_bme680_pressure).state * 10), false, true);
+              auto pressure_string = str_sprintf("%.1f", id(esp_thermostat_bme680_pressure).state) + "hPa";
+              id(nextionTextSensor1c).set_state(pressure_string, false, true);
+    gas_resistance:
+      id: esp_thermostat_bme680_gas_resistance
+      name: BME680 Gas Resistance
+      # on_value:
+      #   then:
+      #     - lambda: |-
+      #         auto gas_res_string = str_sprintf("%.1f", id(esp_thermostat_bme680_gas_resistance).state);
+      #         id(nextionTextSensor1d).set_state(gas_res_string, false, true);
+    iaq:
+      id: esp_thermostat_bme680_iaq
+      name: BME680 IAQ
+      on_value:
+        then:
+          - script.execute:
+              id: refresh_display_iaq
+              iaq_value: !lambda "return id(esp_thermostat_bme680_iaq).state;"
+              is_weather: false
+          - lambda: |-
+              auto iaq_string = str_sprintf("%.1f", id(esp_thermostat_bme680_iaq).state);
+              id(nextionTextSensor1d).set_state(iaq_string, false, true);
+    co2_equivalent:
+      id: esp_thermostat_bme680_eco2
+      name: BME680 eCO2
+    breath_voc_equivalent:
+      id: esp_thermostat_bme680_evoc
+      name: BME680 Breath eVOC
+  # BME680 sensor
+  # - platform: bme680
+  #   address: 0x77
+  #   temperature:
+  #     id: esp_thermostat_bme680_temperature
+  #     name: BME680 Temperature
+  #     filters:
+  #       - offset: -1.2
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_bme680_temperature).state)) + "\xB0";
+  #             id(nextionTextSensor1a).set_state(temperature_string, false, true);
+  #             esp32_thermostat::display_refresh_table_temperature(id(climate_table_local_row), id(esp_thermostat_bme680_temperature).state);
+  #   humidity:
+  #     id: esp_thermostat_bme680_humidity
+  #     name: BME680 Humidity
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             auto humidity_string = str_sprintf("%.1f", id(esp_thermostat_bme680_humidity).state) + "%";
+  #             id(nextionTextSensor1b).set_state(humidity_string, false, true);
+  #             esp32_thermostat::display_refresh_table_humidity(id(climate_table_local_row), id(esp_thermostat_bme680_humidity).state);
+  #   pressure:
+  #     id: esp_thermostat_bme680_pressure
+  #     name: BME680 Pressure
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             auto pressure_string = str_sprintf("%.1f", id(esp_thermostat_bme680_pressure).state) + "hPa";
+  #             id(nextionTextSensor1c).set_state(pressure_string, false, true);
+  #   gas_resistance:
+  #     id: esp_thermostat_bme680_gas_resistance
+  #     name: BME680 Gas Resistance
+  #     on_value:
+  #       then:
+  #         - lambda: |-
+  #             auto gas_res_string = str_sprintf("%.1f", id(esp_thermostat_bme680_gas_resistance).state);
+  #             id(nextionTextSensor1d).set_state(gas_res_string, false, true);
+  #   update_interval: 15s
+  # SHTC3 sensor
+  - platform: shtcx
+    temperature:
+      id: esp_thermostat_shtcx_temperature
+      name: SHTC3 Temperature
+      filters:
+        - offset: ${shtc3_temperature_offset}
+      on_value:
+        then:
+          - lambda: |-
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_shtcx_temperature).state)) + "\xB0";
+              id(nextionTextSensor3a).set_state(temperature_string, false, true);
+    humidity:
+      id: esp_thermostat_shtcx_humidity
+      name: SHTC3 Humidity
+      on_value:
+        then:
+          - lambda: |-
+              auto humidity_string = str_sprintf("%.1f", id(esp_thermostat_shtcx_humidity).state) + "%";
+              id(nextionTextSensor3b).set_state(humidity_string, false, true);
+    update_interval: 15s
+  # TMP117 sensor
+  - platform: tmp117
+    id: esp_thermostat_tmp117_temperature
+    name: TMP117 Temperature
+    filters:
+      - offset: ${tmp117_temperature_offset}
+    on_value:
+      then:
+        - lambda: |-
+            auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_tmp117_temperature).state)) + "\xB0";
+            id(nextionTextSensor4a).set_state(temperature_string, false, true);
+    update_interval: 15s
+  # SGP40 sensor
+  - platform: sgp4x
+    voc:
+      id: esp_thermostat_sgp40_voc
+      name: SGP40 VOC
+      unit_of_measurement: VOC Index
+      on_value:
+        then:
+          - lambda: |-
+              auto voc_string = str_sprintf("%.1f", id(esp_thermostat_sgp40_voc).state);
+              id(nextionTextSensor8d).set_state(voc_string, false, true);
+    update_interval: 15s
+    compensation:
+      humidity_source: esp_thermostat_shtcx_humidity
+      temperature_source: esp_thermostat_shtcx_temperature
   # Nextion climate state (action/mode/fan_mode) sensors
   - platform: nextion
     nextion_id: main_lcd
@@ -345,7 +894,14 @@ sensor:
       then:
         - climate.control:
             id: esp_thermostat
-            fan_mode: !lambda "return static_cast<climate::ClimateFanMode>(int(id(nextionClimateFanMode).state));"
+            fan_mode: !lambda |-
+              // we could allow any fan mode like this...
+              // return static_cast<climate::ClimateFanMode>(int(id(nextionClimateFanMode).state));"
+              // ...instead we'll only allow ON or AUTO modes this way:
+              if (static_cast<climate::ClimateFanMode>(int(id(nextionClimateFanMode).state)) == CLIMATE_FAN_ON) {
+                return CLIMATE_FAN_ON;
+              }
+              return CLIMATE_FAN_AUTO;
   # Other Nextion sensors
   - platform: nextion
     nextion_id: main_lcd
@@ -399,10 +955,10 @@ sensor:
       then:
         - climate.control:
             id: esp_thermostat
-            target_temperature_low: !lambda "return esp32_thermostat::f_to_c(id(nextionCurrentSetLower).state / 10);"
+            target_temperature_low: !lambda "return fahrenheit_to_celsius(id(nextionCurrentSetLower).state / 10);"
         - lambda: |-
-            if (id(nextionCurrentSetLower).state != (esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_low)) * 10)
-              id(nextionCurrentSetLower).set_state(esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_low) * 10, false, true);
+            if (id(nextionCurrentSetLower).state != (celsius_to_fahrenheit(id(esp_thermostat).target_temperature_low)) * 10)
+              id(nextionCurrentSetLower).set_state(celsius_to_fahrenheit(id(esp_thermostat).target_temperature_low) * 10, false, true);
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetUpper
@@ -411,10 +967,10 @@ sensor:
       then:
         - climate.control:
             id: esp_thermostat
-            target_temperature_high: !lambda "return esp32_thermostat::f_to_c(id(nextionCurrentSetUpper).state / 10);"
+            target_temperature_high: !lambda "return fahrenheit_to_celsius(id(nextionCurrentSetUpper).state / 10);"
         - lambda: |-
-            if (id(nextionCurrentSetUpper).state != (esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_high)) * 10)
-              id(nextionCurrentSetUpper).set_state(esp32_thermostat::c_to_f(id(esp_thermostat).target_temperature_high) * 10, false, true);
+            if (id(nextionCurrentSetUpper).state != (celsius_to_fahrenheit(id(esp_thermostat).target_temperature_high)) * 10)
+              id(nextionCurrentSetUpper).set_state(celsius_to_fahrenheit(id(esp_thermostat).target_temperature_high) * 10, false, true);
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetMin
@@ -513,6 +1069,21 @@ sensor:
     variable_name: room8Hum
 
 text_sensor:
+  - platform: bme680_bsec
+    iaq_accuracy:
+      id: esp_thermostat_bme680_accuracy
+      name: BME680 Accuracy
+  # HA sensors we track - weather condition
+  - platform: homeassistant
+    id: weather_condition_ha
+    entity_id: ${weather_entity}
+    on_value:
+      then:
+        - globals.set:
+            id: weather_condition
+            value: !lambda "return x;"
+        - script.execute: refresh_display_weather_condition
+  # Nextion text sensors
   - platform: nextion
     nextion_id: main_lcd
     id: nextionTextStatus

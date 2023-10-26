@@ -41,19 +41,20 @@ substitutions:
   button_valve7_objname: "btnZone7Power"
   button_valve8_id: "21"
   button_valve8_objname: "btnZone8Power"
+  # temperature sensor offsets
+  ntc_reference_voltage: "0.94V"
+  ntc_temperature_offset: "0.0"
+  dht22_temperature_offset: "-1.2"
+  bme280_temperature_offset: "-1.0"
+  bme680_temperature_offset: "-1.2"
+  shtc3_temperature_offset: "-1.4"
+  tmp117_temperature_offset: "-1.6"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
-esphome:
-  includes: shared/esp_sprinkler_nextion.h
-  on_boot:
-    priority: 0
-    then:
-      - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
-
 esp32:
-  board: featheresp32
+  board: esp32dev
   framework:
     type: arduino
 
@@ -79,7 +80,12 @@ api:
         - globals.set:
             id: start_minute
             value: !lambda "return minute;"
-        - lambda: "esp_sprinkler::validate_start_time();"
+        - lambda: |-
+            // validate (and fix, if required) start time
+            if ((id(start_hour) < 0) || (id(start_hour) > 23))
+              id(start_hour) = 0;
+            if ((id(start_minute) < 0) || (id(start_minute) > 59))
+              id(start_minute) = 0;
     - service: set_divider
       variables:
         divider: int
@@ -109,7 +115,7 @@ api:
         - globals.set:
             id: status_string
             value: !lambda "return message;"
-        - lambda: "esp_sprinkler::display_refresh_status();"
+        - script.execute: refresh_display_status_string
 
 globals:
   # start time
@@ -181,6 +187,136 @@ script:
       - delay: 500ms
       - switch.turn_off: esp_sprinkler_controller_relay_1
       - delay: 2s
+  # update (garage) door status on display
+  - id: refresh_display_door_state
+    mode: restart
+    then:
+      - lambda: "id(nextionDoorState).set_state(id(esp_sprinkler_controller_door_sensor).state);"
+  # update sprinkler controller general status info on display
+  - id: refresh_display_sprinkler_state
+    mode: restart
+    then:
+      - lambda: |-
+          id(nextionSprinklerActiveZone).set_state(id(sprinkler_ctrlr).manual_valve().value_or(id(sprinkler_ctrlr).active_valve().value_or(-1)));
+          id(nextionSprinklerPausedZone).set_state(id(sprinkler_ctrlr).paused_valve().value_or(-1));
+          id(nextionSprinklerAutoAdv).set_state(id(sprinkler_ctrlr).auto_advance());
+          id(nextionSprinklerReverse).set_state(id(sprinkler_ctrlr).reverse());
+          id(nextionSprinklerStandby).set_state(id(sprinkler_ctrlr).standby());
+          id(nextionSprinklerMultiplier).set_state(id(sprinkler_ctrlr).multiplier() * 10.0);
+          id(nextionSprinklerRepeat).set_state(id(sprinkler_ctrlr).repeat().value_or(0));
+      - script.execute: refresh_display_zone_run_enable_states
+  # update sprinkler controller zone names on display
+  - id: refresh_display_zone_names
+    mode: restart
+    then:
+      - lambda: |-
+          // ...the '+ 16's below are there to trim off our switches' name prefix "Lawn Sprinklers "
+          id(nextionTextZone1Name).set_state(id(sprinkler_ctrlr).valve_name(0) + 16, false, true);
+          id(nextionTextZone2Name).set_state(id(sprinkler_ctrlr).valve_name(1) + 16, false, true);
+          id(nextionTextZone3Name).set_state(id(sprinkler_ctrlr).valve_name(2) + 16, false, true);
+          id(nextionTextZone4Name).set_state(id(sprinkler_ctrlr).valve_name(3) + 16, false, true);
+          id(nextionTextZone5Name).set_state(id(sprinkler_ctrlr).valve_name(4) + 16, false, true);
+  # update sprinkler controller zone enable states on display
+  - id: refresh_display_zone_run_enable_states
+    mode: restart
+    then:
+      - lambda: |-
+          id(nextionZone1Enabled).set_state(id(sprinkler_ctrlr).enable_switch(0)->state);
+          id(nextionZone2Enabled).set_state(id(sprinkler_ctrlr).enable_switch(1)->state);
+          id(nextionZone3Enabled).set_state(id(sprinkler_ctrlr).enable_switch(2)->state);
+          id(nextionZone4Enabled).set_state(id(sprinkler_ctrlr).enable_switch(3)->state);
+          id(nextionZone5Enabled).set_state(id(sprinkler_ctrlr).enable_switch(4)->state);
+  # update sprinkler controller zone run durations on display
+  - id: refresh_display_zone_run_durations
+    mode: restart
+    then:
+      - lambda: |-
+          id(nextionZone1RunTimeMin).set_state(id(sprinkler_ctrlr).valve_run_duration_adjusted(0) / 60);
+          id(nextionZone2RunTimeMin).set_state(id(sprinkler_ctrlr).valve_run_duration_adjusted(1) / 60);
+          id(nextionZone3RunTimeMin).set_state(id(sprinkler_ctrlr).valve_run_duration_adjusted(2) / 60);
+          id(nextionZone4RunTimeMin).set_state(id(sprinkler_ctrlr).valve_run_duration_adjusted(3) / 60);
+          id(nextionZone5RunTimeMin).set_state(id(sprinkler_ctrlr).valve_run_duration_adjusted(4) / 60);
+  # update status string on display
+  - id: refresh_display_status_string
+    mode: restart
+    then:
+      - lambda: |-
+          const std::string offline_message = "offline";
+          std::string status_message;
+
+          if (id(esp_sprinkler_controller_api_status).state == false) {
+            status_message = offline_message;
+          }
+
+          if (status_message.empty()) {
+            status_message = id(status_string);
+          } else if (!id(status_string).empty()) {
+            status_message = status_message + " - " + id(status_string);
+          }
+
+          if (!status_message.empty()) {
+            status_message[0] = toupper(status_message[0]);
+          }
+
+          if (id(nextionTextStatus).state != status_message) {
+            id(nextionTextStatus).set_state(status_message, false, true);
+          }
+  # update AQI/IAQ on display
+  - id: refresh_display_iaq
+    mode: restart
+    parameters:
+      iaq_value: float
+    then:
+      - lambda: |-
+          struct IaqCondPairing {
+            const uint16_t threshold;
+            const Color color;
+            const std::string condition;
+          };
+
+          static const std::vector<IaqCondPairing> iaq_cond_text{
+              {50, Color(0, 255, 96), "Excellent"},        {100, Color(160, 255, 0), "Good"},
+              {150, Color(255, 255, 0), "Moderate"},       {200, Color(255, 127, 0), "Unhealthy"},
+              {300, Color(255, 32, 32), "Very Unhealthy"}, {9000, Color(160, 24, 64), "Hazardous"}};
+
+          auto iaq_string = str_sprintf("%.1f", iaq_value);
+          auto iaq_color = Color::WHITE;
+
+          for (IaqCondPairing i : iaq_cond_text) {
+            if (iaq_value < i.threshold) {
+              iaq_string += " - " + i.condition;
+              iaq_color = i.color;
+              break;
+            }
+          }
+
+          id(nextionTextWeatherAq).set_state(iaq_string, false, true);
+          id(nextionTextWeatherAq).set_foreground_color(iaq_color);
+  # update weather condition on display
+  - id: refresh_display_weather_condition
+    mode: restart
+    then:
+      - lambda: |-
+          struct WeatherCondPairing {
+            const char icon_id;
+            const std::string condition;
+          };
+
+          static const std::vector<WeatherCondPairing> weather_cond_icon{
+              {'F', "clear-night"}, {'A', "cloudy"},          {'O', "exceptional"},  {'B', "fog"},     {'C', "hail"},
+              {'E', "lightning"},   {'D', "lightning-rainy"}, {'G', "partlycloudy"}, {'H', "pouring"}, {'I', "rainy"},
+              {'K', "snowy"},       {'J', "snowy-rainy"},     {'L', "sunny"},        {'M', "windy"},   {'N', "windy-variant"}};
+
+          const char default_weather_cond_icon_id = 'O';
+          std::string icon_id(1, default_weather_cond_icon_id);
+
+          for (WeatherCondPairing i : weather_cond_icon) {
+            if (i.condition == id(weather_condition)) {
+              icon_id[0] = i.icon_id;
+              break;
+            }
+          }
+          id(nextionTextWeatherIcon).set_state(icon_id, false, true);
 
 mcp23017:
   - id: mcp23017_hub
@@ -188,7 +324,7 @@ mcp23017:
 
 status_led:
   pin:
-    number: GPIO5
+    number: 5
     inverted: true
 
 time:
@@ -204,14 +340,14 @@ i2c:
   scan: false
 
 # spi:
-#   clk_pin: GPIO14
-#   mosi_pin: GPIO13
-#   miso_pin: GPIO12
+#   clk_pin: 14
+#   mosi_pin: 13
+#   miso_pin: 12
 
 uart:
   id: nextion_uart
-  tx_pin: GPIO19
-  rx_pin: GPIO18
+  tx_pin: 19
+  rx_pin: 18
   baud_rate: 921600
 
 cover:
@@ -236,7 +372,7 @@ binary_sensor:
     name: API Status
     on_state:
       then:
-        - lambda: "esp_sprinkler::display_refresh_status();"
+        - script.execute: refresh_display_status_string
   # - platform: gpio
   #   id: esp_sprinkler_controller_tmp117_alert
   #   name: TMP117 Alert
@@ -248,18 +384,18 @@ binary_sensor:
   #   id: esp_sprinkler_controller_mcp23017_int_a
   #   name: MCP23017 Interrupt A
   #   pin:
-  #     number: GPIO36
+  #     number: 36
   # - platform: gpio
   #   id: esp_sprinkler_controller_mcp23017_int_b
   #   name: MCP23017 Interrupt B
   #   pin:
-  #     number: GPIO39
+  #     number: 39
   - platform: gpio
     id: esp_sprinkler_controller_motion_detection
     name: Motion Detection
     device_class: motion
     pin:
-      number: GPIO27
+      number: 27
     on_state:
       then:
         - if:
@@ -279,12 +415,12 @@ binary_sensor:
       delayed_on_off: 25ms
     on_state:
       then:
-        - lambda: "esp_sprinkler::display_refresh_door_state();"
+        - script.execute: refresh_display_door_state
   - platform: gpio
     id: esp_sprinkler_controller_mode_button
     name: Mode Button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
     on_click:
       min_length: 50ms
@@ -332,7 +468,7 @@ binary_sensor:
       then:
         - sprinkler.next_valve: sprinkler_ctrlr
         - script.execute: button_press
-        - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+        - script.execute: refresh_display_sprinkler_state
   - platform: nextion
     id: nextion_touch_sprinkler_previous
     page_id: ${controls_page_number}
@@ -341,7 +477,7 @@ binary_sensor:
       then:
         - sprinkler.previous_valve: sprinkler_ctrlr
         - script.execute: button_press
-        - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+        - script.execute: refresh_display_sprinkler_state
   - platform: nextion
     id: nextion_touch_sprinkler_zone_1
     page_id: ${zones_page_number}
@@ -492,9 +628,9 @@ sprinkler:
     main_switch:
       name: Lawn Sprinklers
       on_turn_off:
-        - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+        - script.execute: refresh_display_sprinkler_state
       on_turn_on:
-        - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+        - script.execute: refresh_display_sprinkler_state
     auto_advance_switch:
       name: Lawn Sprinklers Auto-Advance
       id: sprinkler_ctrlr_auto_adv
@@ -533,9 +669,8 @@ sprinkler:
       name: "Lawn Sprinklers Multiplier"
       set_action:
         - delay: 100ms
-        - lambda: |-
-            id(nextionSprinklerMultiplier).set_state(id(sprinkler_ctrlr).multiplier() * 10.0);
-            esp_sprinkler::display_refresh_zone_run_durations();
+        - lambda: "id(nextionSprinklerMultiplier).set_state(id(sprinkler_ctrlr).multiplier() * 10.0);"
+        - script.execute: refresh_display_zone_run_durations
     repeat_number:
       id: esp_sprinkler_controller_repeat
       name: "Lawn Sprinklers Repeat"
@@ -547,9 +682,9 @@ sprinkler:
       - valve_switch:
           name: Lawn Sprinklers Parkway
           # on_turn_off:
-          #   - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+          #   - script.execute: refresh_display_sprinkler_state
           on_turn_on:
-            - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+            - script.execute: refresh_display_sprinkler_state
         enable_switch:
           name: Lawn Sprinklers Parkway Enable
           id: parkway_enable
@@ -571,9 +706,9 @@ sprinkler:
       - valve_switch:
           name: Lawn Sprinklers Front Yard
           # on_turn_off:
-          #   - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+          #   - script.execute: refresh_display_sprinkler_state
           on_turn_on:
-            - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+            - script.execute: refresh_display_sprinkler_state
         enable_switch:
           name: Lawn Sprinklers Front Yard Enable
           id: front_yard_enable
@@ -595,9 +730,9 @@ sprinkler:
       - valve_switch:
           name: Lawn Sprinklers East Side
           # on_turn_off:
-          #   - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+          #   - script.execute: refresh_display_sprinkler_state
           on_turn_on:
-            - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+            - script.execute: refresh_display_sprinkler_state
         enable_switch:
           name: Lawn Sprinklers East Side Enable
           id: east_side_enable
@@ -619,9 +754,9 @@ sprinkler:
       - valve_switch:
           name: Lawn Sprinklers Back Yard
           # on_turn_off:
-          #   - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+          #   - script.execute: refresh_display_sprinkler_state
           on_turn_on:
-            - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+            - script.execute: refresh_display_sprinkler_state
         enable_switch:
           name: Lawn Sprinklers Back Yard Enable
           id: back_yard_enable
@@ -643,9 +778,9 @@ sprinkler:
       - valve_switch:
           name: Lawn Sprinklers West Side
           # on_turn_off:
-          #   - lambda: 'esp_sprinkler::display_refresh_sprinkler_state();'
+          #   - script.execute: refresh_display_sprinkler_state
           on_turn_on:
-            - lambda: "esp_sprinkler::display_refresh_sprinkler_state();"
+            - script.execute: refresh_display_sprinkler_state
         enable_switch:
           name: Lawn Sprinklers West Side Enable
           id: west_side_enable
@@ -764,12 +899,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_off:
       then:
-        lambda: |-
-          id(nextionAutoBrightness).set_state(0, true, true);
+        lambda: "id(nextionAutoBrightness).set_state(0, true, true);"
     on_turn_on:
       then:
-        lambda: |-
-          id(nextionAutoBrightness).set_state(1, true, true);
+        lambda: "id(nextionAutoBrightness).set_state(1, true, true);"
   # display power (soft)
   - platform: template
     id: esp_sprinkler_controller_display
@@ -1034,7 +1167,7 @@ sensor:
         - sprinkler.set_multiplier:
             id: sprinkler_ctrlr
             multiplier: !lambda "return id(nextionSprinklerMultiplier).state / 10.0;"
-        - lambda: "esp_sprinkler::display_refresh_zone_run_durations();"
+        - script.execute: refresh_display_zone_run_durations
   - platform: nextion
     nextion_id: main_lcd
     id: nextionSprinklerRepeat
@@ -1153,7 +1286,9 @@ sensor:
         - globals.set:
             id: weather_air_quality
             value: !lambda "return x;"
-        - lambda: "esp_sprinkler::display_refresh_iaq_txt(x, true);"
+        - script.execute:
+            id: refresh_display_iaq
+            iaq_value: !lambda "return x;"
   - platform: homeassistant
     id: weather_humidity_ha
     entity_id: sensor.gw2000b_v2_2_4_humidity
@@ -1162,8 +1297,7 @@ sensor:
         - globals.set:
             id: weather_humidity
             value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherHum).set_state(roundf(x * 10), false, true);
+        - lambda: "id(nextionWeatherHum).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: weather_temperature_ha
     entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
@@ -1172,8 +1306,7 @@ sensor:
         - globals.set:
             id: weather_temperature
             value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);
+        - lambda: "id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: weather_forecasted_high_ha
     entity_id: sensor.weather_forecasted_high
@@ -1182,8 +1315,7 @@ sensor:
         - globals.set:
             id: weather_temperature_high
             value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherTempHigh).set_state(roundf(x * 10), false, true);
+        - lambda: "id(nextionWeatherTempHigh).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: weather_forecasted_low_ha
     entity_id: sensor.weather_forecasted_low
@@ -1192,8 +1324,7 @@ sensor:
         - globals.set:
             id: weather_temperature_low
             value: !lambda "return x;"
-        - lambda: |-
-            id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);
+        - lambda: "id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);"
   # Phototransistor ADC sensor
   - platform: adc
     id: esp_sprinkler_controller_adc_sensor_phototransistor
@@ -1223,30 +1354,31 @@ sensor:
             }
   # NTC thermistor ADC sensor
   - platform: adc
-    id: esp_sprinkler_controller_adc_sensor_thermistor
+    id: adc_sensor_thermistor
     name: Thermistor ADC
     pin: 34
     internal: true
     update_interval: 1s
   # NTC thermistor resistance sensor
   - platform: resistance
-    id: esp_sprinkler_controller_thermistor_sensor
+    id: thermistor_sensor
     name: NTC Thermistor Resistance
-    sensor: esp_sprinkler_controller_adc_sensor_thermistor
+    sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
-    reference_voltage: 0.94V
+    reference_voltage: ${ntc_reference_voltage}
     resistor: 10kOhm
     internal: true
   # NTC thermistor sensor
   - platform: ntc
     id: esp_sprinkler_controller_thermistor_temperature
     name: NTC Thermistor Temperature
-    sensor: esp_sprinkler_controller_thermistor_sensor
+    sensor: thermistor_sensor
     calibration:
       b_constant: 3380
       reference_temperature: 25°C
       reference_resistance: 10kOhm
     filters:
+      - offset: ${ntc_temperature_offset}
       - sliding_window_moving_average:
           window_size: 60
           send_every: 15
@@ -1254,19 +1386,21 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_thermistor_temperature).state)) + "\xB0";
+            auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_thermistor_temperature).state)) + "\xB0";
             id(nextionTextSensor6a).set_state(temperature_string, false, true);
   # DHT22 sensor
   - platform: dht
-    pin: GPIO23
+    pin: 23
     model: DHT22
     temperature:
       id: esp_sprinkler_controller_dht22_temperature
       name: DHT22 Temperature
+      filters:
+        - offset: ${dht22_temperature_offset}
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_dht22_temperature).state)) + "\xB0";
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_dht22_temperature).state)) + "\xB0";
               id(nextionTextSensor5a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_dht22_humidity
@@ -1274,7 +1408,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_dht22_humidity).state) + "%";
+              auto humidity_string = str_sprintf("%.1f", id(esp_sprinkler_controller_dht22_humidity).state) + "%";
               id(nextionTextSensor5b).set_state(humidity_string, false, true);
     update_interval: 15s
   # BME280 sensor
@@ -1284,11 +1418,11 @@ sensor:
       id: esp_sprinkler_controller_bme280_temperature
       name: BME280 Temperature
       filters:
-        - offset: -0.5
+        - offset: ${bme280_temperature_offset}
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_bme280_temperature).state)) + "\xB0";
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_bme280_temperature).state)) + "\xB0";
               id(nextionTextSensor2a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_bme280_humidity
@@ -1296,7 +1430,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme280_humidity).state) + "%";
+              auto humidity_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme280_humidity).state) + "%";
               id(nextionTextSensor2b).set_state(humidity_string, false, true);
     pressure:
       id: esp_sprinkler_controller_bme280_pressure
@@ -1304,7 +1438,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme280_pressure).state) + "hPa";
+              auto pressure_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme280_pressure).state) + "hPa";
               id(nextionTextSensor2c).set_state(pressure_string, false, true);
     update_interval: 15s
   # BME680 BSEC sensor
@@ -1313,11 +1447,11 @@ sensor:
       id: esp_sprinkler_controller_bme680_temperature
       name: BME680 Temperature
       filters:
-        - offset: -1.2
+        - offset: ${bme680_temperature_offset}
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
               id(nextionTextSensor1a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_bme680_humidity
@@ -1325,7 +1459,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_humidity).state) + "%";
+              auto humidity_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_humidity).state) + "%";
               id(nextionTextSensor1b).set_state(humidity_string, false, true);
     pressure:
       id: esp_sprinkler_controller_bme680_pressure
@@ -1334,7 +1468,7 @@ sensor:
         then:
           - lambda: |-
               id(nextionCurrentPres).set_state(roundf(id(esp_sprinkler_controller_bme680_pressure).state * 10), false, true);
-              std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_pressure).state) + "hPa";
+              auto pressure_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_pressure).state) + "hPa";
               id(nextionTextSensor1c).set_state(pressure_string, false, true);
     gas_resistance:
       id: esp_sprinkler_controller_bme680_gas_resistance
@@ -1342,7 +1476,7 @@ sensor:
       # on_value:
       #   then:
       #     - lambda: |-
-      #         std::string gas_res_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_gas_resistance).state);
+      #         auto gas_res_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_gas_resistance).state);
       #         id(nextionTextSensor1d).set_state(gas_res_string, false, true);
     iaq:
       id: esp_sprinkler_controller_bme680_iaq
@@ -1350,7 +1484,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string iaq_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_iaq).state);
+              auto iaq_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_iaq).state);
               id(nextionTextSensor1d).set_state(iaq_string, false, true);
     co2_equivalent:
       id: esp_sprinkler_controller_bme680_eco2
@@ -1369,7 +1503,7 @@ sensor:
   #     on_value:
   #       then:
   #         - lambda: |-
-  #             std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
+  #             auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
   #             id(nextionTextSensor1a).set_state(temperature_string, false, true);
   #   humidity:
   #     id: esp_sprinkler_controller_bme680_humidity
@@ -1377,7 +1511,7 @@ sensor:
   #     on_value:
   #       then:
   #         - lambda: |-
-  #             std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_humidity).state) + "%";
+  #             auto humidity_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_humidity).state) + "%";
   #             id(nextionTextSensor1b).set_state(humidity_string, false, true);
   #   pressure:
   #     id: esp_sprinkler_controller_bme680_pressure
@@ -1385,7 +1519,7 @@ sensor:
   #     on_value:
   #       then:
   #         - lambda: |-
-  #             std::string pressure_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_pressure).state) + "hPa";
+  #             auto pressure_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_pressure).state) + "hPa";
   #             id(nextionTextSensor1c).set_state(pressure_string, false, true);
   #   gas_resistance:
   #     id: esp_sprinkler_controller_bme680_gas_resistance
@@ -1393,7 +1527,7 @@ sensor:
   #     on_value:
   #       then:
   #         - lambda: |-
-  #             std::string gas_res_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_bme680_gas_resistance).state);
+  #             auto gas_res_string = str_sprintf("%.1f", id(esp_sprinkler_controller_bme680_gas_resistance).state);
   #             id(nextionTextSensor1d).set_state(gas_res_string, false, true);
   #   update_interval: 15s
   # SHTC3 sensor
@@ -1402,11 +1536,11 @@ sensor:
       id: esp_sprinkler_controller_shtcx_temperature
       name: SHTC3 Temperature
       filters:
-        - offset: -1.4
+        - offset: ${shtc3_temperature_offset}
       on_value:
         then:
           - lambda: |-
-              std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_shtcx_temperature).state)) + "\xB0";
+              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_shtcx_temperature).state)) + "\xB0";
               id(nextionTextSensor3a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_shtcx_humidity
@@ -1414,7 +1548,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string humidity_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_shtcx_humidity).state) + "%";
+              auto humidity_string = str_sprintf("%.1f", id(esp_sprinkler_controller_shtcx_humidity).state) + "%";
               id(nextionTextSensor3b).set_state(humidity_string, false, true);
     update_interval: 15s
   # TMP117 sensor
@@ -1422,11 +1556,11 @@ sensor:
     id: esp_sprinkler_controller_tmp117_temperature
     name: TMP117 Temperature
     filters:
-      - offset: -1.5
+      - offset: ${tmp117_temperature_offset}
     on_value:
       then:
         - lambda: |-
-            std::string temperature_string = esp_sprinkler::round_float_to_string(esp_sprinkler::c_to_f(id(esp_sprinkler_controller_tmp117_temperature).state)) + "\xB0";
+            auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_tmp117_temperature).state)) + "\xB0";
             id(nextionTextSensor4a).set_state(temperature_string, false, true);
     update_interval: 15s
   # SGP40 sensor
@@ -1438,7 +1572,7 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              std::string voc_string = esp_sprinkler::round_float_to_string(id(esp_sprinkler_controller_sgp40_voc).state);
+              auto voc_string = str_sprintf("%.1f", id(esp_sprinkler_controller_sgp40_voc).state);
               id(nextionTextSensor8d).set_state(voc_string, false, true);
     update_interval: 15s
     compensation:
@@ -1459,7 +1593,7 @@ text_sensor:
         - globals.set:
             id: weather_condition
             value: !lambda "return x;"
-        - lambda: "esp_sprinkler::display_refresh_weather_cond();"
+        - script.execute: refresh_display_weather_condition
   # Nextion text sensors
   - platform: nextion
     nextion_id: main_lcd
@@ -1672,12 +1806,26 @@ display:
     uart_id: nextion_uart
     update_interval: 1s
     tft_url: http://10.100.0.81/download/public/sprinkler/NX8048P070-011C.tft
-    lambda: "esp_sprinkler::draw_main_screen();"
+    lambda: |-
+      auto dateTime = id(esptime).now();
+      // update the Nextion's clock once per hour (and at start-up)
+      if (id(display_last_full_refresh) != dateTime.hour) {
+        id(display_last_full_refresh) = dateTime.hour;
+        main_lcd->set_nextion_rtc_time(dateTime);
+      }
+      if (id(sprinkler_ctrlr).active_valve().has_value()) {
+        id(nextionSprinklerZoneTotalSecRemain).set_state(id(sprinkler_ctrlr).time_remaining_active_valve().value_or(0));
+      }
     on_setup:
       then:
+        - script.execute: refresh_display_status_string
+        - script.execute: refresh_display_door_state
+        - script.execute: refresh_display_sprinkler_state
+        - script.execute: refresh_display_zone_names
+        - script.execute: refresh_display_zone_run_enable_states
+        - script.execute: refresh_display_zone_run_durations
         - lambda: |-
             main_lcd->goto_page("main");
-            esp_sprinkler::draw_main_screen(true);
             id(nextionTextSensor1).set_state("BME680:", false, true);
             id(nextionTextSensor2).set_state("BME280:", false, true);
             id(nextionTextSensor3).set_state("SHTC3:", false, true);
