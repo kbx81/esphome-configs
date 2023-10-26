@@ -18,7 +18,7 @@ esphome:
   friendly_name: ${node_friendly_name}
   name: ${node_name}
   # build_path: ../../build/${node_name}
-  name_add_mac_suffix: true
+  # name_add_mac_suffix: true
   project:
     name: kbx81.esp-thermostat
     version: "1.0"
