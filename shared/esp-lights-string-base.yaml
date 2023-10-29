@@ -2,16 +2,15 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
-    # version: 5.0.2
-    # platform_version: 6.3.2
+    version: 5.0.2
+    platform_version: 6.3.2
 
 external_components:
   - source:
-      # type: git
-      # url: https://github.com/kbx81/esphome_custom_components
-      type: local
-      path: ../esphome_custom_components/components
+      type: git
+      url: https://github.com/kbx81/esphome_custom_components
     components: [dop_led_plus_h_bridge, remote_base, remote_transmitter]
+    refresh: always
 
 # captive_portal:
 
@@ -589,6 +588,35 @@ light:
               it[0] = temp;
             }
       - addressable_lambda:
+          name: HalloweenColorWipe
+          update_interval: 750ms
+          lambda: |-
+            static uint8_t addr_sel = 0;
+            static uint8_t color_sel = 0;
+            static std::vector<Color> color_list{
+              Color(255, 120, 0),
+              Color(144, 0, 255),
+              Color(160, 255, 0),
+              Color(255, 0, 176)
+            };
+
+            if (initial_run) {
+              it[0] = color_list[0];
+              it[1] = color_list[1];
+              it[2] = color_list[2];
+              it[3] = color_list[3];
+            } else {
+              it[addr_sel++] = color_list[color_sel];
+
+              if (addr_sel >= it.size()) {
+                addr_sel = 0;
+                color_sel++;
+              }
+              if (color_sel >= color_list.size()) {
+                color_sel = 0;
+              }
+            }
+      - addressable_lambda:
           name: Thanksgiving
           update_interval: 750ms
           lambda: |-
@@ -753,6 +781,35 @@ light:
                 it[i] = it[i - 1].get();
               }
               it[0] = temp;
+            }
+      - addressable_lambda:
+          name: HalloweenColorWipe
+          update_interval: 750ms
+          lambda: |-
+            static uint8_t addr_sel = 0;
+            static uint8_t color_sel = 0;
+            static std::vector<Color> color_list{
+              Color(255, 120, 0),
+              Color(144, 0, 255),
+              Color(160, 255, 0),
+              Color(255, 0, 176)
+            };
+
+            if (initial_run) {
+              it[0] = color_list[0];
+              it[1] = color_list[1];
+              it[2] = color_list[2];
+              it[3] = color_list[3];
+            } else {
+              it[addr_sel++] = color_list[color_sel];
+
+              if (addr_sel >= it.size()) {
+                addr_sel = 0;
+                color_sel++;
+              }
+              if (color_sel >= color_list.size()) {
+                color_sel = 0;
+              }
             }
       - addressable_lambda:
           name: Thanksgiving
