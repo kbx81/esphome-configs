@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp-thermostat
+  node_name: "esp-thermostat"
   node_friendly_name: "Thermostat"
   home_page_name: "weather"
   rooms_page_name: "rooms"
@@ -423,6 +423,7 @@ binary_sensor:
   - platform: gpio
     id: esp_thermostat_motion_detection
     name: Motion Detection
+    entity_category: diagnostic
     device_class: motion
     pin:
       number: 27
@@ -436,6 +437,7 @@ binary_sensor:
   - platform: gpio
     id: esp_thermostat_mode_button
     name: Mode Button
+    entity_category: diagnostic
     pin:
       number: 0
       inverted: true
@@ -457,6 +459,7 @@ sensor:
   - platform: template
     id: esp_thermostat_temperature_sensor
     name: Template Temperature Sensor
+    entity_category: diagnostic
     unit_of_measurement: "°C"
     # the line below can easily be swapped to use any other sensor
     lambda: "return id(esp_thermostat_bme680_temperature).state;"
@@ -468,6 +471,7 @@ sensor:
   - platform: template
     id: esp_thermostat_humidity_sensor
     name: Template Humidity Sensor
+    entity_category: diagnostic
     unit_of_measurement: "%"
     # the line below can easily be swapped to use any other sensor
     lambda: "return id(esp_thermostat_bme680_humidity).state;"
@@ -787,6 +791,7 @@ sensor:
   - platform: adc
     id: adc_sensor_phototransistor
     name: Phototransistor ADC
+    entity_category: diagnostic
     pin: 32
     attenuation: 11db
     update_interval: 1s
@@ -813,6 +818,7 @@ sensor:
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
+    entity_category: diagnostic
     name: Thermistor ADC
     pin: 34
     internal: true
@@ -821,6 +827,7 @@ sensor:
   - platform: resistance
     id: thermistor_sensor
     name: NTC Thermistor Resistance
+    entity_category: diagnostic
     sensor: adc_sensor_thermistor
     configuration: DOWNSTREAM
     reference_voltage: ${ntc_reference_voltage}
@@ -830,6 +837,7 @@ sensor:
   - platform: ntc
     id: esp_thermostat_thermistor_temperature
     name: NTC Thermistor Temperature
+    entity_category: diagnostic
     sensor: thermistor_sensor
     calibration:
       b_constant: 3380
@@ -852,6 +860,7 @@ sensor:
     model: DHT22
     temperature:
       id: esp_thermostat_dht22_temperature
+      entity_category: diagnostic
       name: DHT22 Temperature
       filters:
         - offset: ${dht22_temperature_offset}
@@ -863,6 +872,7 @@ sensor:
     humidity:
       id: esp_thermostat_dht22_humidity
       name: DHT22 Humidity
+      entity_category: diagnostic
       on_value:
         then:
           - lambda: |-
@@ -874,6 +884,7 @@ sensor:
     address: 0x76
     temperature:
       id: esp_thermostat_bme280_temperature
+      entity_category: diagnostic
       name: BME280 Temperature
       filters:
         - offset: ${bme280_temperature_offset}
@@ -885,6 +896,7 @@ sensor:
     humidity:
       id: esp_thermostat_bme280_humidity
       name: BME280 Humidity
+      entity_category: diagnostic
       on_value:
         then:
           - lambda: |-
@@ -893,6 +905,7 @@ sensor:
     pressure:
       id: esp_thermostat_bme280_pressure
       name: BME280 Pressure
+      entity_category: diagnostic
       on_value:
         then:
           - lambda: |-
@@ -904,6 +917,7 @@ sensor:
     temperature:
       id: esp_thermostat_bme680_temperature
       name: BME680 Temperature
+      entity_category: diagnostic
       filters:
         - offset: ${bme680_temperature_offset}
       on_value:
@@ -915,6 +929,7 @@ sensor:
     humidity:
       id: esp_thermostat_bme680_humidity
       name: BME680 Humidity
+      entity_category: diagnostic
       on_value:
         then:
           - lambda: |-
@@ -924,6 +939,7 @@ sensor:
     pressure:
       id: esp_thermostat_bme680_pressure
       name: BME680 Pressure
+      entity_category: diagnostic
       on_value:
         then:
           - lambda: |-
@@ -933,6 +949,7 @@ sensor:
     gas_resistance:
       id: esp_thermostat_bme680_gas_resistance
       name: BME680 Gas Resistance
+      entity_category: diagnostic
       # on_value:
       #   then:
       #     - lambda: |-
@@ -941,6 +958,7 @@ sensor:
     iaq:
       id: esp_thermostat_bme680_iaq
       name: BME680 IAQ
+      entity_category: diagnostic
       on_value:
         then:
           - script.execute:
@@ -953,9 +971,11 @@ sensor:
     co2_equivalent:
       id: esp_thermostat_bme680_eco2
       name: BME680 eCO2
+      entity_category: diagnostic
     breath_voc_equivalent:
       id: esp_thermostat_bme680_evoc
       name: BME680 Breath eVOC
+      entity_category: diagnostic
   # BME680 sensor
   # - platform: bme680
   #   address: 0x77
@@ -1001,6 +1021,7 @@ sensor:
     temperature:
       id: esp_thermostat_shtcx_temperature
       name: SHTC3 Temperature
+      entity_category: diagnostic
       filters:
         - offset: ${shtc3_temperature_offset}
       on_value:
@@ -1011,6 +1032,7 @@ sensor:
     humidity:
       id: esp_thermostat_shtcx_humidity
       name: SHTC3 Humidity
+      entity_category: diagnostic
       on_value:
         then:
           - lambda: |-
@@ -1021,6 +1043,7 @@ sensor:
   - platform: tmp117
     id: esp_thermostat_tmp117_temperature
     name: TMP117 Temperature
+    entity_category: diagnostic
     filters:
       - offset: ${tmp117_temperature_offset}
     on_value:
@@ -1034,6 +1057,7 @@ sensor:
     voc:
       id: esp_thermostat_sgp40_voc
       name: SGP40 VOC
+      entity_category: diagnostic
       unit_of_measurement: VOC Index
       on_value:
         then:
@@ -1050,6 +1074,7 @@ text_sensor:
     iaq_accuracy:
       id: esp_thermostat_bme680_accuracy
       name: BME680 Accuracy
+      entity_category: diagnostic
   # HA sensors we track - weather condition
   - platform: homeassistant
     id: weather_condition_ha
@@ -1289,6 +1314,7 @@ number:
   - platform: template
     id: esp_thermostat_display_brightness
     name: Display Brightness
+    entity_category: config
     mode: box
     min_value: 0
     max_value: 100
@@ -1384,6 +1410,7 @@ switch:
   - platform: template
     id: esp_thermostat_display
     name: Display
+    entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
   # display brightness control by motion
@@ -1440,6 +1467,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_heat_1
     name: Heat 1
+    entity_category: config
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
