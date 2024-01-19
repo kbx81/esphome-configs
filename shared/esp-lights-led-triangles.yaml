@@ -1,111 +1,34 @@
 esphome:
-  includes: ../shared/esp_led_triangles.h
+  includes: shared/esp_led_triangles.h
 
-esp8266:
-  board: d1_mini
+esp32:
+  board: esp32-c3-devkitm-1
   framework:
-    version: 2.7.4
-    # version: recommended
+    type: esp-idf
+    version: 5.1.1
+    platform_version: 6.4.0
 
-# globals:
-#   - id: bedroom_temp
-#     type: float
-#     restore_value: no
-#     initial_value: '-100'
+logger:
+  hardware_uart: UART0
 
-status_led:
-  pin:
-    number: GPIO2
-    inverted: true
-
-# remote_receiver:
-#   id: ir_rx
-#   dump: nec
-#   pin:
-#     inverted: true
-#     number: GPIO36
-#   on_nec:
-#     then:
-#       lambda: |-
-#         if (x.command == 0xBF40) {
-#           auto call1 = id(printer_led_lights).toggle();
-#           auto call2 = id(filament_led_lights).toggle();
-#           call1.perform();
-#           call2.perform();
-#         }
-
-# binary_sensor:
-#   - platform: gpio
-#     id: leds_off_button
-#     pin:
-#       number: GPIO0
-#       inverted: true
-#     on_click:
-#       min_length: 50ms
-#       max_length: 500ms
-#       then:
-#         - light.turn_off:
-#             id: printer_led_lights
-#         - light.turn_off:
-#             id: filament_led_lights
-#   - platform: gpio
-#     id: printer_led_on_button
-#     pin:
-#       number: GPIO35
-#       inverted: true
-#     on_click:
-#       min_length: 50ms
-#       max_length: 500ms
-#       then:
-#         - light.turn_on:
-#             id: printer_led_lights
-#             brightness: 1.0
-#             red: 1.0
-#             green: 0.933
-#             blue: 0.753
-#             white: 1.0
-#   - platform: gpio
-#     id: filament_led_on_button
-#     pin:
-#       number: GPIO34
-#       inverted: true
-#     on_click:
-#       min_length: 50ms
-#       max_length: 500ms
-#       then:
-#         - light.turn_on:
-#             id: filament_led_lights
-#             brightness: 0.5
-#             red: 1.0
-#             green: 0.933
-#             blue: 0.753
-#             white: 1.0
-#   - platform: remote_receiver
-#     id: led_remote_power
-#     # name: "LED Remote Power"
-#     nec:
-#       address: 0x00FF
-#       command: 0xBF40
-#     on_press:
-#       then:
-#         - light.toggle: printer_led_lights
-#         - light.toggle: filament_led_lights
+spi:
+  clk_pin: 3
+  mosi_pin: 5
 
 light:
-  - platform: fastled_clockless
+  - platform: esp32_rmt_led_strip
     id: pixel_strip2
     name: HST Art Background
-    chipset: WS2811
-    pin: GPIO15
+    chipset: WS2812
+    pin: 4
     num_leds: 1
-  - platform: fastled_spi
+    rgb_order: GRB
+    rmt_channel: 0
+  - platform: spi_led_strip
     id: pixel_strip1
     name: HST Art
-    chipset: DOTSTAR
-    data_pin: GPIO13
-    clock_pin: GPIO14
     num_leds: 128
-    rgb_order: BGR
+    data_rate: 20MHz
     effects:
       - addressable_rainbow:
       - addressable_color_wipe:
@@ -113,10 +36,10 @@ light:
       - addressable_twinkle:
       - addressable_fireworks:
       - addressable_flicker:
-      - addressable_lambda:
-          name: "Fire"
-          update_interval: 16ms
-          lambda: "esp_led_triangles::hst_fire(it, initial_run, 32);"
+      # - addressable_lambda:
+      #     name: "Fire"
+      #     update_interval: 16ms
+      #     lambda: "esp_led_triangles::hst_fire(it, initial_run, 32);"
       - addressable_lambda:
           name: "HST Art Patterns"
           update_interval: 16ms

@@ -1,5 +1,5 @@
 substitutions:
-  node_name: esp-ratgdov2
+  node_name: esp-gdo
   node_friendly_name: "Garage Door"
   id_prefix: ratgdov2
   uart_tx_pin: D4
@@ -63,13 +63,13 @@ sensor:
     unit_of_measurement: "openings"
     icon: mdi:open-in-app
 
-switch:
+lock:
   - platform: ratgdo
     id: ${id_prefix}_lock_remotes
-    type: lock
-    entity_category: config
     ratgdo_id: ${id_prefix}
     name: "Lock remotes"
+
+switch:
   - platform: gpio
     id: "${id_prefix}_status_door"
     internal: true

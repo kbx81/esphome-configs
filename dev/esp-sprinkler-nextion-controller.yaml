@@ -55,6 +55,7 @@ packages:
 
 esp32:
   board: esp32dev
+  flash_size: 16MB
   framework:
     type: arduino
 
@@ -352,7 +353,9 @@ uart:
 
 cover:
   - platform: template
+    id: esp_sprinkler_controller_garage_door
     name: "Garage Door"
+    icon: mdi:garage-variant
     lambda: |-
       if (id(esp_sprinkler_controller_door_sensor).state) {
         return COVER_OPEN;
@@ -809,11 +812,12 @@ number:
   - platform: template
     id: esp_sprinkler_controller_display_brightness
     name: Display Brightness
-    entity_category: config
+    mode: box
     min_value: 0
     max_value: 100
     step: 1
     lambda: "return id(nextionTargetBrightness).state;"
+    unit_of_measurement: "%"
     update_interval: 1s
     set_action:
       then:
@@ -824,7 +828,9 @@ number:
     id: esp_sprinkler_controller_display_minimum_brightness
     name: Display Minimum Brightness
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: "%"
     min_value: 0
     max_value: 99
     step: 1
@@ -834,7 +840,9 @@ number:
     id: esp_sprinkler_controller_display_maximum_brightness
     name: Display Maximum Brightness
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: "%"
     min_value: 1
     max_value: 100
     step: 1
@@ -844,17 +852,21 @@ number:
     id: esp_sprinkler_controller_display_brightness_idle_reduction
     name: Display Brightness Idle Reduction
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: "%"
     min_value: 0
-    max_value: 1
-    step: 0.01
-    initial_value: 0.80
+    max_value: 100
+    step: 1
+    initial_value: 80
     restore_value: true
   - platform: template
     id: esp_sprinkler_idle_timeout
     name: Idle Timeout
     entity_category: config
+    mode: box
     optimistic: true
+    unit_of_measurement: s
     min_value: 5
     max_value: 900
     step: 1
@@ -913,7 +925,7 @@ switch:
     id: esp_sprinkler_controller_display
     name: Display
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
   # display brightness control by motion
   - platform: template
     id: esp_sprinkler_controller_display_on_motion
@@ -1285,7 +1297,7 @@ sensor:
   # HA sensors we track - weather
   - platform: homeassistant
     id: weather_air_quality_ha
-    entity_id: sensor.waqi_chi_com_illinois_usa
+    entity_id: sensor.aqi_wh41
     on_value:
       then:
         - globals.set:
@@ -1332,7 +1344,7 @@ sensor:
         - lambda: "id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);"
   # Phototransistor ADC sensor
   - platform: adc
-    id: esp_sprinkler_controller_adc_sensor_phototransistor
+    id: adc_sensor_phototransistor
     name: Phototransistor ADC
     pin: 32
     attenuation: 11db
@@ -1347,9 +1359,9 @@ sensor:
         - lambda: |-
             if (id(esp_sprinkler_controller_display).state) {
               auto brightness_mult_max = 100.0;
-              auto brightness_mult_min = (1.0 - id(esp_sprinkler_controller_display_brightness_idle_reduction).state) * 100.0;
-              auto brightness_max = clamp<float>(roundf(id(esp_sprinkler_controller_adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
-              auto brightness_min = clamp<float>(roundf(id(esp_sprinkler_controller_adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
+              auto brightness_mult_min = 100.0 - id(esp_sprinkler_controller_display_brightness_idle_reduction).state;
+              auto brightness_max = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
+              auto brightness_min = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
               // ESP_LOGD("display_brightness", "Max: %f - Min: %f", brightness_max, brightness_min);
               id(nextionMaxBrightness).set_state(brightness_max, true, true);
               id(nextionMinBrightness).set_state(brightness_min, true, true);
@@ -1396,7 +1408,7 @@ sensor:
   # DHT22 sensor
   - platform: dht
     pin: 23
-    model: DHT22
+    model: AM2302
     temperature:
       id: esp_sprinkler_controller_dht22_temperature
       name: DHT22 Temperature
@@ -1410,6 +1422,7 @@ sensor:
     humidity:
       id: esp_sprinkler_controller_dht22_humidity
       name: DHT22 Humidity
+      accuracy_decimals: 1
       on_value:
         then:
           - lambda: |-
@@ -1417,7 +1430,7 @@ sensor:
               id(nextionTextSensor5b).set_state(humidity_string, false, true);
     update_interval: 15s
   # BME280 sensor
-  - platform: bme280
+  - platform: bme280_i2c
     address: 0x76
     temperature:
       id: esp_sprinkler_controller_bme280_temperature

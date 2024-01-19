@@ -18,7 +18,7 @@ esphome:
   friendly_name: ${node_friendly_name}
   name: ${node_name}
   # build_path: ../../build/${node_name}
-  # name_add_mac_suffix: true
+  name_add_mac_suffix: true
   project:
     name: kbx81.esp-thermostat
     version: "1.0"
@@ -26,6 +26,7 @@ esphome:
 
 esp32:
   board: esp32dev
+  flash_size: 8MB
   framework:
     type: arduino
 
@@ -43,7 +44,7 @@ wifi:
     ssid: ${node_name}
     password: "12345678"
 
-# captive_portal:
+captive_portal:
 
 # esp32_improv:
 #   authorizer: none
@@ -400,6 +401,7 @@ binary_sensor:
   - platform: status
     id: esp_thermostat_api_status
     name: API Status
+    entity_category: diagnostic
     on_state:
       then:
         - script.execute: refresh_display_status_string
@@ -454,6 +456,7 @@ binary_sensor:
 sensor:
   - platform: wifi_signal
     name: Wi-Fi Signal
+    entity_category: diagnostic
     update_interval: 15s
   # template sensor used for thermostat component
   - platform: template
@@ -818,8 +821,8 @@ sensor:
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
-    entity_category: diagnostic
     name: Thermistor ADC
+    entity_category: diagnostic
     pin: 34
     internal: true
     update_interval: 1s
@@ -860,8 +863,8 @@ sensor:
     model: DHT22
     temperature:
       id: esp_thermostat_dht22_temperature
-      entity_category: diagnostic
       name: DHT22 Temperature
+      entity_category: diagnostic
       filters:
         - offset: ${dht22_temperature_offset}
       on_value:
@@ -884,8 +887,8 @@ sensor:
     address: 0x76
     temperature:
       id: esp_thermostat_bme280_temperature
-      entity_category: diagnostic
       name: BME280 Temperature
+      entity_category: diagnostic
       filters:
         - offset: ${bme280_temperature_offset}
       on_value:
@@ -982,6 +985,7 @@ sensor:
   #   temperature:
   #     id: esp_thermostat_bme680_temperature
   #     name: BME680 Temperature
+  #     entity_category: diagnostic
   #     filters:
   #       - offset: -1.2
   #     on_value:
@@ -993,6 +997,7 @@ sensor:
   #   humidity:
   #     id: esp_thermostat_bme680_humidity
   #     name: BME680 Humidity
+  #     entity_category: diagnostic
   #     on_value:
   #       then:
   #         - lambda: |-
@@ -1002,6 +1007,7 @@ sensor:
   #   pressure:
   #     id: esp_thermostat_bme680_pressure
   #     name: BME680 Pressure
+  #     entity_category: diagnostic
   #     on_value:
   #       then:
   #         - lambda: |-
@@ -1010,6 +1016,7 @@ sensor:
   #   gas_resistance:
   #     id: esp_thermostat_bme680_gas_resistance
   #     name: BME680 Gas Resistance
+  #     entity_category: diagnostic
   #     on_value:
   #       then:
   #         - lambda: |-
@@ -1423,6 +1430,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_thermistor_vcc
     name: Thermistor Vcc
+    entity_category: diagnostic
     internal: true
     restore_mode: ALWAYS_ON
     pin:
@@ -1431,6 +1439,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_mcp23017_reset
     name: MCP23017 Reset
+    entity_category: diagnostic
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1440,6 +1449,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_fan
     name: Fan
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1449,6 +1459,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_cool_1
     name: Cool 1
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1458,6 +1469,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_cool_2
     name: Cool 2
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1467,7 +1479,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_heat_1
     name: Heat 1
-    entity_category: config
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1477,6 +1489,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_heat_2
     name: Heat 2
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1486,6 +1499,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_triac_misc_1
     name: Misc 1
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1495,6 +1509,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_triac_misc_2
     name: Misc 2
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1504,6 +1519,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_triac_misc_3
     name: Misc 3
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1513,6 +1529,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_humidify
     name: Humidify
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1522,6 +1539,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_relay_2
     name: Relay 2
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1531,6 +1549,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_relay_3
     name: Relay 3
+    entity_category: diagnostic
     # internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1540,6 +1559,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_to_1
     name: Test Output 1
+    entity_category: diagnostic
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1549,6 +1569,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_to_2
     name: Test Output 2
+    entity_category: diagnostic
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1558,6 +1579,7 @@ switch:
   - platform: gpio
     id: esp_thermostat_to_3
     name: Test Output 3
+    entity_category: diagnostic
     internal: true
     restore_mode: ALWAYS_OFF
     pin:
@@ -1567,6 +1589,7 @@ switch:
   # - platform: gpio
   #   id: esp_thermostat_to_4
   #   name: Test Output 4
+  #   entity_category: diagnostic
   #   internal: true
   #   restore_mode: ALWAYS_OFF
   #   pin:
@@ -1576,6 +1599,7 @@ switch:
   # - platform: gpio
   #   id: esp_thermostat_to_5
   #   name: Test Output 5
+  #   entity_category: diagnostic
   #   internal: true
   #   restore_mode: ALWAYS_OFF
   #   pin:

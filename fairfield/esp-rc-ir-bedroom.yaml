@@ -7,6 +7,10 @@ packages:
 
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
+    # version: 5.1.1
+    # platform_version: 6.4.0
 
 globals:
   # makes sure we don't switch the air cleaner state if it's already in the desired state
@@ -16,7 +20,7 @@ globals:
 
 status_led:
   pin:
-    # inverted: true
+    inverted: true
     number: 13
 
 remote_receiver:
@@ -44,6 +48,9 @@ binary_sensor:
     pin:
       number: 0
       inverted: true
+      mode:
+        input: true
+        pullup: true
     on_click:
       - min_length: 50ms
         max_length: 500ms

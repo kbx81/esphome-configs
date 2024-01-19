@@ -5,6 +5,8 @@ substitutions:
   rooms_page_name: "rooms"
   sensors_page_name: "sensors"
   weather_page_name: "weather"
+  # air quality entity name
+  air_quality_entity: "sensor.aqi_wh41"
   # weather entity name
   weather_entity: "weather.home_fairfield"
   # temperature sensor offsets
@@ -19,6 +21,9 @@ packages:
   esp_common: !include shared/esp__common_core.yaml
   esp_thermostat_common: !include shared/esp_thermostat_nextion_common_config.yaml
   esp_thermostat_common_controller: !include shared/esp_thermostat_common_satellite_config.yaml
+
+esp32:
+  flash_size: 8MB
 
 # BME680 BSEC sensor
 bme680_bsec:
@@ -81,8 +86,7 @@ display:
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 15s
-    # tft_url: https://www.kbx81.net/download/public/climate/NX4832K035.tft
-    tft_url: http://10.100.0.81/download/public/climate/NX4832K035.tft
+    tft_url: http://10.100.0.81/download/public/climate/v1/NX4832K035.tft
     lambda: |-
       auto dateTime = id(esptime).now();
       // update the Nextion's clock once per hour (and at start-up)
@@ -97,7 +101,7 @@ display:
         - script.execute: refresh_display_climate_fan_mode
         - script.execute: refresh_display_set_points
         - lambda: |-
-            main_lcd->goto_page("weather");
+            main_lcd->goto_page("home");
 
             id(nextionTextRoom1).set_state("Local:", false, true);
             id(nextionTextRoom2).set_state("Front Room:", false, true);

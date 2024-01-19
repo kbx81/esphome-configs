@@ -132,9 +132,9 @@ namespace esp_led_triangles
     const uint8_t amountOfKeep = 255 - amountOfOverlay;
     Color blended;
 
-    blended.red   = scale8(existing.red,   amountOfKeep) + scale8(overlay.red,   amountOfOverlay);
-    blended.green = scale8(existing.green, amountOfKeep) + scale8(overlay.green, amountOfOverlay);
-    blended.blue  = scale8(existing.blue,  amountOfKeep) + scale8(overlay.blue,  amountOfOverlay);
+    blended.red   = esp_scale8(existing.red,   amountOfKeep) + esp_scale8(overlay.red,   amountOfOverlay);
+    blended.green = esp_scale8(existing.green, amountOfKeep) + esp_scale8(overlay.green, amountOfOverlay);
+    blended.blue  = esp_scale8(existing.blue,  amountOfKeep) + esp_scale8(overlay.blue,  amountOfOverlay);
 
     return blended;
   }
@@ -243,91 +243,91 @@ namespace esp_led_triangles
     }
   }
 
-  void hst_fire(AddressableLight &it, const bool initial_run, const uint8_t speed = 32) {
-    // heatmap data with the size matrix width * height
-    static uint8_t fire_heat[num_leds];
-    // storage for the noise data -- adjust the size to suit your setup
-    uint8_t fire_noise[grid_width][grid_height];
-    // other control parameters for the fire noise array
-    uint32_t fire_x;
-    uint32_t fire_y;
-    uint32_t fire_z;
-    uint32_t fire_scale_x;
-    uint32_t fire_scale_y;
-    // get one noise value out of a moving noise space
-    uint16_t ctrl1 = inoise16(11 * millis(), 0, 0);
-    // get another one
-    uint16_t ctrl2 = inoise16(13 * millis(), 100000, 100000);
-    // average of both to get a more unpredictable curve
-    uint16_t  ctrl = ((ctrl1 + ctrl2) / 2);
-    // the color palette
-    CRGBPalette16 fire_pal = HeatColors_p;
+  // void hst_fire(AddressableLight &it, const bool initial_run, const uint8_t speed = 32) {
+  //   // heatmap data with the size matrix width * height
+  //   static uint8_t fire_heat[num_leds];
+  //   // storage for the noise data -- adjust the size to suit your setup
+  //   uint8_t fire_noise[grid_width][grid_height];
+  //   // other control parameters for the fire noise array
+  //   uint32_t fire_x;
+  //   uint32_t fire_y;
+  //   uint32_t fire_z;
+  //   uint32_t fire_scale_x;
+  //   uint32_t fire_scale_y;
+  //   // get one noise value out of a moving noise space
+  //   uint16_t ctrl1 = inoise16(11 * millis(), 0, 0);
+  //   // get another one
+  //   uint16_t ctrl2 = inoise16(13 * millis(), 100000, 100000);
+  //   // average of both to get a more unpredictable curve
+  //   uint16_t  ctrl = ((ctrl1 + ctrl2) / 2);
+  //   // the color palette
+  //   CRGBPalette16 fire_pal = HeatColors_p;
 
-    // here we define the impact of the wind
-    // high factor = a lot of movement to the sides
-    fire_x = 3 * ctrl * speed;
-    // this is the speed of the upstream itself
-    // high factor = fast movement
-    fire_y = 15 * millis() * speed;
-    // just for ever changing patterns we move through z as well
-    fire_z = 3 * millis() * speed;
-    // ...and dynamically scale the complete heatmap for some changes in the size of the heatspots.
-    // The speed of change is influenced by the factors in the calculation of ctrl1 & 2 above.
-    // The divisor sets the impact of the size-scaling.
-    fire_scale_x = ctrl1 / 2;
-    fire_scale_y = ctrl2 / 2;
+  //   // here we define the impact of the wind
+  //   // high factor = a lot of movement to the sides
+  //   fire_x = 3 * ctrl * speed;
+  //   // this is the speed of the upstream itself
+  //   // high factor = fast movement
+  //   fire_y = 15 * millis() * speed;
+  //   // just for ever changing patterns we move through z as well
+  //   fire_z = 3 * millis() * speed;
+  //   // ...and dynamically scale the complete heatmap for some changes in the size of the heatspots.
+  //   // The speed of change is influenced by the factors in the calculation of ctrl1 & 2 above.
+  //   // The divisor sets the impact of the size-scaling.
+  //   fire_scale_x = ctrl1 / 2;
+  //   fire_scale_y = ctrl2 / 2;
 
-    // Calculate the noise array based on the control parameters
-    for (uint8_t i = 0; i < grid_width; i++) {
-      uint32_t ioffset = fire_scale_x * (i - grid_center_x);
-      for (uint8_t j = 0; j < grid_height; j++) {
-        uint32_t joffset = fire_scale_y * (j - grid_center_y);
-        uint16_t data = ((inoise16(fire_x + ioffset, fire_y + joffset, fire_z)) + 1);
-        fire_noise[i][j] = data >> 8;
-      }
-    }
+  //   // Calculate the noise array based on the control parameters
+  //   for (uint8_t i = 0; i < grid_width; i++) {
+  //     uint32_t ioffset = fire_scale_x * (i - grid_center_x);
+  //     for (uint8_t j = 0; j < grid_height; j++) {
+  //       uint32_t joffset = fire_scale_y * (j - grid_center_y);
+  //       uint16_t data = ((inoise16(fire_x + ioffset, fire_y + joffset, fire_z)) + 1);
+  //       fire_noise[i][j] = data >> 8;
+  //     }
+  //   }
 
-    // Draw the first (lowest) line -- seed the fire.
-    // It could be random pixels or anything else as well.
-    for (uint8_t x = 0; x < grid_width; x++) {
-      // draw
-      CRGB pixel_color = ColorFromPalette(fire_pal, fire_noise[x][0]);
-      it[esp_led_triangles::led_index_from_xy(x, grid_height - 1)] = Color(pixel_color.red, pixel_color.green, pixel_color.blue);
-      // and fill the lowest line of the heatmap, too
-      fire_heat[esp_led_triangles::led_index_from_xy(x, grid_height - 1)] = fire_noise[x][0];
-    }
+  //   // Draw the first (lowest) line -- seed the fire.
+  //   // It could be random pixels or anything else as well.
+  //   for (uint8_t x = 0; x < grid_width; x++) {
+  //     // draw
+  //     CRGB pixel_color = ColorFromPalette(fire_pal, fire_noise[x][0]);
+  //     it[esp_led_triangles::led_index_from_xy(x, grid_height - 1)] = Color(pixel_color.red, pixel_color.green, pixel_color.blue);
+  //     // and fill the lowest line of the heatmap, too
+  //     fire_heat[esp_led_triangles::led_index_from_xy(x, grid_height - 1)] = fire_noise[x][0];
+  //   }
 
-    // Copy the heatmap one line up for the scrolling.
-    for (uint8_t y = 0; y < grid_height - 1; y++) {
-      for (uint8_t x = 0; x < grid_width; x++) {
-        fire_heat[esp_led_triangles::led_index_from_xy(x, y)] = fire_heat[esp_led_triangles::led_index_from_xy(x, y + 1)];
-      }
-    }
+  //   // Copy the heatmap one line up for the scrolling.
+  //   for (uint8_t y = 0; y < grid_height - 1; y++) {
+  //     for (uint8_t x = 0; x < grid_width; x++) {
+  //       fire_heat[esp_led_triangles::led_index_from_xy(x, y)] = fire_heat[esp_led_triangles::led_index_from_xy(x, y + 1)];
+  //     }
+  //   }
 
-    // Scale the heatmap values down based on the independent scrolling noise array
-    for (uint8_t y = 0; y < grid_height - 1; y++) {
-      for (uint8_t x = 0; x < grid_width; x++) {
-        // get data from the calculated noise field
-        uint8_t dim = fire_noise[x][y];
+  //   // Scale the heatmap values down based on the independent scrolling noise array
+  //   for (uint8_t y = 0; y < grid_height - 1; y++) {
+  //     for (uint8_t x = 0; x < grid_width; x++) {
+  //       // get data from the calculated noise field
+  //       uint8_t dim = fire_noise[x][y];
 
-        // This number is critical
-        // If it's to low (like 1.1) the fire dosn´t go up far enough.
-        // If it's to high (like 3) the fire goes up too high.
-        // It depends on the framerate which number is best.
-        // If the number is not right you loose the uplifting fire clouds which seperate themself while rising up.
-        dim = dim / 1.5;
-        dim = 255 - dim;
-        // do scaling of the heatmap
-        fire_heat[esp_led_triangles::led_index_from_xy(x, y)] = scale8(fire_heat[esp_led_triangles::led_index_from_xy(x, y)] , dim);
-      }
-    }
+  //       // This number is critical
+  //       // If it's to low (like 1.1) the fire dosn´t go up far enough.
+  //       // If it's to high (like 3) the fire goes up too high.
+  //       // It depends on the framerate which number is best.
+  //       // If the number is not right you loose the uplifting fire clouds which seperate themself while rising up.
+  //       dim = dim / 1.5;
+  //       dim = 255 - dim;
+  //       // do scaling of the heatmap
+  //       fire_heat[esp_led_triangles::led_index_from_xy(x, y)] = scale8(fire_heat[esp_led_triangles::led_index_from_xy(x, y)] , dim);
+  //     }
+  //   }
 
-    // Now just map the colors based on the heatmap
-    for (uint8_t y = 0; y < grid_height - 1; y++) {
-      for (uint8_t x = 0; x < grid_width; x++) {
-        CRGB pixel_color = ColorFromPalette(fire_pal, fire_heat[esp_led_triangles::led_index_from_xy(x, y)]);
-        it[esp_led_triangles::led_index_from_xy(x, y)] = Color(pixel_color.red, pixel_color.green, pixel_color.blue);
-      }
-    }
-  }
+  //   // Now just map the colors based on the heatmap
+  //   for (uint8_t y = 0; y < grid_height - 1; y++) {
+  //     for (uint8_t x = 0; x < grid_width; x++) {
+  //       CRGB pixel_color = ColorFromPalette(fire_pal, fire_heat[esp_led_triangles::led_index_from_xy(x, y)]);
+  //       it[esp_led_triangles::led_index_from_xy(x, y)] = Color(pixel_color.red, pixel_color.green, pixel_color.blue);
+  //     }
+  //   }
+  // }
 }

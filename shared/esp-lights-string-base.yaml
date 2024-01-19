@@ -7,8 +7,10 @@ esp32:
 
 external_components:
   - source:
-      type: git
-      url: https://github.com/kbx81/esphome_custom_components
+      # type: git
+      # url: https://github.com/kbx81/esphome_custom_components
+      type: local
+      path: ../esphome_custom_components/components
     components: [dop_led_plus_h_bridge, remote_base, remote_transmitter]
     refresh: always
 
@@ -601,6 +603,8 @@ light:
             };
 
             if (initial_run) {
+              addr_sel = 0;
+              color_sel = 0;
               it[0] = color_list[0];
               it[1] = color_list[1];
               it[2] = color_list[2];
@@ -796,6 +800,8 @@ light:
             };
 
             if (initial_run) {
+              addr_sel = 0;
+              color_sel = 0;
               it[0] = color_list[0];
               it[1] = color_list[1];
               it[2] = color_list[2];

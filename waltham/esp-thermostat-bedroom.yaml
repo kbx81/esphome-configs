@@ -5,6 +5,8 @@ substitutions:
   rooms_page_name: "rooms"
   sensors_page_name: "sensors"
   weather_page_name: "weather"
+  # air quality entity name
+  air_quality_entity: "sensor.waqi_chi_com_illinois_usa"
   # weather entity name
   weather_entity: "weather.home_waltham"
   # temperature sensor offsets
@@ -20,6 +22,9 @@ packages:
   esp_common: !include shared/esp__common_core.yaml
   esp_thermostat_common: !include shared/esp_thermostat_nextion_common_config.yaml
   esp_thermostat_common_controller: !include shared/esp_thermostat_common_satellite_config.yaml
+
+esp32:
+  flash_size: 8MB
 
 # BME680 BSEC sensor
 bme680_bsec:
@@ -81,6 +86,7 @@ sensor:
     humidity:
       id: esp_thermostat_dht22_humidity
       name: DHT22 Humidity
+      accuracy_decimals: 1
       on_value:
         then:
           - lambda: |-
@@ -93,9 +99,7 @@ display:
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 15s
-    # tft_url: https://www.kbx81.net/download/public/climate/NX8048P050-011C.tft
-    tft_url: http://10.100.0.81/download/public/climate/NX8048K050.tft
-    # tft_url: http://10.100.0.81/download/public/climate/NX8048P050-011C.tft
+    tft_url: http://10.100.0.81/download/public/climate/v2/NX8048K050.tft
     lambda: |-
       auto dateTime = id(esptime).now();
       // update the Nextion's clock once per hour (and at start-up)

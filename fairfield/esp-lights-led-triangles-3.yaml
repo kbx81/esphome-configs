@@ -3,5 +3,5 @@ substitutions:
   node_friendly_name: "LED Triangles 3"
 
 packages:
-  esp_common: !include ../shared/esp__common_core.yaml
-  esp_lights_led_triangles: !include ../shared/esp-lights-led-triangles.yaml
+  esp_common: !include shared/esp__common_core.yaml
+  esp_lights_led_triangles: !include shared/esp-lights-led-triangles.yaml

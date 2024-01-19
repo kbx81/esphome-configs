@@ -268,15 +268,15 @@ climate:
     name: none
     sensor: esp_thermostat_temperature_sensor
     startup_delay: true
-    supplemental_cooling_delta: 2.222222222222222
-    cool_deadband: 0.5556
-    cool_overrun: 0.5556
+    supplemental_cooling_delta: 4°F
+    cool_deadband: 1°F
+    cool_overrun: 1°F
     min_cooling_off_time: 300s
     min_cooling_run_time: 300s
     max_cooling_run_time: 1800s
-    supplemental_heating_delta: 2.222222222222222
-    heat_deadband: 0.5556
-    heat_overrun: 0.5556
+    supplemental_heating_delta: 4°F
+    heat_deadband: 1°F
+    heat_overrun: 1°F
     min_heating_off_time: 300s
     min_heating_run_time: 300s
     max_heating_run_time: 1800s
@@ -284,7 +284,7 @@ climate:
     # min_fanning_off_time: 30s
     # min_fanning_run_time: 30s
     min_idle_time: 30s
-    set_point_minimum_differential: 0.5556
+    set_point_minimum_differential: 1°F
     fan_only_action_uses_fan_mode_timer: true
     fan_only_cooling: true
     fan_with_cooling: true
@@ -559,7 +559,7 @@ sensor:
   # HA sensors we track - weather
   - platform: homeassistant
     id: weather_air_quality_ha
-    entity_id: sensor.waqi_chi_com_illinois_usa
+    entity_id: ${air_quality_entity}
     on_value:
       then:
         - globals.set:
@@ -698,7 +698,7 @@ sensor:
   #             id(nextionTextSensor5b).set_state(humidity_string, false, true);
   #   update_interval: 15s
   # BME280 sensor
-  - platform: bme280
+  - platform: bme280_i2c
     address: 0x76
     temperature:
       id: esp_thermostat_bme280_temperature
@@ -1372,6 +1372,7 @@ number:
   - platform: template
     id: esp_thermostat_display_brightness
     name: Display Brightness
+    entity_category: config
     mode: box
     min_value: 0
     max_value: 100
