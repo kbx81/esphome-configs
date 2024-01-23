@@ -556,6 +556,18 @@ sensor:
                   id: missed_update_count
                   value: "0"
         # - lambda: "id(nextionCurrentTemp).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: system_temperature_maximum_over_last_24_hours_ha
+    entity_id: sensor.thermostat_system_temperature_maximum_over_last_24_hours
+    on_value:
+      then:
+        - lambda: "id(nextionCurrentTempHigh).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: system_temperature_minimum_over_last_24_hours_ha
+    entity_id: sensor.thermostat_system_temperature_minimum_over_last_24_hours
+    on_value:
+      then:
+        - lambda: "id(nextionCurrentTempLow).set_state(roundf(x * 10), false, true);"
   # HA sensors we track - weather
   - platform: homeassistant
     id: weather_air_quality_ha
@@ -935,6 +947,14 @@ sensor:
     nextion_id: main_lcd
     id: nextionCurrentTemp
     variable_name: currentTemp
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentTempHigh
+    variable_name: currentTempHigh
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionCurrentTempLow
+    variable_name: currentTempLow
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentHum

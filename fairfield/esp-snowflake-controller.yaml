@@ -9,8 +9,8 @@ esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: esp-idf
-    version: 5.0.2
-    platform_version: 6.3.2
+    version: 5.1.1
+    platform_version: 6.4.0
 
 globals:
   # makes sure we don't switch the snowflakes' state if it's already in the desired state

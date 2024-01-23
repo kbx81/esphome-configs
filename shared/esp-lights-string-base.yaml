@@ -2,8 +2,8 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
-    version: 5.0.2
-    platform_version: 6.3.2
+    version: 5.1.1
+    platform_version: 6.4.0
 
 external_components:
   - source:
@@ -14,25 +14,18 @@ external_components:
     components: [dop_led_plus_h_bridge, remote_base, remote_transmitter]
     refresh: always
 
-# captive_portal:
-
-# Enable logging
-# logger:
-
-# time:
-#   - platform: homeassistant
-#     id: esptime
-#     timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
-
 status_led:
   pin:
     number: 5
 
 remote_receiver:
   - id: rf_rx
-    pin: 33
+    pin:
+      number: 33
+      inverted: true
     idle: 7ms
-    dump: honeywell_string_lights
+    dump:
+      - honeywell_string_lights
 
 remote_transmitter:
   - id: dop_port_a
