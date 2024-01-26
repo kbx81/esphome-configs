@@ -232,7 +232,7 @@ script:
 
           capitalized_weather_condition.append(":");
           capitalized_weather_condition[0] = toupper(capitalized_weather_condition[0]);
-          id(nextionTextRoom7).set_state(capitalized_weather_condition, false, true);
+          id(nextionTextRoom8).set_state(capitalized_weather_condition, false, true);
 
 status_led:
   pin:
@@ -591,7 +591,7 @@ sensor:
             value: !lambda "return x;"
         - lambda: |-
             id(nextionWeatherHum).set_state(roundf(x * 10), false, true);
-            id(nextionRoom7Hum).set_state(roundf(x * 10), false, true);
+            id(nextionRoom8Hum).set_state(roundf(x * 10), false, true);
   - platform: homeassistant
     id: weather_temperature_ha
     entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
@@ -602,7 +602,7 @@ sensor:
             value: !lambda "return x;"
         - lambda: |-
             id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);
-            id(nextionRoom7Temp).set_state(roundf(x * 10), false, true);
+            id(nextionRoom8Temp).set_state(roundf(x * 10), false, true);
   - platform: homeassistant
     id: weather_forecasted_high_ha
     entity_id: sensor.weather_forecasted_high
@@ -1087,6 +1087,18 @@ sensor:
     nextion_id: main_lcd
     id: nextionRoom8Hum
     variable_name: room8Hum
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionUiColorBorderOnAction
+    variable_name: uiColorBorderOnAction
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionUiColorCurrentTempOnAction
+    variable_name: uiColorCurrentTempOnAction
+  - platform: nextion
+    nextion_id: main_lcd
+    id: nextionUiColorIconOnAction
+    variable_name: uiColorIconOnAction
 
 text_sensor:
   - platform: bme680_bsec
@@ -1351,6 +1363,49 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
+  # display UI configuration flags
+  - platform: template
+    id: esp_thermostat_ui_color_border_on_action
+    name: UI Color Border On Action
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        lambda: |-
+          id(nextionUiColorBorderOnAction).set_state(0, true, true);
+    on_turn_on:
+      then:
+        lambda: |-
+          id(nextionUiColorBorderOnAction).set_state(1, true, true);
+  - platform: template
+    id: esp_thermostat_ui_color_currenttemp_on_action
+    name: UI Color Current Temperature On Action
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        lambda: |-
+          id(nextionUiColorCurrentTempOnAction).set_state(0, true, true);
+    on_turn_on:
+      then:
+        lambda: |-
+          id(nextionUiColorCurrentTempOnAction).set_state(1, true, true);
+  - platform: template
+    id: esp_thermostat_ui_color_icon_on_action
+    name: UI Color Icon On Action
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        lambda: |-
+          id(nextionUiColorIconOnAction).set_state(0, true, true);
+    on_turn_on:
+      then:
+        lambda: |-
+          id(nextionUiColorIconOnAction).set_state(1, true, true);
 
 number:
   - platform: template

@@ -50,6 +50,12 @@ sensor:
     on_value:
       then:
         - lambda: "id(nextionRoom4Hum).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_garage_humidity_ha
+    entity_id: sensor.garage_sensor_humidity
+    on_value:
+      then:
+        - lambda: "id(nextionRoom5Hum).set_state(roundf(x * 10), false, true);"
   # HA sensors we track - temperature
   - platform: homeassistant
     id: room_bedroom_temperature_ha
@@ -69,6 +75,12 @@ sensor:
     on_value:
       then:
         - lambda: "id(nextionRoom4Temp).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_garage_temperature_ha
+    entity_id: sensor.garage_sensor_temperature
+    on_value:
+      then:
+        - lambda: "id(nextionRoom5Temp).set_state(roundf(x * 10), false, true);"
   # DHT22 sensor
   - platform: dht
     pin: 23
@@ -120,6 +132,7 @@ display:
             id(nextionTextRoom2).set_state("Bedroom:", false, true);
             id(nextionTextRoom3).set_state("Family Room:", false, true);
             id(nextionTextRoom4).set_state("Utility Room:", false, true);
+            id(nextionTextRoom5).set_state("Garage:", false, true);
 
             id(nextionTextSensor1).set_state("BME680:", false, true);
             id(nextionTextSensor2).set_state("BME280:", false, true);

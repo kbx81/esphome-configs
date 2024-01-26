@@ -55,6 +55,12 @@ sensor:
     on_value:
       then:
         - lambda: "id(nextionRoom5Hum).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_garage_humidity_ha
+    entity_id: sensor.garage_sensor_humidity
+    on_value:
+      then:
+        - lambda: "id(nextionRoom6Hum).set_state(roundf(x * 10), false, true);"
   # HA sensors we track - temperature
   - platform: homeassistant
     id: room_front_room_temperature_ha
@@ -80,13 +86,19 @@ sensor:
     on_value:
       then:
         - lambda: "id(nextionRoom5Temp).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_garage_temperature_ha
+    entity_id: sensor.garage_sensor_temperature
+    on_value:
+      then:
+        - lambda: "id(nextionRoom6Temp).set_state(roundf(x * 10), false, true);"
 
 display:
   - platform: nextion
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 15s
-    tft_url: http://10.100.0.81/download/public/climate/v1/NX4832K035.tft
+    tft_url: http://10.100.0.81/download/public/climate/v2/NX4832K035.tft
     lambda: |-
       auto dateTime = id(esptime).now();
       // update the Nextion's clock once per hour (and at start-up)
@@ -108,6 +120,7 @@ display:
             id(nextionTextRoom3).set_state("Nook:", false, true);
             id(nextionTextRoom4).set_state("Bedroom:", false, true);
             id(nextionTextRoom5).set_state("Boiler Room:", false, true);
+            id(nextionTextRoom6).set_state("Garage:", false, true);
 
             id(nextionTextSensor1).set_state("BME680:", false, true);
             id(nextionTextSensor2).set_state("BME280:", false, true);
