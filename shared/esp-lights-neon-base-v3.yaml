@@ -1,0 +1,158 @@
+substitutions:
+  project_name: NeonPSU
+  project_version: v3
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
+
+ota:
+  - id: !extend ota_esphome
+    on_begin:
+      then:
+        - switch.turn_off: neon_enable
+        - light.turn_off: neon_light_dac
+
+status_led:
+  pin:
+    number: 10
+    inverted: true
+
+i2c:
+  - id: i2c_dac
+    frequency: 1000kHz
+    scan: true
+    scl: 2
+    sda: 3
+
+# remote_receiver:
+#   id: ir_rx
+#   dump: nec
+#   pin:
+#     inverted: true
+#     number: 4
+#   on_nec:
+#     then:
+#       lambda: |-
+#         if (x.command == 0xBF40) {
+#           auto call1 = id(neon_light_dac).toggle();
+#           call1.perform();
+#         }
+
+binary_sensor:
+  - platform: gpio
+    id: down_button
+    pin:
+      number: 8
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_off:
+            id: neon_light_dac
+            transition_length: 0s
+        - light.turn_off:
+            id: neon_light_pwm
+            transition_length: 0s
+  - platform: gpio
+    id: up_button
+    pin:
+      number: 9
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    on_click:
+      min_length: 50ms
+      max_length: 500ms
+      then:
+        - light.turn_on:
+            id: neon_light_dac
+            brightness: 1.0
+            transition_length: 0s
+        # - light.turn_on:
+        #     id: neon_light_pwm
+        #     brightness: 1.0
+        #     transition_length: 0s
+  - platform: gpio
+    name: Fault
+    id: fault_sensor
+    device_class: problem
+    entity_category: diagnostic
+    pin:
+      number: 5
+      inverted: true
+  - platform: gpio
+    name: Buck Converter Power
+    id: buck_converter_power_sensor
+    device_class: power
+    entity_category: diagnostic
+    pin:
+      number: 1
+      inverted: true
+#   - platform: remote_receiver
+#     id: led_remote_power
+#     # name: "LED Remote Power"
+#     nec:
+#       address: 0x00FF
+#       command: 0xBF40
+#     on_press:
+#       then:
+#         - light.toggle: neon_light_dac
+
+sensor:
+  - platform: adc
+    id: current_sensor_analog
+    # name: Current Sensor Analog
+    # internal: true
+    pin: 0
+    attenuation: 2.5db
+    update_interval: 250ms
+
+switch:
+  - platform: gpio
+    id: neon_enable
+    # name: Enable
+    restore_mode: ALWAYS_OFF
+    pin:
+      number: 6
+      mode: OUTPUT
+
+light:
+  - platform: monochromatic
+    id: neon_light_dac
+    name: none
+    # name: DAC
+    restore_mode: ALWAYS_OFF
+    output: neon_dac_output
+    on_turn_off:
+      - switch.turn_off: neon_enable
+    on_turn_on:
+      - switch.turn_on: neon_enable
+  - platform: monochromatic
+    id: neon_light_pwm
+    # name: PWM
+    restore_mode: ALWAYS_OFF
+    output: neon_pwm_output
+    on_turn_off:
+      - switch.turn_off: neon_enable
+    on_turn_on:
+      - switch.turn_on: neon_enable
+
+output:
+  - platform: mcp4725
+    id: neon_dac_output
+    min_power: ${dac_min_power}
+    max_power: ${dac_max_power}
+    zero_means_zero: true
+  - platform: ledc
+    id: neon_pwm_output
+    pin: 7
+    frequency: 330Hz

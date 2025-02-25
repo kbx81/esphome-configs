@@ -1,21 +1,36 @@
 # https://learn.adafruit.com/adafruit-funhouse/pinouts
 substitutions:
   node_name: esp-funhouse
-  node_friendly_name: "Adafruit Funhouse"
-
-# esphome:
-#   platformio_options:
-#     board_build.flash_mode: dio
+  node_friendly_name: Adafruit Funhouse
+  project_name: AdafruitFunhouse
+  project_version: v1
 
 esp32:
   board: adafruit_funhouse_esp32s2
   framework:
     type: esp-idf
     version: 5.0.2
+    source: platformio/framework-espidf@3.50002.230601
     platform_version: 6.3.2
-    # type: arduino
-    # version: 2.0.9
-    # platform_version: 5.4.0
+
+esphome:
+  on_boot:
+    priority: 375
+    then:
+      - delay: 2s
+      - if:
+          condition:
+            switch.is_on: auto_dotstar
+          then:
+            - light.control:
+                id: dotstar_light
+                state: on
+                brightness: !lambda "return id(light_brightness).state;"
+                effect: Random Twinkle
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
@@ -25,7 +40,7 @@ psram:
 
 esp32_touch:
   # setup_mode: true
-  measurement_duration: 100us
+  measurement_duration: 50us
   denoise_grade: BIT12
   denoise_cap_level: L0
   debounce_count: 1
@@ -34,7 +49,6 @@ esp32_touch:
   jitter_step: 0
   smooth_mode: IIR_2
 
-# Enable logging
 logger:
   hardware_uart: USB_CDC
 
@@ -48,7 +62,6 @@ i2c:
   frequency: 400kHz
   scl: 33
   sda: 34
-  scan: false
 
 spi:
   - id: spi_lcd
@@ -101,20 +114,20 @@ script:
           }
 
 font:
-  - file: "resources/Helvetica.ttf"
-    id: helvetica_xxlarge
+  - file: "../resources/Roboto/Roboto-Regular.ttf"
+    id: roboto_regular_xxlarge
     size: 96
-  - file: "resources/Helvetica.ttf"
-    id: helvetica_xlarge
+  - file: "../resources/Roboto/Roboto-Regular.ttf"
+    id: roboto_regular_xlarge
     size: 64
-  - file: "resources/Helvetica.ttf"
-    id: helvetica_large
+  - file: "../resources/Roboto/Roboto-Regular.ttf"
+    id: roboto_regular_large
     size: 48
-  - file: "resources/Helvetica.ttf"
-    id: helvetica_med
+  - file: "../resources/Roboto/Roboto-Regular.ttf"
+    id: roboto_regular_med
     size: 28
-  - file: "resources/Helvetica.ttf"
-    id: helvetica_small
+  - file: "../resources/Roboto/Roboto-Regular.ttf"
+    id: roboto_regular_small
     size: 12
 
 binary_sensor:
@@ -131,6 +144,7 @@ binary_sensor:
               - light.control:
                   id: dotstar_light
                   state: on
+                  brightness: !lambda "return id(light_brightness).state;"
                   effect: None
     on_release:
       then:
@@ -142,6 +156,7 @@ binary_sensor:
               - light.control:
                   id: dotstar_light
                   state: on
+                  brightness: !lambda "return id(light_brightness).state;"
                   effect: Random Twinkle
   - platform: gpio
     id: motion_sense
@@ -149,6 +164,9 @@ binary_sensor:
     device_class: motion
     pin:
       number: 16
+      mode:
+        input: true
+        pullup: true
   - platform: gpio
     id: button_input_0
     name: Button Up
@@ -186,7 +204,7 @@ binary_sensor:
     id: touchpad_left
     name: Touchpad Left
     pin: 6
-    threshold: 50000
+    threshold: 15000
     on_press:
       - rtttl.play: "alert 1:d=8,o=5,b=160:e"
     on_release:
@@ -195,7 +213,7 @@ binary_sensor:
     id: touchpad_center
     name: Touchpad Middle
     pin: 7
-    threshold: 50000
+    threshold: 15000
     on_press:
       - rtttl.play: "alert 1:d=8,o=6,b=160:e"
     on_release:
@@ -204,7 +222,7 @@ binary_sensor:
     id: touchpad_right
     name: Touchpad Right
     pin: 8
-    threshold: 50000
+    threshold: 15000
     on_press:
       - rtttl.play: "alert 1:d=8,o=7,b=160:e"
     on_release:
@@ -213,7 +231,7 @@ binary_sensor:
     id: touchpad_slider_a
     name: Touchpad Slider A
     pin: 9
-    threshold: 50000
+    threshold: 15000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -222,7 +240,7 @@ binary_sensor:
     id: touchpad_slider_b
     name: Touchpad Slider B
     pin: 10
-    threshold: 50000
+    threshold: 15000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -231,7 +249,7 @@ binary_sensor:
     id: touchpad_slider_c
     name: Touchpad Slider C
     pin: 11
-    threshold: 50000
+    threshold: 15000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -240,7 +258,7 @@ binary_sensor:
     id: touchpad_slider_d
     name: Touchpad Slider D
     pin: 12
-    threshold: 50000
+    threshold: 15000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -249,7 +267,7 @@ binary_sensor:
     id: touchpad_slider_e
     name: Touchpad Slider E
     pin: 13
-    threshold: 50000
+    threshold: 15000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -352,6 +370,7 @@ number:
     id: elec_cost_high
     name: Electricity Cost High Threshold
     entity_category: config
+    unit_of_measurement: ¢/kWh
     optimistic: true
     min_value: -100
     max_value: 1000
@@ -365,6 +384,7 @@ number:
     id: elec_cost_normal
     name: Electricity Cost Normal Threshold
     entity_category: config
+    unit_of_measurement: ¢/kWh
     optimistic: true
     min_value: -100
     max_value: 1000
@@ -378,6 +398,7 @@ number:
     id: elec_cost_low
     name: Electricity Cost Low Threshold
     entity_category: config
+    unit_of_measurement: ¢/kWh
     optimistic: true
     min_value: -100
     max_value: 1000
@@ -390,6 +411,7 @@ number:
   # - platform: template
   #   id: electricity_cost_test
   #   name: Electricity Cost Test Value
+  #   unit_of_measurement: ¢/kWh
   #   optimistic: true
   #   min_value: -100
   #   max_value: 1000
@@ -416,6 +438,7 @@ sensor:
   #   attenuation: 11db
   #   update_interval: 1s
   - platform: aht10
+    variant: AHT20
     temperature:
       id: aht20_temperature
       name: AHT20 Temperature
@@ -437,16 +460,21 @@ sensor:
     update_interval: 15s
 
 display:
-  - platform: st7789v
+  - platform: ili9xxx
+    model: st7789v
     id: main_lcd
     spi_id: spi_lcd
-    model: Adafruit Funhouse 240x240
+    dimensions:
+      height: 240
+      width: 240
+      offset_height: 0
+      offset_width: 0
+    invert_colors: true
     rotation: 180
     data_rate: 80MHz
-    # eightbitcolor: true
-    # cs_pin: 40
-    # dc_pin: 39
-    # reset_pin: 41
+    cs_pin: 40
+    dc_pin: 39
+    reset_pin: 41
     update_interval: 1s
     pages:
       - id: page1
@@ -456,14 +484,14 @@ display:
           const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
           auto logo_color = id(conn_status).state ? id(kbx_gray) : id(kbx_red);
-          it.strftime(6, 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
-          it.strftime((it.get_width() - 6), 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
-          it.print(it.get_width() / 2, 6, id(helvetica_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
+          it.strftime(6, 5, id(roboto_regular_small), id(kbx_gray), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
+          it.strftime((it.get_width() - 6), 5, id(roboto_regular_small), id(kbx_gray), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
+          it.print(it.get_width() / 2, 5, id(roboto_regular_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
 
           if (!isnan(id(electricity_cost).state)) {
-            it.printf(it.get_width() / 2, vert_center - vert_spacing_offset - 15, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "Hour avg. price:");
-            it.printf(it.get_width() / 2, vert_center, id(helvetica_xxlarge), id(kbx_white), TextAlign::CENTER, "%.1f", id(electricity_cost).state);
-            it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "cents");
+            it.printf(it.get_width() / 2, vert_center - vert_spacing_offset - 15, id(roboto_regular_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "Hour avg. price:");
+            it.printf(it.get_width() / 2, vert_center, id(roboto_regular_xxlarge), id(kbx_white), TextAlign::CENTER, "%.1f", id(electricity_cost).state);
+            it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(roboto_regular_med), id(kbx_gray), TextAlign::TOP_CENTER, "cents");
           }
 
           it.rectangle(0,  0, it.get_width(), it.get_height(), id(elec_cost_color));
@@ -476,13 +504,13 @@ display:
           const uint8_t vert_center = ((it.get_height() - header_height) / 2) + header_height;
 
           auto logo_color = id(conn_status).state ? id(kbx_gray) : id(kbx_red);
-          it.strftime(6, 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
-          it.strftime((it.get_width() - 6), 6, id(helvetica_small), id(kbx_gray), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
-          it.print(it.get_width() / 2, 6, id(helvetica_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
+          it.strftime(6, 5, id(roboto_regular_small), id(kbx_gray), TextAlign::TOP_LEFT, "%Y-%m-%d", id(esptime).now());
+          it.strftime((it.get_width() - 6), 5, id(roboto_regular_small), id(kbx_gray), TextAlign::TOP_RIGHT, "%H:%M:%S", id(esptime).now());
+          it.print(it.get_width() / 2, 5, id(roboto_regular_small), logo_color, TextAlign::TOP_CENTER, "ESPHome");
 
-          it.printf(it.get_width() / 2, vert_center - vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "%.1f hPa", id(dps310_pressure).state);
-          it.printf(it.get_width() / 2, vert_center, id(helvetica_xlarge), id(kbx_white), TextAlign::CENTER, "%.1f°", id(aht20_temperature).state * 1.8 + 32);
-          it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(helvetica_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f%%", id(aht20_humidity).state);
+          it.printf(it.get_width() / 2, vert_center - vert_spacing_offset, id(roboto_regular_med), id(kbx_gray), TextAlign::BOTTOM_CENTER, "%.1f hPa", id(dps310_pressure).state);
+          it.printf(it.get_width() / 2, vert_center, id(roboto_regular_xlarge), id(kbx_white), TextAlign::CENTER, "%.1f°", id(aht20_temperature).state * 1.8 + 32);
+          it.printf(it.get_width() / 2, vert_center + vert_spacing_offset, id(roboto_regular_med), id(kbx_gray), TextAlign::TOP_CENTER, "%.1f%%", id(aht20_humidity).state);
 
           it.rectangle(0,  0, it.get_width(), it.get_height(), id(elec_cost_color));
           it.rectangle(1,  1, it.get_width() - 2, it.get_height() - 2, id(elec_cost_color));

@@ -1,16 +1,28 @@
 substitutions:
   node_name: esp-sensor-dry-box
-  node_friendly_name: "Dry Box"
+  node_friendly_name: Dry Box
+  project_name: TempHumSensWithESP01
+  project_version: v1
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
 
 esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: esp-idf
-    version: 5.1.1
-    platform_version: 6.4.0
+    version: 5.3.1
+    platform_version: 6.9.0
+
+logger:
+  hardware_uart: UART0
+
+status_led:
+  pin: 3
 
 i2c:
   id: i2c_bus
@@ -25,29 +37,29 @@ sensor:
       id: bme280_temperature
       name: BME280 Temperature
       filters:
+        - median
         - offset: -0.5
     humidity:
       id: bme280_humidity
       name: BME280 Humidity
+      filters:
+        - median
     pressure:
       id: bme280_pressure
       name: BME280 Pressure
+      filters:
+        - median
     update_interval: 15s
   - platform: shtcx
     temperature:
       id: shtcx_temperature
       name: SHTC3 Temperature
       filters:
+        - median
         - offset: -1
     humidity:
       id: shtcx_humidity
       name: SHTC3 Humidity
+      filters:
+        - median
     update_interval: 15s
-  # - platform: dht
-  #   pin: 2
-  #   model: DHT22
-  #   temperature:
-  #     name: Temperature
-  #   humidity:
-  #     name: Humidity
-  #   update_interval: 15s

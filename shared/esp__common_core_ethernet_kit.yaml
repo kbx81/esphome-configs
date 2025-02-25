@@ -28,8 +28,14 @@ api:
   reboot_timeout: 120min
 
 ota:
-  password: !secret ota_password
+  - platform: esphome
+    id: ota_esphome
+    password: !secret ota_password
 
 button:
   - platform: restart
     name: Restart
+    entity_category: diagnostic
+  - platform: factory_reset
+    name: Wipe Preferences
+    entity_category: diagnostic

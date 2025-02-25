@@ -1,18 +1,28 @@
+substitutions:
+  project_name: String_Lights_Controller
+  project_version: v1
+
 esp32:
   board: esp32dev
   framework:
     type: esp-idf
-    version: 5.1.1
-    platform_version: 6.4.0
+    version: 5.3.1
+    platform_version: 6.9.0
 
 external_components:
   - source:
       # type: git
-      # url: https://github.com/kbx81/esphome_custom_components
+      # url: https://github.com/kbx81/esphome_external_components
       type: local
-      path: ../esphome_custom_components/components
-    components: [dop_led_plus_h_bridge, remote_base, remote_transmitter]
+      path: ../esphome_external_components/components
+    components:
+      - esp32_rmt_dop_led_h_bridge
+      - remote_base
     refresh: always
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
 
 status_led:
   pin:
@@ -26,20 +36,6 @@ remote_receiver:
     idle: 7ms
     dump:
       - honeywell_string_lights
-
-remote_transmitter:
-  - id: dop_port_a
-    carrier_duty_percent: 100%
-    # P1A
-    pin:
-      number: 13
-      mode: OUTPUT_OPEN_DRAIN
-  - id: dop_port_b
-    carrier_duty_percent: 100%
-    # P1B
-    pin:
-      number: 23
-      mode: OUTPUT_OPEN_DRAIN
 
 binary_sensor:
   - platform: status
@@ -336,6 +332,7 @@ binary_sensor:
           blue: 65%
   - platform: remote_receiver
     id: rf_rx_flash
+    # "Flash" key
     filters:
       delayed_off: 500ms
     honeywell_string_lights:
@@ -347,71 +344,76 @@ binary_sensor:
       - light.turn_on:
           id: string_lights_dop_led_b
           effect: "Random Color Wipe"
-  # - platform: remote_receiver
-  #   id: rf_rx_pulse
-  #   filters:
-  #     delayed_off: 500ms
-  #   honeywell_string_lights:
-  #     data: 0xAA14
-  #   on_press:
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_a
-  #         effect: "Pulse"
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_b
-  #         effect: "Pulse"
-  # - platform: remote_receiver
-  #   id: rf_rx_fade
-  #   filters:
-  #     delayed_off: 500ms
-  #   honeywell_string_lights:
-  #     data: 0xAA22
-  #   on_press:
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_a
-  #         effect: "Fade"
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_b
-  #         effect: "Fade"
-  # - platform: remote_receiver
-  #   id: rf_rx_strobe
-  #   filters:
-  #     delayed_off: 500ms
-  #   honeywell_string_lights:
-  #     data: 0xAA12
-  #   on_press:
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_a
-  #         effect: "Strobe"
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_b
-  #         effect: "Strobe"
-  # - platform: remote_receiver
-  #   id: rf_rx_dance
-  #   filters:
-  #     delayed_off: 500ms
-  #   honeywell_string_lights:
-  #     data: 0xAA0A
-  #   on_press:
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_a
-  #         effect: "Dance"
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_b
-  #         effect: "Dance"
-  # - platform: remote_receiver
-  #   id: rf_rx_flicker
-  #   filters:
-  #     delayed_off: 500ms
-  #   honeywell_string_lights:
-  #     data: 0xAA42
-  #   on_press:
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_a
-  #         effect: "Flicker"
-  #     - light.turn_on:
-  #         id: string_lights_dop_led_b
-  #         effect: "Flicker"
+  - platform: remote_receiver
+    id: rf_rx_pulse
+    # "Pulse" key
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA14
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          effect: "Valentine's Day"
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          effect: "Valentine's Day"
+  - platform: remote_receiver
+    id: rf_rx_fade
+    # "Fade" key
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA22
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          effect: "Saint Patrick's Day"
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          effect: "Saint Patrick's Day"
+  - platform: remote_receiver
+    id: rf_rx_strobe
+    # "Strobe" key
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA12
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          effect: "USA"
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          effect: "USA"
+  - platform: remote_receiver
+    id: rf_rx_dance
+    # "Dance" key
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA0A
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          effect: "HalloweenColorWipe"
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          effect: "HalloweenColorWipe"
+  - platform: remote_receiver
+    id: rf_rx_flicker
+    # "Flicker" key
+    filters:
+      delayed_off: 500ms
+    honeywell_string_lights:
+      data: 0xAA42
+    on_press:
+      - light.turn_on:
+          id: string_lights_dop_led_a
+          effect: "Christmas"
+      - light.turn_on:
+          id: string_lights_dop_led_b
+          effect: "Christmas"
 
 output:
   # PWM outputs
@@ -462,22 +464,26 @@ output:
       mode: OUTPUT
 
 light:
-  - platform: dop_led_plus_h_bridge
+  - platform: esp32_rmt_dop_led_h_bridge
     id: string_lights_dop_led_a
-    name: String A
-    restore_mode: RESTORE_DEFAULT_OFF
+    name: ${node_friendly_name} DoP LEDs String A
     default_transition_length: 500ms
+    chipset: HONEYWELL_5V_DOP
+    lsb_first: true
     num_header_bits: 3
     num_leds: 4
+    enable_h_bridge: true
+    open_drain: true
     rgb_order: GRB
+    rmt_symbols: 64
+    pin: 13
     output_2v5_id: string_lights_output_2v5_a
     output_p2_id: string_lights_output_p2_a
     output_n1_pwm_id: string_lights_pwm_a
     output_n2_id: string_lights_output_n2_a
-    transmitter_id: dop_port_a
     # Effects notes:
     #   it.size()  // Number of LEDs
-    #   it[num]   // Access the LED at index num.
+    #   it[num]    // Access the LED at index num
     # Set the LED at num to the given r, g, b values
     #   it[num] = Color(r, g, b);
     # Get the color at index num (Color instance)
@@ -669,19 +675,23 @@ light:
               }
               it[0] = temp;
             }
-  - platform: dop_led_plus_h_bridge
+  - platform: esp32_rmt_dop_led_h_bridge
     id: string_lights_dop_led_b
-    name: String B
-    restore_mode: RESTORE_DEFAULT_OFF
+    name: ${node_friendly_name} DoP LEDs String B
     default_transition_length: 500ms
+    chipset: HONEYWELL_5V_DOP
+    lsb_first: true
     num_header_bits: 3
     num_leds: 4
+    enable_h_bridge: true
+    open_drain: true
     rgb_order: GRB
+    rmt_symbols: 64
+    pin: 23
     output_2v5_id: string_lights_output_2v5_b
     output_p2_id: string_lights_output_p2_b
     output_n1_pwm_id: string_lights_pwm_b
     output_n2_id: string_lights_output_n2_b
-    transmitter_id: dop_port_b
     effects:
       - addressable_lambda:
           name: Valentine's Day

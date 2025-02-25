@@ -1,6 +1,8 @@
 substitutions:
   node_name: esp-thermostat-family-room
-  node_friendly_name: "Family Room Thermostat"
+  node_friendly_name: Family Room Thermostat
+  project_name: ClimateSprinklerController
+  project_version: v1
   home_page_name: "weather"
   rooms_page_name: "rooms"
   sensors_page_name: "sensors"
@@ -25,10 +27,6 @@ packages:
 
 esp32:
   flash_size: 16MB
-
-# BME680 BSEC sensor
-bme680_bsec:
-  address: 0x77
 
 sensor:
   # HA sensors we track - humidity
@@ -111,7 +109,7 @@ display:
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 15s
-    tft_url: http://10.100.0.81/download/public/climate/v2/NX8048K070.tft
+    tft_url: https://www.kbx81.net/download/public/climate/v2/NX8048K070.tft
     lambda: |-
       auto dateTime = id(esptime).now();
       // update the Nextion's clock once per hour (and at start-up)

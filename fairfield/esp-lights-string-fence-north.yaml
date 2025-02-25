@@ -1,6 +1,6 @@
 substitutions:
   node_name: esp-lights-string-fence-north
-  node_friendly_name: "String Lights Fence North"
+  node_friendly_name: String Lights Fence North
 
 packages:
   esp_common: !include shared/esp__common_core.yaml

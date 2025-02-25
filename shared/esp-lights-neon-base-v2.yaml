@@ -4,14 +4,15 @@ esp32:
     type: arduino
 
 ota:
-  on_begin:
-    then:
-      - switch.turn_off: neon_enable
-      - light.turn_off: neon_light_dac
+  - id: !extend ota_esphome
+    on_begin:
+      then:
+        - switch.turn_off: neon_enable
+        - light.turn_off: neon_light_dac
 
 status_led:
   pin:
-    number: GPIO5
+    number: 5
     inverted: true
 
 # remote_receiver:
@@ -19,7 +20,7 @@ status_led:
 #   dump: nec
 #   pin:
 #     inverted: true
-#     number: GPIO36
+#     number: 36
 #   on_nec:
 #     then:
 #       lambda: |-
@@ -34,7 +35,7 @@ binary_sensor:
   - platform: gpio
     id: down_button
     pin:
-      number: GPIO0
+      number: 0
       inverted: true
       mode:
         input: true
@@ -52,7 +53,7 @@ binary_sensor:
   - platform: gpio
     id: up_button
     pin:
-      number: GPIO2
+      number: 2
       inverted: true
       mode:
         input: true
@@ -73,7 +74,7 @@ binary_sensor:
     name: Fault
     id: fault_sensor
     pin:
-      number: GPIO34
+      number: 34
       inverted: true
 #   - platform: remote_receiver
 #     id: led_remote_power

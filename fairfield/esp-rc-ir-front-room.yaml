@@ -1,61 +1,96 @@
 substitutions:
   node_name: esp-rc-ir-front-room
-  node_friendly_name: "Front Room IR Controller"
+  node_friendly_name: Front Room IR Controller
+  project_name: kbxIRBlaster
+  project_version: v4
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
 esp32:
-  board: esp32dev
+  board: esp32-c6-devkitm-1
   framework:
     type: esp-idf
-    version: 5.1.1
-    platform_version: 6.4.0
+    version: 5.3.1
+    platform_version: 6.9.0
+
+esphome:
+  on_boot:
+    priority: 375
+    then:
+      - globals.set:
+          id: boot_complete
+          value: "true"
 
 globals:
   # the temperature periodically transmitted to the AC unit
   - id: current_temperature
     type: float
-    restore_value: yes
     initial_value: "24"
+    restore_value: yes
   # number of missed updates; reset when toshiba_ac_temperature_sensor is updated
   - id: missed_update_count
     type: int
-    restore_value: no
     initial_value: "24"
+    restore_value: no
+  # block transmitting anything until after switch states are restored
+  - id: boot_complete
+    type: bool
+    initial_value: "false"
+    restore_value: no
 
 interval:
   - interval: 30s
     then:
       lambda: |-
         if (id(missed_update_count) < 12) {
-          id(toshiba_ac_comfort_sense_error).turn_off();
+          auto call = id(toshiba_ac_comfort_sense_status).turn_off();
+          call.perform();
         } else {
-          id(toshiba_ac_comfort_sense_error).turn_on();
+          auto call = id(toshiba_ac_comfort_sense_status).turn_on();
+          call.set_brightness(0.35);
+          call.set_color_mode(ColorMode::RGB);
+          call.set_rgb(1.0, 0.8, 0.0);
+          call.perform();
         }
         id(missed_update_count) += 1;
 
 status_led:
-  pin:
-    inverted: true
-    number: 13
+  pin: 20
 
 remote_receiver:
-  id: ir_rx
-  dump: [samsung, toshiba_ac]
-  # dump: all
-  # dump: raw
-  pin:
-    inverted: true
-    number: 34
+  - id: ir_rx
+    dump: [samsung, toshiba_ac]
+    # dump: all
+    # dump: raw
+    rmt_symbols: 48
+    pin:
+      inverted: true
+      number: 1
 
 remote_transmitter:
   - id: ir_tx
-    pin: 12
+    pin: 0
     carrier_duty_percent: 50%
-  # - pin: 15
+    rmt_symbols: 48
+  # - pin: 7
   #   id: rf_tx
   #   carrier_duty_percent: 100%
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: toshiba_ac_comfort_sense_status
+    restore_mode: RESTORE_DEFAULT_OFF
+    rgb_order: GRB
+    rmt_symbols: 48
+    pin: 8
+    num_leds: 2
+    chipset: ws2812
+    name: Status
 
 climate:
   - platform: toshiba
@@ -69,26 +104,6 @@ climate:
       temperature_step:
         target_temperature: 1.0
         current_temperature: 0.1
-
-binary_sensor:
-  - platform: gpio
-    id: gpio_0
-    # name: IO0 Button
-    pin:
-      number: 0
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    on_click:
-      - min_length: 50ms
-        max_length: 500ms
-        then:
-          - button.press: toshiba_ac_display_toggle
-      - min_length: 501ms
-        max_length: 1000ms
-        then:
-          - switch.toggle: front_room_infotainment
 
 sensor:
   - platform: template
@@ -158,29 +173,22 @@ number:
 
 switch:
   - platform: gpio
-    id: toshiba_ac_comfort_sense_error
-    restore_mode: ALWAYS_ON
-    pin:
-      inverted: true
-      mode: OUTPUT
-      number: 15
+    id: green_led_mode
+    name: Green LED to GPIO 0
+    pin: 23
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: gpio
+    id: red_led_mode
+    name: Red LED to GPIO 0
+    pin: 21
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
     id: ac_unit_sync
     name: AC Unit Sync
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-  - platform: template
-    id: front_room_infotainment
-    name: Infotainment System
-    lambda: "return id(pioneer_power).state || id(panasonic_power).state;"
-    turn_off_action:
-      - switch.turn_off: panasonic_power
-      - delay: 250ms
-      - switch.turn_off: pioneer_power
-    turn_on_action:
-      - switch.turn_on: pioneer_power
-      - delay: 250ms
-      - switch.turn_on: panasonic_power
   - platform: template
     id: panasonic_power
     name: Panasonic Power
@@ -213,6 +221,26 @@ switch:
           rc_code_1: 0xA51A
           repeat:
             times: 2
+  - platform: template
+    id: front_room_infotainment
+    name: Infotainment System
+    lambda: "return id(pioneer_power).state || id(panasonic_power).state;"
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(boot_complete);"
+          then:
+            - switch.turn_off: panasonic_power
+            - delay: 250ms
+            - switch.turn_off: pioneer_power
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return id(boot_complete);"
+          then:
+            - switch.turn_on: pioneer_power
+            - delay: 250ms
+            - switch.turn_on: panasonic_power
 
 button:
   - platform: template
@@ -308,12 +336,23 @@ button:
             times: 2
             wait_time: 10ms
   - platform: template
+    id: apple_tv_home
+    name: Apple TV Home
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5504FB
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
     id: apple_tv_menu
     name: Apple TV Menu
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA5504FB
+          data: 0xAA5505FA
           nbits: 32
           repeat:
             times: 2
@@ -324,7 +363,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA5505FA
+          data: 0xAA5506F9
           nbits: 32
           repeat:
             times: 2
@@ -335,7 +374,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA5506F9
+          data: 0xAA5507F8
           nbits: 32
           repeat:
             times: 2
@@ -346,7 +385,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA5507F8
+          data: 0xAA5508F7
           nbits: 32
           repeat:
             times: 2
@@ -357,7 +396,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA5508F7
+          data: 0xAA5509F6
           nbits: 32
           repeat:
             times: 2
@@ -368,7 +407,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA5509F6
+          data: 0xAA550AF5
           nbits: 32
           repeat:
             times: 2
@@ -379,7 +418,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA550AF5
+          data: 0xAA550BF4
           nbits: 32
           repeat:
             times: 2
@@ -390,7 +429,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA550BF4
+          data: 0xAA550CF3
           nbits: 32
           repeat:
             times: 2
@@ -401,7 +440,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA550CF3
+          data: 0xAA550DF2
           nbits: 32
           repeat:
             times: 2
@@ -412,7 +451,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA550DF2
+          data: 0xAA550EF1
           nbits: 32
           repeat:
             times: 2
@@ -423,7 +462,7 @@ button:
     on_press:
       - remote_transmitter.transmit_lg:
           transmitter_id: ir_tx
-          data: 0xAA550EF1
+          data: 0xAA550FF0
           nbits: 32
           repeat:
             times: 2

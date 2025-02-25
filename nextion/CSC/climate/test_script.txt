@@ -1,7 +1,7 @@
 page 1
 maxBrightness=90
 minBrightness=25
-idleTimeout=15
+idleTimeout=60
 climateAction=3
 climateMode=3
 climateFanMode=2
@@ -9,6 +9,7 @@ currentTemp=723
 currentTempHigh=756
 currentTempLow=689
 currentHum=345
+currentPres=10000
 currentSetHum=300
 currentSetMin=650
 currentSetMax=900
@@ -21,6 +22,6 @@ weatherTemp=345
 weatherHum=234
 weatherTempHigh=789
 weatherTempLow=345
-main.txtWeatherIcon.txt="L"
-main.txtWeatherAq.txt="35.2 - Excellent"
-main.txtCurrentAq.txt="45.8 - Good"
+weather.txtWeatherIcon.txt="L"
+weather.txtWeatherAq.txt="35.2 - Excellent"
+weather.txtCurrentAq.txt="45.8 - Good"

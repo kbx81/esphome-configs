@@ -1,6 +1,8 @@
 substitutions:
   node_name: esp-thermostat-front-room
-  node_friendly_name: "Front Room Thermostat"
+  node_friendly_name: Front Room Thermostat
+  project_name: ClimateSprinklerController
+  project_version: v1
   home_page_name: "weather"
   rooms_page_name: "rooms"
   sensors_page_name: "sensors"
@@ -26,10 +28,6 @@ packages:
 esp32:
   flash_size: 8MB
 
-# BME680 BSEC sensor
-bme680_bsec:
-  address: 0x77
-
 sensor:
   # HA sensors we track - humidity
   - platform: homeassistant
@@ -52,7 +50,7 @@ sensor:
         - lambda: "id(nextionRoom4Hum).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: room_boiler_humidity_ha
-    entity_id: sensor.boiler_room_bme680_humidity
+    entity_id: sensor.esp_sensor_boiler_room_bme680_humidity
     on_value:
       then:
         - lambda: "id(nextionRoom5Hum).set_state(roundf(x * 10), false, true);"
@@ -83,7 +81,7 @@ sensor:
         - lambda: "id(nextionRoom4Temp).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: room_boiler_temperature_ha
-    entity_id: sensor.boiler_room_bme680_temperature
+    entity_id: sensor.esp_sensor_boiler_room_bme680_temperature
     on_value:
       then:
         - lambda: "id(nextionRoom5Temp).set_state(roundf(x * 10), false, true);"
@@ -123,7 +121,7 @@ display:
     id: main_lcd
     uart_id: nextion_uart
     update_interval: 15s
-    tft_url: http://10.100.0.81/download/public/climate/v2/NX8048P070-011C.tft
+    tft_url: https://www.kbx81.net/download/public/climate/v2/NX8048P070-011C.tft
     lambda: |-
       auto dateTime = id(esptime).now();
       // update the Nextion's clock once per hour (and at start-up)

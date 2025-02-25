@@ -15,9 +15,6 @@ api:
     #     page: int
     #   then:
     #     - lambda: 'esp32_thermostat::set_display_page(page);'
-    - service: update_nextion
-      then:
-        - lambda: "main_lcd->upload_tft();"
     - service: update_status
       variables:
         message: string
@@ -262,6 +259,15 @@ uart:
   rx_pin: 18
   baud_rate: 921600
 
+button:
+  - platform: template
+    id: esp_thermostat_update_nextion
+    name: Update Nextion
+    entity_category: diagnostic
+    on_press:
+      then:
+        - lambda: "main_lcd->upload_tft();"
+
 climate:
   - platform: thermostat
     id: esp_thermostat
@@ -436,6 +442,14 @@ binary_sensor:
             id: esp_thermostat
             mode: "off"
             fan_mode: "auto"
+
+# BME680 BSEC2 sensor
+bme68x_bsec2_i2c:
+  address: 0x77
+  model: bme680
+  operating_age: 28d
+  sample_rate: LP
+  supply_voltage: 3.3V
 
 sensor:
   # template sensor used for thermostat component
@@ -628,7 +642,7 @@ sensor:
     id: adc_sensor_phototransistor
     name: Phototransistor ADC
     pin: 32
-    attenuation: 11db
+    attenuation: 12db
     update_interval: 1s
     filters:
       - sliding_window_moving_average:
@@ -739,8 +753,8 @@ sensor:
               auto pressure_string = str_sprintf("%.1f", id(esp_thermostat_bme280_pressure).state) + "hPa";
               id(nextionTextSensor2c).set_state(pressure_string, false, true);
     update_interval: 15s
-  # BME680 BSEC sensor
-  - platform: bme680_bsec
+  # BME680 BSEC2 sensor
+  - platform: bme68x_bsec2
     temperature:
       id: esp_thermostat_bme680_temperature
       name: BME680 Temperature
@@ -778,7 +792,7 @@ sensor:
       #     - lambda: |-
       #         auto gas_res_string = str_sprintf("%.1f", id(esp_thermostat_bme680_gas_resistance).state);
       #         id(nextionTextSensor1d).set_state(gas_res_string, false, true);
-    iaq:
+    iaq_static:
       id: esp_thermostat_bme680_iaq
       name: BME680 IAQ
       on_value:
@@ -873,8 +887,7 @@ sensor:
   - platform: sgp4x
     voc:
       id: esp_thermostat_sgp40_voc
-      name: SGP40 VOC
-      unit_of_measurement: VOC Index
+      name: SGP40 VOC Index
       on_value:
         then:
           - lambda: |-
@@ -1101,7 +1114,7 @@ sensor:
     variable_name: uiColorIconOnAction
 
 text_sensor:
-  - platform: bme680_bsec
+  - platform: bme68x_bsec2
     iaq_accuracy:
       id: esp_thermostat_bme680_accuracy
       name: BME680 Accuracy

@@ -1,12 +1,22 @@
 substitutions:
   node_name: esp-lights-front-room-column-se
-  node_friendly_name: "Front Room Southeast Column Lamp"
+  node_friendly_name: Front Room Southeast Column Lamp
+  project_name: kbxLEDController-16ch
+  project_version: v3
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
 
 status_led:
   pin:
@@ -137,9 +147,12 @@ light:
     blue: lamp_pwm_blue_channel
     white: lamp_pwm_white_channel
     effects:
-      - random:
-      - strobe:
       - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
   - platform: rgbw
     id: lamp_uplight_leds
     name: Uplight
@@ -149,9 +162,12 @@ light:
     blue: lamp_uplight_pwm_blue_channel
     white: lamp_uplight_pwm_white_channel
     effects:
-      - random:
-      - strobe:
       - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
   - platform: rgbw
     id: left_leds
     name: Post Left
@@ -161,9 +177,12 @@ light:
     blue: left_pwm_blue_channel
     white: left_pwm_white_channel
     effects:
-      - random:
-      - strobe:
       - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
   - platform: rgbw
     id: right_leds
     name: Post Right
@@ -173,9 +192,12 @@ light:
     blue: right_pwm_blue_channel
     white: right_pwm_white_channel
     effects:
-      - random:
-      - strobe:
       - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
 
 output:
   - platform: ledc

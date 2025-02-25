@@ -1,16 +1,25 @@
 substitutions:
   node_name: esp-snowflake-controller
-  node_friendly_name: "Snowflake"
+  node_friendly_name: Snowflake
+  project_name: Snowflake_Controller
+  project_version: v1
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
 
 esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: esp-idf
-    version: 5.1.1
-    platform_version: 6.4.0
+    version: 5.3.1
+    platform_version: 6.9.0
+
+logger:
+  hardware_uart: UART0
 
 globals:
   # makes sure we don't switch the snowflakes' state if it's already in the desired state
@@ -79,3 +88,5 @@ binary_sensor:
     id: snowflake_button_input
     name: Button Input
     pin: 20
+    on_click:
+      - switch.toggle: snowflake_power

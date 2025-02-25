@@ -1,12 +1,20 @@
+substitutions:
+  project_name: HST_LED_Art
+  project_version: v2
+
 esphome:
   includes: shared/esp_led_triangles.h
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
 
 esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: esp-idf
-    version: 5.1.1
-    platform_version: 6.4.0
+    version: 5.3.1
+    platform_version: 6.9.0
 
 logger:
   hardware_uart: UART0
@@ -23,7 +31,6 @@ light:
     pin: 4
     num_leds: 1
     rgb_order: GRB
-    rmt_channel: 0
   - platform: spi_led_strip
     id: pixel_strip1
     name: HST Art

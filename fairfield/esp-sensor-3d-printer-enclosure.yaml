@@ -1,84 +1,117 @@
 substitutions:
   node_name: esp-sensor-3d-printer-enclosure
-  node_friendly_name: "3D Printer Enclosure"
+  node_friendly_name: 3D Printer Enclosure
+  project_name: TempHumSensWithESP01
+  project_version: v3
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
-esp8266:
-  board: esp01_1m
+esp32:
+  board: esp32-c3-devkitm-1
+
+logger:
+  hardware_uart: UART0
+
+status_led:
+  pin: 3
 
 i2c:
   id: i2c_bus
   frequency: 400kHz
   sda: 2
-  scl: 0
+  scl: 9
 
-# BME680 BSEC sensor
-bme680_bsec:
+# BME680 BSEC2 sensor
+bme68x_bsec2_i2c:
   address: 0x76
+  model: bme680
+  operating_age: 28d
+  sample_rate: LP
+  supply_voltage: 3.3V
 
 sensor:
   # DHT22 sensor
   - platform: dht
-    pin: 3
+    pin: 20
     model: DHT22
     temperature:
       id: esp_sensor_dht22_temperature
       name: DHT22 Temperature
+      filters:
+        - median
     humidity:
       id: esp_sensor_dht22_humidity
       name: DHT22 Humidity
+      filters:
+        - median
     update_interval: 15s
-  # BME680 BSEC sensor
-  - platform: bme680_bsec
+  # BME680 BSEC2 sensor
+  - platform: bme68x_bsec2
     temperature:
       id: esp_sensor_bme680_temperature
       name: BME680 Temperature
       filters:
+        - median
         - offset: -1.35
     humidity:
       id: esp_sensor_bme680_humidity
       name: BME680 Humidity
+      filters:
+        - median
     pressure:
       id: esp_sensor_bme680_pressure
       name: BME680 Pressure
+      filters:
+        - median
     gas_resistance:
       id: esp_sensor_bme680_gas_resistance
       name: BME680 Gas Resistance
-    iaq:
+      filters:
+        - median
+    iaq_static:
       id: esp_sensor_bme680_iaq
       name: BME680 IAQ
+      filters:
+        - median
     co2_equivalent:
       id: esp_sensor_bme680_eco2
       name: BME680 eCO2
+      filters:
+        - median
     breath_voc_equivalent:
       id: esp_sensor_bme680_evoc
       name: BME680 Breath eVOC
+      filters:
+        - median
   # SHTC3 sensor
   - platform: shtcx
     temperature:
       id: esp_sensor_shtcx_temperature
       name: SHTC3 Temperature
       filters:
-        - offset: -1.5
+        - median
+        - offset: -1.6
     humidity:
       id: esp_sensor_shtcx_humidity
       name: SHTC3 Humidity
+      filters:
+        - median
     update_interval: 15s
   # SGP40 sensor
   - platform: sgp4x
     voc:
       id: esp_sensor_sgp40_voc
-      name: SGP40 VOC
-      unit_of_measurement: VOC Index
+      name: SGP40 VOC Index
+      filters:
+        - median
     update_interval: 15s
     compensation:
       humidity_source: esp_sensor_shtcx_humidity
       temperature_source: esp_sensor_shtcx_temperature
 
 text_sensor:
-  - platform: bme680_bsec
+  - platform: bme68x_bsec2
     iaq_accuracy:
       id: esp_sensor_bme680_accuracy
       name: BME680 Accuracy

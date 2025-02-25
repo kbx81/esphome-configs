@@ -1,0 +1,81 @@
+substitutions:
+  node_name: esp-lights-wiz-rgbw
+  node_friendly_name: WiZ RGBW Tunable
+  project_name: wiz-rgbw-tunable
+  project_version: "1.0"
+
+esphome:
+  name_add_mac_suffix: true
+  min_version: 2024.6.0
+
+# dashboard_import:
+#   package_import_url: github://kbx81/esphome-configs/projects/wiz-a19-led-bulb/esp-lights-wiz-a19-bulb.yaml@main
+#   import_full_config: true
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
+
+captive_portal:
+
+esp32_improv:
+  authorizer: none
+
+logger:
+  hardware_uart: UART0
+
+bp5758d:
+  clock_pin: 7
+  data_pin: 10
+
+light:
+  - platform: rgbww
+    id: the_leds
+    name: Light
+    restore_mode: RESTORE_DEFAULT_OFF
+    red: output_red
+    green: output_green
+    blue: output_blue
+    cold_white: output_cw
+    warm_white: output_ww
+    cold_white_color_temperature: 6536 K
+    warm_white_color_temperature: 2000 K
+    effects:
+      - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
+
+output:
+  - platform: bp5758d
+    id: output_blue
+    channel: 1
+    current: 18
+  - platform: bp5758d
+    id: output_green
+    channel: 2
+    current: 18
+  - platform: bp5758d
+    id: output_red
+    channel: 3
+    current: 18
+  - platform: bp5758d
+    id: output_ww
+    channel: 4
+    current: 18
+  - platform: bp5758d
+    id: output_cw
+    channel: 5
+    current: 18

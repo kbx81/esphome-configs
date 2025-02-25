@@ -1,6 +1,8 @@
 substitutions:
   node_name: esp-air-cleaner-front-room
   node_friendly_name: "Front Room H300 Air Cleaner"
+  project_name: H300
+  project_version: v1
 
 esp32:
   board: esp32dev
@@ -380,8 +382,12 @@ i2c:
   scan: false
 
 # BME680 BSEC sensor
-bme680_bsec:
+bme68x_bsec2_i2c:
   address: 0x76
+  model: bme680
+  operating_age: 28d
+  sample_rate: LP
+  supply_voltage: 3.3V
 
 tlc5947:
   data_pin: 23
@@ -521,7 +527,9 @@ sensor:
     name: Fan Tach Pulse Counter
     pin: 35
     update_interval: 1s
-    on_value:
+    filters:
+      - median
+    on_raw_value:
       - lambda: |-
           if (id(h2o_present).state && id(wheel_rotation).state) {
             id(water_present_counter)++;
@@ -609,55 +617,72 @@ sensor:
       - sensor.rotary_encoder.set_value:
           id: encoder_wheel
           value: 0
-  # BME680 BSEC sensor
-  - platform: bme680_bsec
+  # BME680 BSEC2 sensor
+  - platform: bme68x_bsec2
     temperature:
       id: h300_bme680_temperature
       name: BME680 Temperature
       filters:
+        - median
         - offset: -1.2
     humidity:
       id: h300_bme680_humidity
       name: BME680 Humidity
+      filters:
+        - median
     pressure:
       id: h300_bme680_pressure
       name: BME680 Pressure
+      filters:
+        - median
     gas_resistance:
       id: h300_bme680_gas_resistance
       name: BME680 Gas Resistance
-    iaq:
+      filters:
+        - median
+    iaq_static:
       id: h300_bme680_iaq
       name: BME680 IAQ
+      filters:
+        - median
     co2_equivalent:
       id: h300_bme680_eco2
       name: BME680 eCO2
+      filters:
+        - median
     breath_voc_equivalent:
       id: h300_bme680_evoc
       name: BME680 Breath eVOC
+      filters:
+        - median
   # SHTC3 sensor
   - platform: shtcx
     temperature:
       id: h300_shtcx_temperature
       name: SHTC3 Temperature
       filters:
+        - median
         - offset: -1.4
     humidity:
       id: h300_shtcx_humidity
       name: SHTC3 Humidity
+      filters:
+        - median
     update_interval: 15s
   # SGP40 sensor
   - platform: sgp4x
     voc:
       id: h300_sgp40_voc
-      name: SGP40 VOC
-      unit_of_measurement: VOC Index
+      name: SGP40 VOC Index
+      filters:
+        - median
     update_interval: 15s
     compensation:
       humidity_source: h300_shtcx_humidity
       temperature_source: h300_shtcx_temperature
 
 text_sensor:
-  - platform: bme680_bsec
+  - platform: bme68x_bsec2
     iaq_accuracy:
       id: h300_bme680_accuracy
       name: BME680 Accuracy

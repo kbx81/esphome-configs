@@ -1,6 +1,9 @@
 esphome:
   friendly_name: ${node_friendly_name}
   name: ${node_name}
+  project:
+    name: kbx81.${project_name}
+    version: ${project_version}
   build_path: ../../build/${node_name}
 
 preferences:
@@ -29,13 +32,20 @@ api:
   reboot_timeout: 120min
 
 ota:
-  password: !secret ota_password
+  - platform: esphome
+    id: ota_esphome
+    password: !secret ota_password
 
 button:
   - platform: restart
     name: Restart
+    entity_category: diagnostic
+  - platform: factory_reset
+    name: Wipe Preferences
+    entity_category: diagnostic
 
 sensor:
   - platform: wifi_signal
     name: Wi-Fi Signal
+    entity_category: diagnostic
     update_interval: 15s

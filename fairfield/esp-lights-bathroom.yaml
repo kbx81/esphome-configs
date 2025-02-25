@@ -1,12 +1,45 @@
 substitutions:
   node_name: esp-lights-bathroom
-  node_friendly_name: "Bathroom Vanity"
+  node_friendly_name: Bathroom Vanity
+  project_name: kbxLEDController-16ch
+  project_version: v2
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
+wifi:
+  enable_btm: true
+  enable_rrm: true
+  output_power: 14dB  # prevent brownouts
+
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
+
+script:
+  - id: downlight_auto_on
+    mode: restart
+    then:
+      - light.turn_on:
+          id: bathroom_vanity_downlight
+          brightness: !lambda "return id(auto_on_target_brightness).state;"
+          red: !lambda "return id(auto_on_target_red).state;"
+          green: !lambda "return id(auto_on_target_green).state;"
+          blue: !lambda "return id(auto_on_target_blue).state;"
+          white: !lambda "return id(auto_on_target_white).state;"
+  - id: uplight_auto_on
+    mode: restart
+    then:
+      - light.turn_on:
+          id: bathroom_vanity_uplight
+          brightness: !lambda "return id(auto_on_target_brightness).state;"
+          red: !lambda "return id(auto_on_target_red).state;"
+          green: !lambda "return id(auto_on_target_green).state;"
+          blue: !lambda "return id(auto_on_target_blue).state;"
+          white: !lambda "return id(auto_on_target_white).state;"
 
 status_led:
   pin:
@@ -62,6 +95,61 @@ select:
     restore_value: true
 
 number:
+  - platform: template
+    id: auto_on_target_brightness
+    name: Auto-On Target Brightness
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.001
+    initial_value: 1.0
+    restore_value: true
+  - platform: template
+    id: auto_on_target_red
+    name: Auto-On Target Red
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.001
+    initial_value: 1.0
+    restore_value: true
+  - platform: template
+    id: auto_on_target_green
+    name: Auto-On Target Green
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.001
+    initial_value: 0.77
+    restore_value: true
+  - platform: template
+    id: auto_on_target_blue
+    name: Auto-On Target Blue
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.001
+    initial_value: 0.048
+    restore_value: true
+  - platform: template
+    id: auto_on_target_white
+    name: Auto-On Target White
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: 0
+    max_value: 1
+    step: 0.001
+    initial_value: 1.0
+    restore_value: true
   - platform: ld2420
     presence_timeout:
       name: Detection Presence Timeout
@@ -184,14 +272,14 @@ binary_sensor:
                 lambda: |-
                   return id(bathroom_vanity_motion_activation_lower).state == "Enabled" || !id(bathroom_vanity_api_status).state;
               then:
-                - light.turn_on: bathroom_vanity_downlight
+                - script.execute: downlight_auto_on
           # only switch the light based on the mode defined by the template select
           - if:
               condition:
                 lambda: |-
                   return id(bathroom_vanity_motion_activation_upper).state == "Enabled" || !id(bathroom_vanity_api_status).state;
               then:
-                - light.turn_on: bathroom_vanity_uplight
+                - script.execute: uplight_auto_on
       on_release:
         then:
           # only switch the light based on the mode defined by the template select
@@ -231,13 +319,7 @@ binary_sensor:
       min_length: 50ms
       max_length: 500ms
       then:
-        - light.turn_on:
-            id: bathroom_vanity_uplight
-            brightness: 1.0
-            red: 1.0
-            green: 0.933
-            blue: 0.753
-            white: 1.0
+        - script.execute: uplight_auto_on
   - platform: gpio
     id: bathroom_vanity_downlight_on_button
     pin:
@@ -247,13 +329,7 @@ binary_sensor:
       min_length: 50ms
       max_length: 500ms
       then:
-        - light.turn_on:
-            id: bathroom_vanity_downlight
-            brightness: 0.5
-            red: 1.0
-            green: 0.933
-            blue: 0.753
-            white: 1.0
+        - script.execute: downlight_auto_on
 
 light:
   - platform: rgbw

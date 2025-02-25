@@ -1,63 +1,76 @@
 substitutions:
   node_name: esp-rc-ir-bedroom
-  node_friendly_name: "Bedroom IR Controller"
+  node_friendly_name: Bedroom IR Controller
+  project_name: kbxIRBlaster
+  project_version: v4
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
 esp32:
-  board: esp32dev
+  board: esp32-c6-devkitm-1
   framework:
     type: esp-idf
-    # version: 5.1.1
-    # platform_version: 6.4.0
+    version: 5.3.1
+    platform_version: 6.9.0
 
 globals:
   # makes sure we don't switch the air cleaner state if it's already in the desired state
   - id: air_cleaner_state
     type: bool
     initial_value: "false"
+    restore_value: yes
 
 status_led:
-  pin:
-    inverted: true
-    number: 13
+  pin: 20
 
 remote_receiver:
-  id: ir_rx
-  # dump: [ samsung, toshibaac ]
-  dump: toshiba_ac
-  # dump: all
-  # dump: raw
-  pin:
-    inverted: true
-    number: 34
+  - id: ir_rx
+    dump: [samsung, toshiba_ac]
+    # dump: all
+    # dump: raw
+    rmt_symbols: 48
+    pin:
+      inverted: true
+      number: 1
 
 remote_transmitter:
   - id: ir_tx
-    pin: 12
+    pin: 0
     carrier_duty_percent: 50%
-  # - pin: 15
+    rmt_symbols: 48
+  # - pin: 7
   #   id: rf_tx
   #   carrier_duty_percent: 100%
 
-binary_sensor:
-  - platform: gpio
-    id: gpio_0
-    # name: IO0 Button
-    pin:
-      number: 0
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    on_click:
-      - min_length: 50ms
-        max_length: 500ms
-        then:
-          - switch.turn_on: air_cleaner_power
+light:
+  - platform: esp32_rmt_led_strip
+    id: toshiba_ac_comfort_sense_status
+    restore_mode: RESTORE_DEFAULT_OFF
+    rgb_order: GRB
+    rmt_symbols: 48
+    pin: 8
+    num_leds: 2
+    chipset: ws2812
+    name: Status
 
 switch:
+  - platform: gpio
+    id: green_led_mode
+    name: Green LED to GPIO 0
+    pin: 23
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: gpio
+    id: red_led_mode
+    name: Red LED to GPIO 0
+    pin: 21
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
     id: air_cleaner_power
     name: Air Cleaner Power
@@ -88,54 +101,54 @@ switch:
                 command: 0xF20D
 
 button:
-  # - platform: template
-  #   id: nixie_a
-  #   name: Nixie A
-  #   on_press:
-  #     - remote_transmitter.transmit_nec:
-  #         transmitter_id: ir_tx
-  #         address: 0xBF00
-  #         command: 0xF609
-  # - platform: template
-  #   id: nixie_b
-  #   name: Nixie B
-  #   on_press:
-  #     - remote_transmitter.transmit_nec:
-  #         transmitter_id: ir_tx
-  #         address: 0xBF00
-  #         command: 0xF50A
-  # - platform: template
-  #   id: nixie_c
-  #   name: Nixie C
-  #   on_press:
-  #     - remote_transmitter.transmit_nec:
-  #         transmitter_id: ir_tx
-  #         address: 0xBF00
-  #         command: 0xF708
-  # - platform: template
-  #   id: nixie_d
-  #   name: Nixie D
-  #   on_press:
-  #     - remote_transmitter.transmit_nec:
-  #         transmitter_id: ir_tx
-  #         address: 0xBF00
-  #         command: 0xF20D
-  # - platform: template
-  #   id: nixie_e
-  #   name: Nixie E
-  #   on_press:
-  #     - remote_transmitter.transmit_nec:
-  #         transmitter_id: ir_tx
-  #         address: 0xBF00
-  #         command: 0xF906
-  # - platform: template
-  #   id: nixie_u
-  #   name: Nixie U
-  #   on_press:
-  #     - remote_transmitter.transmit_nec:
-  #         transmitter_id: ir_tx
-  #         address: 0xBF00
-  #         command: 0xFA05
+  - platform: template
+    id: nixie_a
+    name: Nixie A
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF609
+  - platform: template
+    id: nixie_b
+    name: Nixie B
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF50A
+  - platform: template
+    id: nixie_c
+    name: Nixie C
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF708
+  - platform: template
+    id: nixie_d
+    name: Nixie D
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF20D
+  - platform: template
+    id: nixie_e
+    name: Nixie E
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF906
+  - platform: template
+    id: nixie_u
+    name: Nixie U
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xFA05
   - platform: template
     id: air_cleaner_sleep
     name: Air Cleaner Sleep

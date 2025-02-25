@@ -1,9 +1,9 @@
 substitutions:
   node_name: esp-lights-neon-xmas-tree-deco
   node_friendly_name: "Neon Christmas Tree Decorated"
-  dac_min_power: "0.40"
+  dac_min_power: "0.22"
   dac_max_power: "1.0"
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
-  esp_lights_neon_base: !include shared/esp-lights-neon-base-v2.yaml
+  esp_lights_neon_base: !include shared/esp-lights-neon-base-v3.yaml

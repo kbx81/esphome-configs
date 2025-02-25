@@ -1,0 +1,55 @@
+substitutions:
+  node_name: esp-lights-front-room-credenza
+  node_friendly_name: Front Room Credenza Lights
+  project_name: kbxLEDController-5ch
+  project_version: v1
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
+
+status_led:
+  pin:
+    number: 5
+    inverted: true
+
+light:
+  - platform: rgbw
+    id: credenza_lights
+    name: Footlights
+    restore_mode: RESTORE_DEFAULT_OFF
+    red: printer_pwm_red_channel
+    green: printer_pwm_green_channel
+    blue: printer_pwm_blue_channel
+    white: printer_pwm_white_channel
+    effects:
+      - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
+
+output:
+  - platform: ledc
+    id: printer_pwm_red_channel
+    pin: 1
+  - platform: ledc
+    id: printer_pwm_green_channel
+    pin: 4
+  - platform: ledc
+    id: printer_pwm_blue_channel
+    pin: 0
+  - platform: ledc
+    id: printer_pwm_white_channel
+    pin: 3

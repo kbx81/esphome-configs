@@ -1,12 +1,22 @@
 substitutions:
   node_name: esp-lights-front-room-column-nw
-  node_friendly_name: "Front Room Northwest Column Lamp"
+  node_friendly_name: Front Room Northwest Column Lamp
+  project_name: kbxLEDController-16ch
+  project_version: v3
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
 
 status_led:
   pin:
@@ -97,9 +107,12 @@ light:
     blue: lamp_pwm_blue_channel
     white: lamp_pwm_white_channel
     effects:
-      - random:
-      - strobe:
       - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
   - platform: rgbw
     id: lamp_uplight_leds
     name: Uplight
@@ -109,9 +122,12 @@ light:
     blue: lamp_uplight_pwm_blue_channel
     white: lamp_uplight_pwm_white_channel
     effects:
-      - random:
-      - strobe:
       - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
 
 output:
   - platform: ledc

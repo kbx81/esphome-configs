@@ -1,6 +1,8 @@
 substitutions:
   node_name: esp-gdo
-  node_friendly_name: "Garage Door"
+  node_friendly_name: Garage Door
+  project_name: RATGDO
+  project_version: v1
   id_prefix: ratgdov2
   uart_tx_pin: D4
   uart_rx_pin: D2

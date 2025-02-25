@@ -1,12 +1,22 @@
 substitutions:
   node_name: esp-lights-3d-printer
-  node_friendly_name: "3D Printer Lights"
+  node_friendly_name: 3D Printer Lights
+  project_name: kbxLEDController-16ch
+  project_version: v3
 
 packages:
   esp_common: !include shared/esp__common_core.yaml
 
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
+    version: 5.3.1
+    platform_version: 6.9.0
 
 status_led:
   pin:
