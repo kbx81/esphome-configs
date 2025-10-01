@@ -24,9 +24,11 @@ wifi:
   enable_btm: true
   enable_rrm: true
 
+web_server:
+  version: 3
+
 status_led:
-  pin:
-    number: 5
+  pin: 5
 
 remote_receiver:
   - id: rf_rx

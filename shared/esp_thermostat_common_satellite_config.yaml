@@ -13,7 +13,7 @@ switch:
     pin:
       number: 33
       mode: OUTPUT
-  # patch template switches to phyical switches so control is consistent
+  # patch template switches to physical switches so control is consistent
   - platform: template
     id: esp_thermostat_fan
     name: Fan

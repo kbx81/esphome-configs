@@ -1,0 +1,51 @@
+esphome:
+  friendly_name: ${node_friendly_name}
+  name: ${node_name}
+  project:
+    name: kbx81.${project_name}
+    version: ${project_version}
+  build_path: ../../build/${node_name}
+
+preferences:
+  flash_write_interval: 2min
+
+wifi:
+  ssid: !secret wifi_ssid_fairfield
+  password: !secret wifi_password_fairfield
+  reboot_timeout: 120min
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${node_name}
+    password: !secret ap_password
+
+# captive_portal:
+
+improv_serial:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API and define services
+api:
+  encryption:
+    key: !secret api_key_fairfield
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+    password: !secret ota_password_fairfield
+
+button:
+  - platform: restart
+    name: Restart
+    entity_category: diagnostic
+  - platform: factory_reset
+    name: Wipe Preferences
+    entity_category: diagnostic
+
+sensor:
+  - platform: wifi_signal
+    name: Wi-Fi Signal
+    entity_category: diagnostic
+    update_interval: 15s

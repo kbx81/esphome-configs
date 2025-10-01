@@ -1,0 +1,55 @@
+substitutions:
+  node_name: esp-lights-bsmt-credenza
+  node_friendly_name: Basement Credenza
+  project_name: kbxLEDController-5ch
+  project_version: v1
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+
+status_led:
+  pin:
+    number: 5
+    inverted: true
+
+light:
+  - platform: rgbw
+    id: credenza_lights
+    name: Footlights
+    restore_mode: RESTORE_DEFAULT_OFF
+    red: pwm_red_s1
+    green: pwm_green_s1
+    blue: pwm_blue_s1
+    white: pwm_white_s1
+    effects:
+      - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
+
+output:
+  - platform: ledc
+    id: pwm_red_s1
+    pin: 1
+  - platform: ledc
+    id: pwm_green_s1
+    pin: 4
+  - platform: ledc
+    id: pwm_blue_s1
+    pin: 0
+  - platform: ledc
+    id: pwm_white_s1
+    pin: 3

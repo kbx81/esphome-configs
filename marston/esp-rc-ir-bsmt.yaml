@@ -1,0 +1,754 @@
+substitutions:
+  node_name: esp-rc-ir-bsmt
+  node_friendly_name: Basement IR Controller
+  project_name: kbxIRBlaster
+  project_version: v4
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c6-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+
+esphome:
+  on_boot:
+    priority: 375
+    then:
+      - globals.set:
+          id: boot_complete
+          value: "true"
+
+globals:
+  # block transmitting anything until after switch states are restored
+  - id: boot_complete
+    type: bool
+    initial_value: "false"
+    restore_value: no
+
+status_led:
+  pin: 20
+
+remote_receiver:
+  - id: ir_rx
+    dump:
+      - panasonic
+      - pioneer
+    rmt_symbols: 48
+    pin:
+      inverted: true
+      number: 1
+
+remote_transmitter:
+  - id: ir_tx
+    pin: 0
+    carrier_duty_percent: 50%
+    rmt_symbols: 48
+  # - pin: 7
+  #   id: rf_tx
+  #   carrier_duty_percent: 100%
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: ws2812_leds
+    restore_mode: RESTORE_DEFAULT_OFF
+    rgb_order: GRB
+    rmt_symbols: 48
+    pin: 8
+    num_leds: 2
+    chipset: ws2812
+    name: Status
+
+switch:
+  - platform: gpio
+    id: green_led_mode
+    name: Green LED to GPIO 0
+    pin: 23
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: gpio
+    id: red_led_mode
+    name: Red LED to GPIO 0
+    pin: 21
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    id: panasonic_power
+    name: Panasonic Power
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_off_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100FCFD
+    turn_on_action:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01007C7D
+  - platform: template
+    id: pioneer_power
+    name: Pioneer Power
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_off_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA51B
+          repeat:
+            times: 2
+    turn_on_action:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA51A
+          repeat:
+            times: 2
+  - platform: template
+    id: infotainment_system
+    name: Infotainment System
+    lambda: "return id(pioneer_power).state || id(panasonic_power).state;"
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(boot_complete);"
+          then:
+            - switch.turn_off: panasonic_power
+            - delay: 250ms
+            - switch.turn_off: pioneer_power
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return id(boot_complete);"
+          then:
+            - switch.turn_on: pioneer_power
+            - delay: 250ms
+            - switch.turn_on: panasonic_power
+
+button:
+  - platform: template
+    id: nixie_a
+    name: Nixie A
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF609
+  - platform: template
+    id: nixie_b
+    name: Nixie B
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF50A
+  - platform: template
+    id: nixie_c
+    name: Nixie C
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF708
+  - platform: template
+    id: nixie_d
+    name: Nixie D
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF20D
+  - platform: template
+    id: nixie_e
+    name: Nixie E
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF906
+  - platform: template
+    id: nixie_u
+    name: Nixie U
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xFA05
+  - platform: template
+    id: apple_tv_down
+    name: Apple TV Down
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5500FF
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_left
+    name: Apple TV Left
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5501FE
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_right
+    name: Apple TV Right
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5502FD
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_up
+    name: Apple TV Up
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5503FC
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_home
+    name: Apple TV Home
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5504FB
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_menu
+    name: Apple TV Menu
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5505FA
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_select
+    name: Apple TV Select
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5506F9
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_play
+    name: Apple TV Play
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5507F8
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_pause
+    name: Apple TV Pause
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5508F7
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_stop
+    name: Apple TV Stop
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA5509F6
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_rewind
+    name: Apple TV Rewind
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550AF5
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_fast_forward
+    name: Apple TV Fast Forward
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550BF4
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_previous_track
+    name: Apple TV Previous Track
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550CF3
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_next_track
+    name: Apple TV Next Track
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550DF2
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_skip_back
+    name: Apple TV Skip Back
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550EF1
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  - platform: template
+    id: apple_tv_skip_forward
+    name: Apple TV Skip Forward
+    on_press:
+      - remote_transmitter.transmit_lg:
+          transmitter_id: ir_tx
+          data: 0xAA550FF0
+          nbits: 32
+          repeat:
+            times: 2
+            wait_time: 10ms
+  # - platform: template
+  #   id: air_cleaner_power
+  #   name: Air Cleaner Power
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xB04F
+  # - platform: template
+  #   id: air_cleaner_sleep
+  #   name: Air Cleaner Sleep
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x50AF
+  # - platform: template
+  #   id: air_cleaner_fan_down
+  #   name: Air Cleaner Fan Down
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xE01F
+  # - platform: template
+  #   id: air_cleaner_fan_up
+  #   name: Air Cleaner Fan Up
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x20DF
+  # - platform: template
+  #   id: air_cleaner_purify_down
+  #   name: Air Cleaner Purify Down
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xF807
+  # - platform: template
+  #   id: air_cleaner_purify_up
+  #   name: Air Cleaner Purify Up
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x08F7
+  # - platform: template
+  #   id: air_cleaner_anion
+  #   name: Air Cleaner Anion
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0xA05F
+  # - platform: template
+  #   id: air_cleaner_sterilize
+  #   name: Air Cleaner Sterilize
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x40BF
+  # - platform: template
+  #   id: air_cleaner_time_set
+  #   name: Air Cleaner Time/Set
+  #   on_press:
+  #     - remote_transmitter.transmit_nec:
+  #         transmitter_id: ir_tx
+  #         address: 0x00FF
+  #         command: 0x10EF
+  - platform: template
+    id: panasonic_power_toggle
+    name: Panasonic Power Toggle
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100BCBD
+  - platform: template
+    id: panasonic_input_button
+    name: Panasonic Input Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100A0A1
+  - platform: template
+    id: panasonic_ok_button
+    name: Panasonic Ok Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01009293
+  - platform: template
+    id: panasonic_exit_button
+    name: Panasonic Exit Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x019059C8
+  - platform: template
+    id: panasonic_menu_button
+    name: Panasonic Menu Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01004A4B
+  - platform: template
+    id: panasonic_down_button
+    name: Panasonic Down Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100D2D3
+  - platform: template
+    id: panasonic_up_button
+    name: Panasonic Up Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01005253
+  - platform: template
+    id: panasonic_left_button
+    name: Panasonic Left Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01007273
+  - platform: template
+    id: panasonic_right_button
+    name: Panasonic Right Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x0100F2F3
+  - platform: template
+    id: panasonic_return_button
+    name: Panasonic Return Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01002B2A
+  - platform: template
+    id: panasonic_info_button
+    name: Panasonic Info Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01009C9D
+  - platform: template
+    id: panasonic_volume_down_button
+    name: Panasonic Volume Down Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01008485
+  - platform: template
+    id: panasonic_volume_up_button
+    name: Panasonic Volume Up Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01000405
+  - platform: template
+    id: panasonic_mute_button
+    name: Panasonic Mute Button
+    on_press:
+      - remote_transmitter.transmit_panasonic:
+          transmitter_id: ir_tx
+          address: 0x4004
+          command: 0x01004C4D
+  - platform: template
+    id: pioneer_power_toggle
+    name: Pioneer Power Toggle
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA51C
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_mute_button
+    name: Pioneer Mute Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA512
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_mute_off_button
+    name: Pioneer Mute Off Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA552
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_mute_on_button
+    name: Pioneer Mute On Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA551
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_volume_down_button
+    name: Pioneer Volume Down Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50B
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_volume_up_button
+    name: Pioneer Volume Up Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50A
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_volume_down_button_x5
+    name: Pioneer Volume Down Button x5
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50B
+          repeat:
+            times: 9
+  - platform: template
+    id: pioneer_volume_up_button_x5
+    name: Pioneer Volume Up Button x5
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA50A
+          repeat:
+            times: 9
+  - platform: template
+    id: pioneer_bass_down_button
+    name: Pioneer Bass Down Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA501
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_bass_up_button
+    name: Pioneer Bass Up Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA500
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_treble_down_button
+    name: Pioneer Treble Down Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA503
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_treble_up_button
+    name: Pioneer Treble Up Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xA502
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_dimmer_button
+    name: Pioneer Dimmer Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA556
+          rc_code_2: 0xA506
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_bddvd_input_button
+    name: Pioneer BDDVD Input Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55C
+          rc_code_2: 0xA5C0
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_bluetooth_input_button
+    name: Pioneer Bluetooth Input Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55C
+          rc_code_2: 0xA5C4
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_cable_sat_input_button
+    name: Pioneer Cable Sat Input Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA510
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_game_input_button
+    name: Pioneer Game Input Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55C
+          rc_code_2: 0xA5C5
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_stream_box_input_button
+    name: Pioneer Stream Box Input Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA557
+          rc_code_2: 0xF536
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_auto_direct_button
+    name: Pioneer Auto Direct Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA59A
+          rc_code_2: 0xA5C3
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_stereo_button
+    name: Pioneer Stereo Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA59F
+          rc_code_2: 0xA5C0
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_alc_standard_button
+    name: Pioneer ALC Standard Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA55E
+          rc_code_2: 0xA508
+          repeat:
+            times: 2
+  - platform: template
+    id: pioneer_surround_button
+    name: Pioneer Surround Button
+    on_press:
+      - remote_transmitter.transmit_pioneer:
+          transmitter_id: ir_tx
+          rc_code_1: 0xA59F
+          rc_code_2: 0xA5D3
+          repeat:
+            times: 2

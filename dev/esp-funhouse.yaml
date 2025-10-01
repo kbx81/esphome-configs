@@ -9,9 +9,8 @@ esp32:
   board: adafruit_funhouse_esp32s2
   framework:
     type: esp-idf
-    version: 5.0.2
-    source: platformio/framework-espidf@3.50002.230601
-    platform_version: 6.3.2
+    # version: 5.4.2
+    # platform_version: 54.03.21
 
 esphome:
   on_boot:
@@ -40,14 +39,14 @@ psram:
 
 esp32_touch:
   # setup_mode: true
-  measurement_duration: 50us
+  measurement_duration: 100us
   denoise_grade: BIT12
   denoise_cap_level: L0
   debounce_count: 1
-  filter_mode: IIR_16
-  noise_threshold: 0
+  filter_mode: IIR_4
+  noise_threshold: 2
   jitter_step: 0
-  smooth_mode: IIR_2
+  smooth_mode: "OFF"
 
 logger:
   hardware_uart: USB_CDC
@@ -82,7 +81,18 @@ script:
           condition:
             lambda: 'return id(electricity_cost).state >= id(elec_cost_high).state;'
           then:
-            - rtttl.play: "alert 1:d=16,o=5,b=240:e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a,2p,e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a"
+            - if:
+                condition:
+                  lambda: 'return id(will_alert).state;'
+                then:
+                  - rtttl.play: "alert 1:d=16,o=5,b=240:e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a,2p,e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a"
+                  - binary_sensor.template.publish:
+                      id: will_alert
+                      state: !lambda 'return id(alert_mode).state == "Always";'
+          else:
+            - binary_sensor.template.publish:
+                id: will_alert
+                state: !lambda 'return id(alert_mode).state != "Disabled";'
       - lambda: |-
           auto e_cost = id(electricity_cost).state;
           if (!isnan(e_cost)) {
@@ -204,7 +214,7 @@ binary_sensor:
     id: touchpad_left
     name: Touchpad Left
     pin: 6
-    threshold: 15000
+    threshold: 25000
     on_press:
       - rtttl.play: "alert 1:d=8,o=5,b=160:e"
     on_release:
@@ -213,7 +223,7 @@ binary_sensor:
     id: touchpad_center
     name: Touchpad Middle
     pin: 7
-    threshold: 15000
+    threshold: 25000
     on_press:
       - rtttl.play: "alert 1:d=8,o=6,b=160:e"
     on_release:
@@ -222,7 +232,7 @@ binary_sensor:
     id: touchpad_right
     name: Touchpad Right
     pin: 8
-    threshold: 15000
+    threshold: 25000
     on_press:
       - rtttl.play: "alert 1:d=8,o=7,b=160:e"
     on_release:
@@ -231,7 +241,7 @@ binary_sensor:
     id: touchpad_slider_a
     name: Touchpad Slider A
     pin: 9
-    threshold: 15000
+    threshold: 25000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -240,7 +250,7 @@ binary_sensor:
     id: touchpad_slider_b
     name: Touchpad Slider B
     pin: 10
-    threshold: 15000
+    threshold: 25000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -249,7 +259,7 @@ binary_sensor:
     id: touchpad_slider_c
     name: Touchpad Slider C
     pin: 11
-    threshold: 15000
+    threshold: 25000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -258,7 +268,7 @@ binary_sensor:
     id: touchpad_slider_d
     name: Touchpad Slider D
     pin: 12
-    threshold: 15000
+    threshold: 25000
     on_press:
       - light.turn_on:
           id: dotstar_light
@@ -267,11 +277,14 @@ binary_sensor:
     id: touchpad_slider_e
     name: Touchpad Slider E
     pin: 13
-    threshold: 15000
+    threshold: 25000
     on_press:
       - light.turn_on:
           id: dotstar_light
           brightness: 20%
+  - platform: template
+    id: will_alert
+    name: Will Alert
 
 color:
   - id: kbx_red
@@ -312,7 +325,7 @@ light:
   - platform: spi_led_strip
     id: dotstar_light
     spi_id: spi_led
-    data_rate: 40MHz
+    data_rate: 80MHz
     name: APA102 LEDs
     restore_mode: RESTORE_DEFAULT_OFF
     num_leds: 5
@@ -459,22 +472,41 @@ sensor:
       name: DPS310 Pressure
     update_interval: 15s
 
+select:
+  # template select to control when alert beeping occurs
+  - platform: template
+    id: alert_mode
+    name: Alert Mode
+    entity_category: config
+    optimistic: true
+    options:
+      - Always
+      - On Exceeded
+      - Disabled
+    initial_option: Always
+    restore_value: true
+    set_action:
+      then:
+        - binary_sensor.template.publish:
+            id: will_alert
+            state: !lambda 'return x != "Disabled";'
+
 display:
-  - platform: ili9xxx
-    model: st7789v
+  - platform: mipi_spi
+    model: adafruit-funhouse
     id: main_lcd
     spi_id: spi_lcd
-    dimensions:
-      height: 240
-      width: 240
-      offset_height: 0
-      offset_width: 0
-    invert_colors: true
-    rotation: 180
-    data_rate: 80MHz
-    cs_pin: 40
-    dc_pin: 39
-    reset_pin: 41
+    # dimensions:
+    #   height: 240
+    #   width: 240
+    #   offset_height: 0
+    #   offset_width: 0
+    # invert_colors: true
+    # rotation: 180
+    # data_rate: 80MHz
+    # cs_pin: 40
+    # dc_pin: 39
+    # reset_pin: 41
     update_interval: 1s
     pages:
       - id: page1

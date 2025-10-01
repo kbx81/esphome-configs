@@ -59,7 +59,9 @@ esp32:
   board: esp32dev
   flash_size: 16MB
   framework:
-    type: arduino
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
 
 psram:
 
@@ -351,6 +353,14 @@ uart:
   baud_rate: 921600
 
 button:
+  # garage door opener "button"
+  - platform: template
+    id: esp_sprinkler_controller_garage_door_opener_button
+    name: Door Opener Button
+    on_press:
+      then:
+        - script.execute: pulse_door_opener_relay
+  # trigger an update of the Nextion display
   - platform: template
     id: esp_sprinkler_controller_update_nextion
     name: Update Nextion
@@ -364,18 +374,56 @@ cover:
     id: esp_sprinkler_controller_garage_door
     name: Garage Door
     icon: mdi:garage-variant
-    lambda: |-
-      if (id(esp_sprinkler_controller_door_sensor).state) {
-        return COVER_OPEN;
-      } else {
-        return COVER_CLOSED;
-      }
+    device_class: garage
+    # Open the garage door only if closed
     open_action:
-      - script.execute: pulse_door_opener_relay
+      - if:
+          condition:
+            lambda: return id(esp_sprinkler_controller_garage_door).position == COVER_CLOSED;
+          then:
+            - button.press: esp_sprinkler_controller_garage_door_opener_button
+            - cover.template.publish:
+                id: esp_sprinkler_controller_garage_door
+                current_operation: OPENING
+          else:
+            - lambda: ESP_LOGW("main", "Garage door is already open; ignoring action");
+    # Close the garage door only if open
     close_action:
-      - script.execute: pulse_door_opener_relay
+      - if:
+          condition:
+            lambda: return id(esp_sprinkler_controller_garage_door).position == COVER_OPEN;
+          then:
+            - button.press: esp_sprinkler_controller_garage_door_opener_button
+            - cover.template.publish:
+                id: esp_sprinkler_controller_garage_door
+                current_operation: CLOSING
+          else:
+            - lambda: ESP_LOGW("main", "Garage door is already closed; ignoring action");
+    # Toggles the garage door open or closed
+    toggle_action:
+      - if:
+          condition:
+            lambda: return id(esp_sprinkler_controller_garage_door).position == COVER_OPEN;
+          then:
+            - cover.template.publish:
+                id: esp_sprinkler_controller_garage_door
+                current_operation: CLOSING
+          else:
+            - cover.template.publish:
+                id: esp_sprinkler_controller_garage_door
+                current_operation: OPENING
+      - button.press: esp_sprinkler_controller_garage_door_opener_button
+    # Triggers the garage door button to stop only if the garage door is known to be moving
     stop_action:
-      - script.execute: pulse_door_opener_relay
+      - if:
+          condition:
+            not:
+              lambda: return id(esp_sprinkler_controller_garage_door).current_operation == CoverOperation::COVER_OPERATION_IDLE;
+          then:
+            - button.press: esp_sprinkler_controller_garage_door_opener_button
+            - cover.template.publish:
+                id: esp_sprinkler_controller_garage_door
+                current_operation: IDLE
 
 binary_sensor:
   - platform: status
@@ -423,10 +471,28 @@ binary_sensor:
       number: 13
       mode: INPUT_PULLUP
     filters:
-      delayed_on_off: 25ms
+      delayed_on_off: 100ms
     on_state:
       then:
         - script.execute: refresh_display_door_state
+        - if:
+            condition:
+              lambda: return x;
+            then:
+              - cover.template.publish:
+                  id: esp_sprinkler_controller_garage_door
+                  state: OPEN
+                  current_operation: OPENING
+              - delay: 10s
+              - cover.template.publish:
+                  id: esp_sprinkler_controller_garage_door
+                  state: OPEN
+                  current_operation: IDLE
+            else:
+              - cover.template.publish:
+                  id: esp_sprinkler_controller_garage_door
+                  state: CLOSED
+                  current_operation: IDLE
   - platform: gpio
     id: esp_sprinkler_controller_mode_button
     name: Mode Button
@@ -936,13 +1002,6 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-  # garage door opener "button"
-  - platform: template
-    id: esp_sprinkler_controller_opener_button
-    name: Door Opener Button
-    turn_on_action:
-      - script.execute: pulse_door_opener_relay
-    lambda: "return id(esp_sprinkler_controller_relay_1).state;"
   # enables scheduled start at the time configured
   - platform: template
     id: esp_sprinkler_controller_scheduled_start
@@ -1315,7 +1374,7 @@ sensor:
             iaq_value: !lambda "return x;"
   - platform: homeassistant
     id: weather_humidity_ha
-    entity_id: sensor.gw2000b_v2_2_4_humidity
+    entity_id: sensor.gw2000b_humidity
     on_value:
       then:
         - globals.set:
@@ -1324,7 +1383,7 @@ sensor:
         - lambda: "id(nextionWeatherHum).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: weather_temperature_ha
-    entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
+    entity_id: sensor.gw2000b_outdoor_temperature
     on_value:
       then:
         - globals.set:

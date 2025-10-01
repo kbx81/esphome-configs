@@ -1,12 +1,15 @@
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
 
 psram:
 
 wifi:
-  power_save_mode: none
+  enable_btm: true
+  enable_rrm: true
 
 api:
   services:
@@ -273,6 +276,7 @@ climate:
     id: esp_thermostat
     name: none
     sensor: esp_thermostat_temperature_sensor
+    humidity_sensor: esp_thermostat_humidity_sensor
     startup_delay: true
     supplemental_cooling_delta: 4°F
     cool_deadband: 1°F
@@ -295,7 +299,10 @@ climate:
     fan_only_cooling: true
     fan_with_cooling: true
     # fan_with_heating: true
+    humidity_hysteresis: 1.0
     visual:
+      min_humidity: 20%
+      max_humidity: 70%
       min_temperature: 60°F
       max_temperature: 90°F
       temperature_step: 0.1
@@ -321,7 +328,7 @@ climate:
       - lambda: "id(esp_thermostat).fan_mode = climate::CLIMATE_FAN_AUTO;"
       - script.execute: refresh_display_climate_mode
       - script.execute: refresh_display_climate_fan_mode
-    auto_mode:
+    heat_cool_mode:
       - script.execute: refresh_display_climate_mode
     cool_mode:
       - script.execute: refresh_display_climate_mode
@@ -379,6 +386,10 @@ climate:
       - script.execute: refresh_display_set_points
       - delay: 250ms
       - script.execute: refresh_display_climate_action
+    humidification_action:
+      - logger.log: "humidification_action"
+    humidification_off_action:
+      - logger.log: "humidification_off_action"
 
 binary_sensor:
   - platform: status
@@ -597,7 +608,7 @@ sensor:
             is_weather: true
   - platform: homeassistant
     id: weather_humidity_ha
-    entity_id: sensor.gw2000b_v2_2_4_humidity
+    entity_id: sensor.gw2000b_humidity
     on_value:
       then:
         - globals.set:
@@ -608,7 +619,7 @@ sensor:
             id(nextionRoom8Hum).set_state(roundf(x * 10), false, true);
   - platform: homeassistant
     id: weather_temperature_ha
-    entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
+    entity_id: sensor.gw2000b_outdoor_temperature
     on_value:
       then:
         - globals.set:

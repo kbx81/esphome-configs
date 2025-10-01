@@ -1,0 +1,214 @@
+substitutions:
+  node_name: esp-rc-ir-sw-bedroom
+  node_friendly_name: SW Bedroom IR Controller
+  project_name: kbxIRBlaster
+  project_version: v4
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c6-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+
+globals:
+  # makes sure we don't switch the air cleaner state if it's already in the desired state
+  - id: air_cleaner_state
+    type: bool
+    initial_value: "false"
+    restore_value: yes
+
+status_led:
+  pin: 20
+
+remote_receiver:
+  - id: ir_rx
+    dump:
+      - nec
+    rmt_symbols: 48
+    pin:
+      inverted: true
+      number: 1
+
+remote_transmitter:
+  - id: ir_tx
+    pin: 0
+    carrier_duty_percent: 50%
+    rmt_symbols: 48
+  # - pin: 7
+  #   id: rf_tx
+  #   carrier_duty_percent: 100%
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: ws2812_leds
+    restore_mode: RESTORE_DEFAULT_OFF
+    rgb_order: GRB
+    rmt_symbols: 48
+    pin: 8
+    num_leds: 2
+    chipset: ws2812
+    name: Status
+
+switch:
+  - platform: gpio
+    id: green_led_mode
+    name: Green LED to GPIO 0
+    pin: 23
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: gpio
+    id: red_led_mode
+    name: Red LED to GPIO 0
+    pin: 21
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    id: air_cleaner_power
+    name: Air Cleaner Power
+    lambda: "return id(air_cleaner_state);"
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(air_cleaner_state);"
+          then:
+            - globals.set:
+                id: air_cleaner_state
+                value: "false"
+            - remote_transmitter.transmit_nec:
+                transmitter_id: ir_tx
+                address: 0xFF00
+                command: 0xF20D
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(air_cleaner_state);"
+          then:
+            - globals.set:
+                id: air_cleaner_state
+                value: "true"
+            - remote_transmitter.transmit_nec:
+                transmitter_id: ir_tx
+                address: 0xFF00
+                command: 0xF20D
+
+button:
+  - platform: template
+    id: nixie_a
+    name: Nixie A
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF609
+  - platform: template
+    id: nixie_b
+    name: Nixie B
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF50A
+  - platform: template
+    id: nixie_c
+    name: Nixie C
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF708
+  - platform: template
+    id: nixie_d
+    name: Nixie D
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF20D
+  - platform: template
+    id: nixie_e
+    name: Nixie E
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xF906
+  - platform: template
+    id: nixie_u
+    name: Nixie U
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xBF00
+          command: 0xFA05
+  - platform: template
+    id: air_cleaner_sleep
+    name: Air Cleaner Sleep
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xF50A
+  - platform: template
+    id: air_cleaner_fan_down
+    name: Air Cleaner Fan Down
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xF807
+  - platform: template
+    id: air_cleaner_fan_up
+    name: Air Cleaner Fan Up
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xFB04
+  - platform: template
+    id: air_cleaner_purify_down
+    name: Air Cleaner Purify Down
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xE01F
+  - platform: template
+    id: air_cleaner_purify_up
+    name: Air Cleaner Purify Up
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xEF10
+  - platform: template
+    id: air_cleaner_anion
+    name: Air Cleaner Anion
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xFA05
+  - platform: template
+    id: air_cleaner_sterilize
+    name: Air Cleaner Sterilize
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xFD02
+  - platform: template
+    id: air_cleaner_time_set
+    name: Air Cleaner Time/Set
+    on_press:
+      - remote_transmitter.transmit_nec:
+          transmitter_id: ir_tx
+          address: 0xFF00
+          command: 0xF708

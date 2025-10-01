@@ -1,0 +1,104 @@
+substitutions:
+  node_name: esp-thermostat-basement
+  node_friendly_name: Basement Thermostat
+  project_name: ClimateSprinklerController
+  project_version: v1
+  home_page_name: "home"
+  rooms_page_name: "rooms"
+  sensors_page_name: "sensors"
+  weather_page_name: "weather"
+  # air quality entity name
+  air_quality_entity: "sensor.aqi_wh41"
+  # weather entity name
+  weather_entity: "weather.home_marston"
+  # temperature sensor offsets
+  ntc_reference_voltage: "0.89V"
+  ntc_temperature_offset: "0.0"
+  bme280_temperature_offset: "-2.2"
+  bme680_temperature_offset: "-2.5"
+  shtc3_temperature_offset: "-3.1"
+  tmp117_temperature_offset: "-3.6"
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+  esp_thermostat_common: !include shared/esp_thermostat_nextion_common_config.yaml
+  esp_thermostat_common_controller: !include shared/esp_thermostat_common_satellite_config.yaml
+
+esp32:
+  flash_size: 8MB
+
+sensor:
+  # HA sensors we track - humidity
+  - platform: homeassistant
+    id: room_main_humidity_ha
+    entity_id: sensor.esp_thermostat_main_bme680_humidity
+    on_value:
+      then:
+        - lambda: "id(nextionRoom2Hum).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_bedroom_humidity_ha
+    entity_id: sensor.esp_thermostat_bedroom_bme680_humidity
+    on_value:
+      then:
+        - lambda: "id(nextionRoom3Hum).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_garage_humidity_ha
+    entity_id: sensor.garage_sensor_humidity
+    on_value:
+      then:
+        - lambda: "id(nextionRoom4Hum).set_state(roundf(x * 10), false, true);"
+  # HA sensors we track - temperature
+  - platform: homeassistant
+    id: room_main_temperature_ha
+    entity_id: sensor.esp_thermostat_main_bme680_temperature
+    on_value:
+      then:
+        - lambda: "id(nextionRoom2Temp).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_bedroom_temperature_ha
+    entity_id: sensor.esp_thermostat_bedroom_bme680_temperature
+    on_value:
+      then:
+        - lambda: "id(nextionRoom3Temp).set_state(roundf(x * 10), false, true);"
+  - platform: homeassistant
+    id: room_garage_temperature_ha
+    entity_id: sensor.garage_sensor_temperature
+    on_value:
+      then:
+        - lambda: "id(nextionRoom4Temp).set_state(roundf(x * 10), false, true);"
+
+display:
+  - platform: nextion
+    id: main_lcd
+    uart_id: nextion_uart
+    update_interval: 15s
+    tft_url: https://www.kbx81.net/download/public/climate/v2/NX4832K035.tft
+    lambda: |-
+      auto dateTime = id(esptime).now();
+      // update the Nextion's clock once per hour (and at start-up)
+      if (id(display_last_full_refresh) != dateTime.hour) {
+        id(display_last_full_refresh) = dateTime.hour;
+        main_lcd->set_nextion_rtc_time(dateTime);
+      }
+    on_setup:
+      then:
+        - script.execute: refresh_display_status_string
+        - script.execute: refresh_display_climate_mode
+        - script.execute: refresh_display_climate_fan_mode
+        - script.execute: refresh_display_set_points
+        - lambda: |-
+            main_lcd->goto_page("home");
+
+            id(nextionTextRoom1).set_state("Local:", false, true);
+            id(nextionTextRoom2).set_state("Main:", false, true);
+            id(nextionTextRoom3).set_state("Bedroom:", false, true);
+            id(nextionTextRoom4).set_state("Garage:", false, true);
+
+            id(nextionTextSensor1).set_state("BME680:", false, true);
+            id(nextionTextSensor2).set_state("BME280:", false, true);
+            id(nextionTextSensor3).set_state("SHTC3:", false, true);
+            id(nextionTextSensor4).set_state("TMP117:", false, true);
+            id(nextionTextSensor5).set_state("DHT22:", false, true);
+            id(nextionTextSensor6).set_state("Thermistor 1:", false, true);
+            id(nextionTextSensor7).set_state("Thermistor 2:", false, true);
+            id(nextionTextSensor8).set_state("SGP40:", false, true);

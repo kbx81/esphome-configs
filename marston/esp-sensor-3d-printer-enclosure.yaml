@@ -9,6 +9,10 @@ packages:
 
 esp32:
   board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    version: 5.4.2
+    platform_version: 54.03.21
 
 logger:
   hardware_uart: UART0
@@ -34,7 +38,7 @@ sensor:
   # DHT22 sensor
   - platform: dht
     pin: 20
-    model: DHT22
+    model: AM2302
     temperature:
       id: esp_sensor_dht22_temperature
       name: DHT22 Temperature

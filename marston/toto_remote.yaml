@@ -1,0 +1,822 @@
+globals:
+  - id: toto_dryer_temperature
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_seat_temperature
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_water_temperature
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_water_pressure
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_water_position
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_timer_energy_saver
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_auto_close_delay
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_auto_open_delay
+    type: uint8_t
+    initial_value: '0'
+  - id: toto_auto_open_lid_seat
+    type: uint8_t
+    initial_value: '0'
+
+script:
+  - id: load_user_1_settings
+    mode: restart
+    then:
+    - number.set:
+        id: toto_dryer_temperature_number
+        value: !lambda "return id(toto_user_1_dryer_temperature_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_seat_temperature_number
+        value: !lambda "return id(toto_user_1_seat_temperature_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_water_temperature_number
+        value: !lambda "return id(toto_user_1_water_temperature_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_water_position_number
+        value: !lambda "return id(toto_user_1_water_position_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_water_pressure_number
+        value: !lambda "return id(toto_user_1_water_pressure_number).state;"
+  - id: load_user_2_settings
+    mode: restart
+    then:
+    - number.set:
+        id: toto_dryer_temperature_number
+        value: !lambda "return id(toto_user_2_dryer_temperature_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_seat_temperature_number
+        value: !lambda "return id(toto_user_2_seat_temperature_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_water_temperature_number
+        value: !lambda "return id(toto_user_2_water_temperature_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_water_position_number
+        value: !lambda "return id(toto_user_2_water_position_number).state;"
+    - delay: 250ms
+    - number.set:
+        id: toto_water_pressure_number
+        value: !lambda "return id(toto_user_2_water_pressure_number).state;"
+  - id: update_dryer_temperature_global
+    mode: restart
+    then:
+      - lambda: |-
+          static const uint8_t dryer_temp_codes[] = {0x08, 0x04, 0x0C, 0x02, 0x0A};
+          id(toto_dryer_temperature) = static_cast<uint8_t>(id(toto_dryer_temperature_number).state) - 1;
+          id(toto_dryer_temperature) = dryer_temp_codes[id(toto_dryer_temperature)];
+  - id: update_position_global
+    mode: restart
+    then:
+      - lambda: |-
+          static const uint8_t position_codes[] = {0x08, 0x04, 0x0C, 0x02, 0x0A};
+          id(toto_water_position) = static_cast<uint8_t>(id(toto_water_position_number).state) - 1;
+          id(toto_water_position) = position_codes[id(toto_water_position)];
+  - id: update_pressure_global
+    mode: restart
+    then:
+      - lambda: |-
+          static const uint8_t pressure_codes[] = {0x04, 0x0C, 0x02, 0x0A, 0x06};
+          id(toto_water_pressure) = static_cast<uint8_t>(id(toto_water_pressure_number).state) - 1;
+          id(toto_water_pressure) = pressure_codes[id(toto_water_pressure)];
+  - id: update_seat_and_water_temperature_globals
+    mode: restart
+    then:
+      - lambda: |-
+          static const uint8_t seat_and_water_temp_codes[] = {0x00, 0x08, 0x0A, 0x01, 0x09, 0x0D};
+          // Cast number component states to uint8_t
+          id(toto_seat_temperature) = static_cast<uint8_t>(id(toto_seat_temperature_number).state);
+          id(toto_water_temperature) = static_cast<uint8_t>(id(toto_water_temperature_number).state);
+          // Update the globals to the current codes to send based on the number components
+          id(toto_seat_temperature) = seat_and_water_temp_codes[id(toto_seat_temperature)];
+          id(toto_water_temperature) = seat_and_water_temp_codes[id(toto_water_temperature)];
+
+button:
+  - platform: template
+    id: toto_recall_user_1_btn
+    name: Toto Recall User 1
+    icon: mdi:human
+    on_press:
+      then:
+        - script.execute: load_user_1_settings
+        # - remote_transmitter.transmit_toto:
+        #     transmitter_id: ir_tx
+        #     command: 0x95
+        #     rc_code_1: 0x06
+        #     rc_code_2: 0x02
+  - platform: template
+    id: toto_recall_user_2_btn
+    name: Toto Recall User 2
+    icon: mdi:human
+    on_press:
+      then:
+        - script.execute: load_user_2_settings
+        # - remote_transmitter.transmit_toto:
+        #     transmitter_id: ir_tx
+        #     command: 0x95
+        #     rc_code_1: 0x02
+        #     rc_code_2: 0x0C
+  - platform: template
+    id: toto_dryer_btn
+    name: Toto Dryer
+    icon: mdi:hair-dryer
+    on_press:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xC0
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_front_spray_btn
+    name: Toto Front Spray
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x91
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+  - platform: template
+    id: toto_front_spray_with_osc_btn
+    name: Toto Front Spray with Oscillate
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x91
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+        - delay: 200ms
+        - button.press: toto_oscillating_btn
+  - platform: template
+    id: toto_front_wash_btn
+    name: Toto Front Wash
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x40
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+  - platform: template
+    id: toto_front_wash_with_osc_btn
+    name: Toto Front Wash with Oscillate
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x40
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+        - delay: 200ms
+        - button.press: toto_oscillating_btn
+  - platform: template
+    id: toto_rear_jet_btn
+    name: Toto Rear Jet
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x80
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+  - platform: template
+    id: toto_rear_jet_with_osc_btn
+    name: Toto Rear Jet with Oscillate
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x80
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+        - delay: 200ms
+        - button.press: toto_oscillating_btn
+  - platform: template
+    id: toto_rear_spray_btn
+    name: Toto Rear Spray
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xA8
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+  - platform: template
+    id: toto_rear_spray_with_osc_btn
+    name: Toto Rear Spray with Oscillate
+    icon: mdi:sprinkler
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xA8
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: !lambda "return id(toto_water_position);"
+        - delay: 200ms
+        - button.press: toto_oscillating_btn
+  - platform: template
+    id: toto_oscillating_btn
+    name: Toto Oscillating Toggle
+    icon: mdi:rotate-3d-variant
+    on_press:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x60
+            # command: 0x10
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_pulsating_btn
+    name: Toto Pulsating Toggle
+    icon: mdi:pulse
+    on_press:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xE0
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_stop_btn
+    name: Toto Stop
+    icon: mdi:stop
+    on_press:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x00
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_set_dryer_temperature_btn
+    name: Toto Set Dryer Temperature
+    on_press:
+      then:
+        - script.execute: update_dryer_temperature_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x1C
+            rc_code_1: !lambda "return id(toto_dryer_temperature);"
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_set_position_btn
+    name: Toto Set Position
+    on_press:
+      then:
+        - script.execute: update_position_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xA0
+            rc_code_1: 0x00
+            rc_code_2: !lambda "return id(toto_water_position);"
+  - platform: template
+    id: toto_set_pressure_btn
+    name: Toto Set Pressure
+    on_press:
+      then:
+        - script.execute: update_pressure_global
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x20
+            rc_code_1: !lambda "return id(toto_water_pressure);"
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_set_seat_temperature_btn
+    name: Toto Set Seat Temperature
+    on_press:
+      then:
+        - script.execute: update_seat_and_water_temperature_globals
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xED
+            rc_code_1: 0x01
+            rc_code_2: !lambda "return id(toto_seat_temperature);"
+  - platform: template
+    id: toto_set_water_temperature_btn
+    name: Toto Set Water Temperature
+    on_press:
+      then:
+        - script.execute: update_seat_and_water_temperature_globals
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xED
+            rc_code_1: !lambda "return id(toto_water_temperature);"
+            rc_code_2: 0x00
+  - platform: template
+    id: toto_seat_toggle_btn
+    name: Toto Seat Toggle
+    icon: mdi:seat
+    on_press:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xF6
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: wand_cleaning_btn
+    name: Toto Wand Cleaning
+    icon: mdi:brush
+    on_press:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x74
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+
+select:
+  - platform: template
+    id: timer_energy_saver_select
+    name: Toto Timer Energy Saver
+    entity_category: config
+    optimistic: true
+    options:
+      - "Off"
+      - 3 hours
+      - 6 hours
+      - 9 hours
+    initial_option: "Off"
+    restore_value: true
+    on_value:
+      then:
+        - lambda:
+            static const uint8_t timer_energy_saver_codes[] = {0x00, 0x0C, 0x06, 0x09};
+            id(toto_timer_energy_saver) = timer_energy_saver_codes[i];
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x68
+            rc_code_1: !lambda "return id(toto_timer_energy_saver);"
+            rc_code_2: 0x00
+  - platform: template
+    id: auto_close_delay_select
+    name: Toto Auto Close Delay
+    entity_category: config
+    optimistic: true
+    options:
+      - 25 seconds
+      - 90 seconds
+    initial_option: 90 seconds
+    restore_value: true
+    on_value:
+      then:
+        - lambda:
+            static const uint8_t auto_close_delay_codes[] = {0x04, 0x08};
+            id(toto_auto_close_delay) = auto_close_delay_codes[i];
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xD6
+            rc_code_1: !lambda "return id(toto_auto_close_delay);"
+            rc_code_2: 0x00
+  - platform: template
+    id: auto_open_delay_select
+    name: Toto Auto Open Delay
+    entity_category: config
+    optimistic: true
+    options:
+      - 15 seconds
+      - 30 seconds
+      - 90 seconds
+    initial_option: 15 seconds
+    restore_value: true
+    on_value:
+      then:
+        - lambda:
+            static const uint8_t auto_open_delay_codes[] = {0x08, 0x04, 0x0C};
+            id(toto_auto_open_delay) = auto_open_delay_codes[i];
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xC1
+            rc_code_1: !lambda "return id(toto_auto_open_delay);"
+            rc_code_2: 0x00
+  - platform: template
+    id: auto_open_lid_seat_select
+    name: Toto Auto Open Lid/Seat
+    entity_category: config
+    optimistic: true
+    options:
+      - Lid only
+      - Lid and Seat
+    initial_option: Lid only
+    restore_value: true
+    on_value:
+      then:
+        - lambda:
+            static const uint8_t auto_open_lid_seat_codes[] = {0x08, 0x04};
+            id(toto_auto_open_lid_seat) = auto_open_lid_seat_codes[i];
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x86
+            rc_code_1: !lambda "return id(toto_auto_open_lid_seat);"
+            rc_code_2: 0x00
+
+switch:
+  - platform: template
+    id: auto_energy_saver_switch
+    name: Toto Auto Energy Saver
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xB4
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x34
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: auto_open_close_switch
+    name: Toto Auto Open/Close
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x5C
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x9C
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: auto_bowl_cleaning_switch
+    name: Toto Auto Bowl Cleaning
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xD9
+            rc_code_1: 0x08
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xD9
+            rc_code_1: 0x04
+            rc_code_2: 0x00
+  - platform: template
+    id: auto_wand_cleaning_switch
+    name: Toto Auto Wand Cleaning
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x6E
+            rc_code_1: 0x08
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x6E
+            rc_code_1: 0x04
+            rc_code_2: 0x00
+  - platform: template
+    id: deodorizer_switch
+    name: Toto Deodorizer
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xD4
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x54
+            rc_code_1: 0x00
+            rc_code_2: 0x00
+  - platform: template
+    id: beep_switch
+    name: Toto Beep
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xCC
+            rc_code_1: 0x08
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0xCC
+            rc_code_1: 0x04
+            rc_code_2: 0x00
+  - platform: template
+    id: bowl_light_switch
+    name: Toto Bowl Light
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x39
+            rc_code_1: 0x08
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x39
+            rc_code_1: 0x04
+            rc_code_2: 0x00
+  - platform: template
+    id: indicator_light_switch
+    name: Toto Indicator Light
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x05
+            rc_code_1: 0x08
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x05
+            rc_code_1: 0x04
+            rc_code_2: 0x00
+  - platform: template
+    id: soft_light_switch
+    name: Toto Soft Light
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_off_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x4A
+            rc_code_1: 0x08
+            rc_code_2: 0x00
+    turn_on_action:
+      then:
+        - remote_transmitter.transmit_toto:
+            transmitter_id: ir_tx
+            command: 0x4A
+            rc_code_1: 0x04
+            rc_code_2: 0x00
+
+number:
+  - platform: template
+    id: toto_dryer_temperature_number
+    name: Toto Dryer Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+    on_value:
+      then:
+        - delay: 50ms
+        - button.press: toto_set_dryer_temperature_btn
+  - platform: template
+    id: toto_seat_temperature_number
+    name: Toto Seat Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+    on_value:
+      then:
+        - delay: 50ms
+        - button.press: toto_set_seat_temperature_btn
+  - platform: template
+    id: toto_water_temperature_number
+    name: Toto Water Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+    on_value:
+      then:
+        - delay: 50ms
+        - button.press: toto_set_water_temperature_btn
+  - platform: template
+    id: toto_water_pressure_number
+    name: Toto Water Pressure
+    icon: mdi:gauge
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+    on_value:
+      then:
+        - delay: 50ms
+        - button.press: toto_set_pressure_btn
+  - platform: template
+    id: toto_water_position_number
+    name: Toto Water Position
+    icon: mdi:arrow-up-down
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+    on_value:
+      then:
+        - delay: 50ms
+        - button.press: toto_set_position_btn
+  # User 1 Settings
+  - platform: template
+    id: toto_user_1_dryer_temperature_number
+    name: Toto User 1 Dryer Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_1_seat_temperature_number
+    name: Toto User 1 Seat Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_1_water_temperature_number
+    name: Toto User 1 Water Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_1_water_pressure_number
+    name: Toto User 1 Water Pressure
+    icon: mdi:gauge
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_1_water_position_number
+    name: Toto User 1 Water Position
+    icon: mdi:arrow-up-down
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  # User 2 Settings
+  - platform: template
+    id: toto_user_2_dryer_temperature_number
+    name: Toto User 2 Dryer Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_2_seat_temperature_number
+    name: Toto User 2 Seat Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_2_water_temperature_number
+    name: Toto User 2 Water Temperature
+    icon: mdi:thermometer
+    entity_category: config
+    optimistic: true
+    min_value: 0
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_2_water_pressure_number
+    name: Toto User 2 Water Pressure
+    icon: mdi:gauge
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
+  - platform: template
+    id: toto_user_2_water_position_number
+    name: Toto User 2 Water Position
+    icon: mdi:arrow-up-down
+    entity_category: config
+    optimistic: true
+    min_value: 1
+    max_value: 5
+    step: 1
+    initial_value: 1
+    restore_value: true
