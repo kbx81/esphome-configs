@@ -15,8 +15,8 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
-    version: 5.4.2
-    platform_version: 54.03.21
+    # version: 5.4.2
+    # platform_version: 54.03.21
 
 status_led:
   pin:

@@ -1,42 +1,28 @@
 ####
 ##
-## Konnected Garage Door Opener (ESP32)
+## Konnected Garage Door Opener blaQ (GDOv2-Q)
 ## Firmware configuration for ESPHome
 ##
-## filename: garage-door-esp32.yaml
+## filename: garage-door-GDOv2-Q.yaml
 ## GitHub: https://github.com/konnected-io/konnected-esphome
 ## Buy Konnected hardware: https://konnected.io
 ## Help & Support: https://help@konnected.io (support is provided for purchasers of Konnected hardware)
 ##
-## Copyright© 2023 Konnected Inc.
+## Copyright© 2023-2026 Konnected Inc.
 ##
-## Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation 
-## files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, 
+## Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation
+## files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy,
 ## modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software
 ## is furnished to do so, subject to the following conditions:
 ##
 ## The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 ##
 ## THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-## OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
-## LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR 
+## OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+## LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 ## IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ##
 ####
-
-####
-# INTRODUCTION
-# 
-# This ESPHome based firmware configuration is designed for the Konnected Garage Door Opener GDOv2-S which is built on the ESP32-S3-MINI.
-# The Garage Door Opener retrofits an older style traditional garage door opener with a dry-contact trigger and has the
-# following features which are included as packages below:
-#
-# 1. Wired contact sensor for detecting open/closed state of garage door
-# 2. Optical range sensor for detecting open/closed state of garage door
-# 3. Emulates a garage door opener button wired to a dry contact relay to open/close the garage door.
-# 4. Adds a Garage Door "Cover" entity that is exposed to Home Assistant. The cover entity incorporates the state of the 
-#    garage door and controls to open/close/stop it.
-# 5. Flashes an onboard LED and beeps an onboard piezo sounder as a warning before automatically closing.
 
 ####
 # GENERAL SETTINGS
@@ -56,20 +42,18 @@ substitutions:
   # customize the name and hostname. Note: only lowercase characters, numbers and hyphen(-) are allowed.
   node_name: esp-gdo-east
   node_friendly_name: Garage Door Opener East
-  project_name: garage-door-gdov2-s
-  project_version: "1.4.1"
+  project_name: garage-door-gdov2-q
+  project_version: "1.5.6"
   garage_door_cover_name: Garage Door
-  switch_name: STR output
+  garage_light_name: Garage Light
+  garage_openings_name: Garage Openings
+  garage_lock_name: Lock
+  garage_motion_name: Motion
+  garage_obstruction_name: Obstruction
+  garage_motor_name: Motor
+  garage_button_name: Wall Button
+  garage_sync_name: Synced
 
-  ####
-  # GARAGE DOOR OPENER MOMENTARY DURATION
-  # Duration to make the relay contact closure for the garage door opener button circuit. 
-  garage_door_opener_momentary_duration: 300ms
-
-  ####
-  # OPEN GARAGE DOOR DISTANCE MARGIN OF ERROR
-  # The margin of error (+/-) in meters from the value above to consider the garage door in the open position.
-  open_garage_door_distance_margin_of_error: "0.05"
 
   ####
   # GARAGE DOOR CLOSE WARNING DURATION
@@ -79,30 +63,37 @@ substitutions:
   ####
   # ADDITIONAL SETTTINGS
   sensor_debounce_time: 200ms
-  range_sensor_polling_time: 2500ms
-  range_sensor_debounce_time: 3s
   blink_on_state: "true"
 
   ####
   # INTERNAL MAPPINGS
   # DO NOT EDIT these when using Konnected hardware
-  door_control_pin: GPIO1
-  wired_sensor_pin: GPIO5
+  uart_tx_pin: GPIO1
+  uart_rx_pin: GPIO2
   warning_beep_pin: GPIO4
   warning_leds_pin: GPIO3
-  output_switch_pin: GPIO2
   status_led: GPIO18
-  sda: GPIO6
-  scl: GPIO7
+  input1: GPIO5
+  input2: GPIO9
 
   status_led_inverted: "false"
+
+external_components:
+  - source: github://konnected-io/konnected-esphome@master
+    components: [ secplus_gdo ]
+
+  # Un-comment below and comment above for local modification
+  # - source:
+  #     type: local
+  #     path: components
+  #   components: [ secplus_gdo ]
 
 esp32:
   board: esp32-s3-devkitc-1
   framework:
     type: esp-idf
-    version: 5.4.2
-    platform_version: 54.03.21
+    # version: 5.4.2
+    # platform_version: 54.03.21
 
 ####
 # PACKAGES
@@ -122,53 +113,8 @@ packages:
       # - packages/core-esp32-s3.yaml
 
       ####
-      # GARAGE DOOR WIRED SENSOR
-      # Enables a wired contact sensor for reporting the open or closed state of the garage door
-      # via the physical INPUT terminals.
-      - packages/garage-door-wired-sensor.yaml
-
-      ####
-      # GARAGE DOOR RANGE SENSOR
-      # Enables the optical laser range sensor included with some Konnected Garage Door opener models to detect
-      # the open/closed state of an overhead garage door.    
-      - packages/vl53l0x-range-sensor.yaml
-
-      ####
-      # GARAGE DOOR COVER
-      # The Garage Door Cover is the main user interface entity representing a garage door in Home Assistant.
-      # more: https://www.home-assistant.io/integrations/cover/
-      # CHOOSE ONE of the following cover packages depending on the sensors used to determine the open/closed state of the door.
-      #
-      # 1. RANGE SENSOR ONLY - Include this line and remove or comment out the garage_door_wired_sensor package below.
-      - packages/garage-door-cover-range.yaml
-      #
-      # 2. WIRED SENSOR ONLY - Include this line and remove or comment out the vl53l0x_range_sensor package below.
-      # - packages/garage-door-cover-wired.yaml
-      #
-      # 3. WIRED & RANGE SENSORS - Include this line.
-      # - packages/garage-door-cover-wired-and-range.yaml
-
-      ####
-      # GARAGE DOOR OPENER BUTTON
-      # Enables the garage door opener relay labeled DOOR on the Konnected Garage Door Opener as a button entity. When
-      # pressed, the relay will close the dry contact, simulating a physical press of the garage door opener wall button.
-      - packages/garage-door-opener-button.yaml
-
-      ####
-      # SWITCH
-      # Enables 12V switched output labeled STR on the Konnected Garage Door opener as a switch entity
-      # switch: !include packages/switch.yaml
-      - packages/switch.yaml
-
-      ####
-      # WARNING LED
-      # Enables the onboard warning LED light, with strobe effect. Used to visually warn of garage door automatic closing.
-      # warning_led: !include packages/warning-led.yaml
-      - packages/warning-led.yaml
-
-      ####
       # WIFI
-      # Enables WiFi connectivity and diagnostics. Uncommet below to enable WiFi.
+      # Enables WiFi connectivity and diagnostics. Uncomment below to enable WiFi.
       # wifi: !include packages/wifi.yaml
       # - packages/wifi-esp32.yaml
 
@@ -178,9 +124,15 @@ packages:
       - packages/mdns.yaml
 
       ####
+      # WARNING LED
+      # Enables the onboard warning LED light, with strobe effect. Used to visually warn of garage door automatic closing.
+      # warning_led: !include packages/warning-led.yaml
+      - packages/warning-led.yaml
+
+      ####
       # PRE-CLOSE WARNING
-      # Enables a pleasant and customizable pre-close warning tone  using the onboard piezo buzzer. Used to audibly 
-      # warn of a garage door automatic closing.    
+      # Enables a pleasant and customizable pre-close warning tone  using the onboard piezo buzzer. Used to audibly
+      # warn of a garage door automatic closing.
       - packages/buzzer-rtttl.yaml
       - packages/pre-close-warning-tones.yaml
 
@@ -191,6 +143,14 @@ packages:
       - packages/status-led.yaml
 
       ####
-      # SELF-TEST
-      # Self test script used to validate the hardware post-assembly
-      # - packages/gdo-self-test.yaml
+      # SECPLUS GDO
+      # The logic and capabilities of the GDO communication
+      - packages/secplus-gdo.yaml
+      # - packages/debug.yaml
+
+esphome:
+  platformio_options:
+    lib_deps:
+      - https://github.com/konnected-io/gdolib#v1.0.0
+    build_flags:
+      - -Wl,--wrap=esp_panic_handler

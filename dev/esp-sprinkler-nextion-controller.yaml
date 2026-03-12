@@ -1379,7 +1379,7 @@ sensor:
             iaq_value: !lambda "return x;"
   - platform: homeassistant
     id: weather_humidity_ha
-    entity_id: sensor.gw2000b_v2_2_4_humidity
+    entity_id: sensor.gw2000b_humidity
     on_value:
       then:
         - globals.set:
@@ -1388,7 +1388,7 @@ sensor:
         - lambda: "id(nextionWeatherHum).set_state(roundf(x * 10), false, true);"
   - platform: homeassistant
     id: weather_temperature_ha
-    entity_id: sensor.gw2000b_v2_2_4_outdoor_temperature
+    entity_id: sensor.gw2000b_outdoor_temperature
     on_value:
       then:
         - globals.set:
@@ -1675,7 +1675,7 @@ text_sensor:
   # HA sensors we track - weather condition
   - platform: homeassistant
     id: weather_condition_ha
-    entity_id: weather.home_fairfield
+    entity_id: weather.home_marston
     on_value:
       then:
         - globals.set:

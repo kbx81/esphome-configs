@@ -21,6 +21,7 @@ wifi:
 # captive_portal:
 
 improv_serial:
+  id: improv_serial_esphome
 
 # Enable logging
 logger:
@@ -38,9 +39,11 @@ ota:
 
 button:
   - platform: restart
+    id: restart_button
     name: Restart
     entity_category: diagnostic
   - platform: factory_reset
+    id: factory_reset_button
     name: Wipe Preferences
     entity_category: diagnostic
 

@@ -8,11 +8,6 @@ packages:
   esp_common: !include shared/esp__common_core.yaml
   toto: !include toto_remote.yaml
 
-external_components:
-  - source: github://pr#10246
-    components: [esp32]
-    refresh: 1h
-
 wifi:
   enable_btm: true
   enable_rrm: true
@@ -39,7 +34,7 @@ script:
           );
           call.set_white(id(bathroom_vanity_motion_target).current_values.get_white());
           call.set_transition_length(id(motion_transition_on_time_ms).state);
-          call.set_effect("None");
+          call.set_effect(std::string("None"));
           call.perform();
 
 status_led:
@@ -93,7 +88,7 @@ binary_sensor:
           - if:
               condition:
                 lambda: |-
-                  return id(bathroom_vanity_motion_activation_toe_light).state == "Enabled" || !id(bathroom_vanity_api_status).state;
+                  return id(bathroom_vanity_motion_activation_toe_light).current_option() == "Enabled" || !id(bathroom_vanity_api_status).state;
               then:
                 - script.execute: toelight_auto_on
       on_release:
@@ -102,7 +97,7 @@ binary_sensor:
           - if:
               condition:
                 lambda: |-
-                  return id(bathroom_vanity_motion_activation_toe_light).state != "Disabled" || !id(bathroom_vanity_api_status).state;
+                  return id(bathroom_vanity_motion_activation_toe_light).current_option() != "Disabled" || !id(bathroom_vanity_api_status).state;
               then:
                 - light.turn_off:
                     id: bathroom_vanity_toe_light

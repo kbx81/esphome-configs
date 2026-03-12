@@ -88,11 +88,11 @@ script:
                   - rtttl.play: "alert 1:d=16,o=5,b=240:e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a,2p,e6,p,e6,p,a,p,a,p,e6,p,e6,p,a,p,a"
                   - binary_sensor.template.publish:
                       id: will_alert
-                      state: !lambda 'return id(alert_mode).state == "Always";'
+                      state: !lambda 'return id(alert_mode).current_option() == "Always";'
           else:
             - binary_sensor.template.publish:
                 id: will_alert
-                state: !lambda 'return id(alert_mode).state != "Disabled";'
+                state: !lambda 'return id(alert_mode).current_option() != "Disabled";'
       - lambda: |-
           auto e_cost = id(electricity_cost).state;
           if (!isnan(e_cost)) {

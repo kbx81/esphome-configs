@@ -46,7 +46,7 @@ binary_sensor:
       max_length: 500ms
       then:
         - light.turn_off: kitchen_undercabinet_east
-        - light.turn_off: kitchen_undercabinet_corner
+        - light.turn_off: kitchen_undercabinet_sink
         - light.turn_off: kitchen_undercabinet_west
         - light.turn_off: kitchen_undercabinet_refrigerator
 
@@ -67,8 +67,8 @@ light:
           update_interval: 1s
       - strobe:
   - platform: rgbw
-    id: kitchen_undercabinet_corner
-    name: Corner
+    id: kitchen_undercabinet_sink
+    name: Sink
     restore_mode: RESTORE_DEFAULT_OFF
     red: pwm_red_s3
     green: pwm_green_s3

@@ -1,0 +1,67 @@
+esphome:
+  name: esp-z-wave-proxy-poe
+  friendly_name: Z-Wave Proxy
+  build_path: ../../build/esp-z-wave-proxy-poe
+
+esp32:
+  variant: esp32p4
+  engineering_sample: true
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  # mode: octal
+  # speed: 80MHz
+
+ethernet:
+  type: IP101
+  mdc_pin: 31
+  mdio_pin: 52
+  clk:
+    pin: 50
+    mode: CLK_EXT_IN
+  power_pin: 51
+  phy_addr: 1
+
+mdns:
+  services:
+    - service: "_zwave"
+      protocol: "_tcp"
+      port: 6053
+      txt:
+        protocol: "esphome"
+
+api:
+
+logger:
+  hardware_uart: UART0
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+    password: !secret ota_password
+
+usb_host:
+  devices:
+    - id: device_0
+      vid: 0x303A
+      pid: 0x4001
+
+usb_uart:
+  - type: CDC_ACM
+    vid: 0x303A
+    pid: 0x4001
+    channels:
+      - id: uch_1
+        baud_rate: 115200
+        buffer_size: 1024
+
+zwave_proxy:
+  id: zw_proxy
+
+button:
+  - platform: restart
+    id: restart_btn
+    name: Restart
+    entity_category: diagnostic

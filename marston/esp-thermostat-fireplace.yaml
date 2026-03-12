@@ -1,0 +1,316 @@
+substitutions:
+  node_name: esp-thermostat-fireplace
+  node_friendly_name: Fireplace
+  project_name: kbxElectricFireplace
+  project_version: v1
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c6-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+
+uart:
+  - id: tuya_uart
+    tx_pin: 21
+    rx_pin: 20
+    baud_rate: 9600
+
+tuya:
+
+globals:
+  - id: last_ember_color
+    type: std::string
+    restore_value: yes
+    initial_value: '"Red"'
+  - id: last_flame_color
+    type: std::string
+    restore_value: yes
+    initial_value: '"Orange/Yellow"'
+
+climate:
+  - platform: tuya
+    id: fp_thermostat
+    name: Thermostat
+    switch_datapoint: 25
+    target_temperature_datapoint: 2
+    current_temperature_datapoint: 3
+    supports_heat: true
+    supports_cool: false
+
+light:
+  - platform: monochromatic
+    id: ember_light
+    name: Embers
+    default_transition_length: 0s
+    restore_mode: RESTORE_DEFAULT_OFF
+    output: ember_light_output
+    on_turn_on:
+      - lambda: |-
+          // Restore the last color if it wasn't "Off"
+          auto last_color = id(last_ember_color);
+          if (!last_color.empty() && last_color != "Off") {
+            auto call = id(fp_ember_color).make_call();
+            call.set_option(last_color);
+            call.perform();
+          }
+    on_turn_off:
+      - lambda: |-
+          // Save current color before turning off
+          auto current_color = id(fp_ember_color).current_option();
+          if (current_color != "Off") {
+            id(last_ember_color) = current_color;
+          }
+          // Turn off ember color
+          auto call = id(fp_ember_color).make_call();
+          call.set_option("Off");
+          call.perform();
+    on_state:
+      - lambda: |-
+          // Update number component when light brightness changes
+          // Map brightness (0.0-1.0) to ember brightness (4-0)
+          // Use rounding to ensure full range coverage:
+          // brightness >= 0.875 -> 0, 0.625-0.875 -> 1, 0.375-0.625 -> 2, 0.125-0.375 -> 3, < 0.125 -> 4
+          float brightness = id(ember_light).remote_values.get_brightness();
+          int ember_value = (int)(4.5f - (brightness * 4.0f));
+          ember_value = std::max(0, std::min(4, ember_value));
+
+          if (id(fp_ember_brightness).state != ember_value) {
+            auto call = id(fp_ember_brightness).make_call();
+            call.set_value(ember_value);
+            call.perform();
+          }
+  - platform: monochromatic
+    id: flame_light
+    name: Flame
+    default_transition_length: 0s
+    restore_mode: RESTORE_DEFAULT_OFF
+    output: flame_light_output
+    on_turn_on:
+      - lambda: |-
+          // Restore the last color if it wasn't "Off"
+          auto last_color = id(last_flame_color);
+          if (!last_color.empty() && last_color != "Off") {
+            auto call = id(fp_flame_color).make_call();
+            call.set_option(last_color);
+            call.perform();
+          }
+    on_turn_off:
+      - lambda: |-
+          // Save current color before turning off
+          auto current_color = id(fp_flame_color).current_option();
+          if (current_color != "Off") {
+            id(last_flame_color) = current_color;
+          }
+          // Turn off flame color
+          auto call = id(fp_flame_color).make_call();
+          call.set_option("Off");
+          call.perform();
+    on_state:
+      - lambda: |-
+          // Update number component when light brightness changes
+          // Map brightness (0.0-1.0) to flame brightness (4-0)
+          // Use rounding to ensure full range coverage:
+          // brightness >= 0.875 -> 0, 0.625-0.875 -> 1, 0.375-0.625 -> 2, 0.125-0.375 -> 3, < 0.125 -> 4
+          float brightness = id(flame_light).remote_values.get_brightness();
+          int flame_value = (int)(4.5f - (brightness * 4.0f));
+          flame_value = std::max(0, std::min(4, flame_value));
+
+          if (id(fp_flame_brightness).state != flame_value) {
+            auto call = id(fp_flame_brightness).make_call();
+            call.set_value(flame_value);
+            call.perform();
+          }
+
+number:
+  - platform: template
+    name: Volume level
+    icon: mdi:volume-high
+    min_value: 0
+    max_value: 5
+    step: 1
+    lambda: |-
+      auto level = id(fp_volume_level).state;
+      return level > 0.0f ? 6.0f - level : 0.0f;
+    set_action:
+      - lambda: |-
+          auto call = id(fp_volume_level).make_call();
+          call.set_value(x > 0.0f ? 6.0f - x : 0.0f);
+          call.perform();
+  - platform: tuya
+    id: fp_ember_brightness
+    number_datapoint: 101
+    min_value: 0  # 0 is highest brightness
+    max_value: 4  # 4 is lowest brightness
+    step: 1
+    on_value:
+      - lambda: |-
+          // Map ember brightness (4-0) back to light brightness (0.0-1.0)
+          // Reverse of: ember_value = (int)(4.5f - (brightness * 4.0f))
+          // Ember value 0 -> brightness 100% (1.0)
+          // Ember value 1 -> brightness 75% (0.75)
+          // Ember value 2 -> brightness 50% (0.50)
+          // Ember value 3 -> brightness 25% (0.25)
+          // Ember value 4 -> brightness 6.25% (0.0625) to avoid turning off
+          float light_value = (4.5f - x) / 4.0f;
+          light_value = std::max(0.0f, std::min(1.0f, light_value));
+
+          // Only update if brightness actually changed to prevent feedback loop
+          if (abs(id(ember_light).current_values.get_brightness() - light_value) > 0.01f) {
+            auto call = id(ember_light).make_call();
+            call.set_brightness(light_value);
+            call.perform();
+          }
+  - platform: tuya
+    id: fp_flame_brightness
+    number_datapoint: 106
+    min_value: 0  # 0 is highest brightness
+    max_value: 4  # 4 is lowest brightness
+    step: 1
+    on_value:
+      - lambda: |-
+          // Map flame brightness (4-0) back to light brightness (0.0-1.0)
+          // Reverse of: flame_value = (int)(4.5f - (brightness * 4.0f))
+          // Flame value 0 -> brightness 100% (1.0)
+          // Flame value 1 -> brightness 75% (0.75)
+          // Flame value 2 -> brightness 50% (0.50)
+          // Flame value 3 -> brightness 25% (0.25)
+          // Flame value 4 -> brightness 6.25% (0.0625) to avoid turning off
+          float light_value = (4.5f - x) / 4.0f;
+          light_value = std::max(0.0f, std::min(1.0f, light_value));
+
+          // Only update if brightness actually changed to prevent feedback loop
+          if (abs(id(flame_light).current_values.get_brightness() - light_value) > 0.01f) {
+            auto call = id(flame_light).make_call();
+            call.set_brightness(light_value);
+            call.perform();
+          }
+  - platform: tuya
+    id: fp_volume_level
+    number_datapoint: 107
+    min_value: 0  # 0 is off
+    max_value: 5  # 5 is lowest, 1 is highest
+    step: 1
+
+output:
+  # template outputs for lights (dummy outputs, actual control is via on_state)
+  - platform: template
+    id: ember_light_output
+    type: float
+    write_action:
+      - lambda: "return;"  # No-op, control handled in light's on_state
+  - platform: template
+    id: flame_light_output
+    type: float
+    write_action:
+      - lambda: "return;"  # No-op, control handled in light's on_state
+
+select:
+  - platform: tuya
+    id: fp_auto_off_timer
+    name: Auto-off timer
+    icon: mdi:timer-stop
+    enum_datapoint: 13
+    options:
+      0: "Off"
+      1: 0.5 hour
+      2: 1 hour
+      3: 2 hour
+      4: 3 hour
+      5: 4 hour
+      6: 5 hour
+      7: 6 hour
+      8: 7 hour
+      9: 8 hour
+      10: 9 hour
+  - platform: tuya
+    id: fp_display_unit
+    name: Display unit
+    icon: mdi:thermometer
+    entity_category: config
+    enum_datapoint: 9
+    options:
+      0: °C
+      1: °F
+  - platform: tuya
+    id: fp_ember_color
+    name: Ember color
+    icon: mdi:palette
+    enum_datapoint: 5
+    options:
+      0: "Off"
+      1: Red
+      2: Orange
+      3: Amber
+      4: Green
+      5: Cyan
+      6: Blue
+      7: Magenta
+      8: White
+      9: Color roll
+    on_value:
+      - lambda: |-
+          // Turn off ember light when "Off" is selected, turn on otherwise
+          auto call = x == "Off" ? id(ember_light).turn_off() : id(ember_light).turn_on();
+          call.perform();
+  - platform: tuya
+    id: fp_flame_color
+    name: Flame color
+    icon: mdi:palette
+    enum_datapoint: 19
+    options:
+      0: "Off"
+      1: Orange/Yellow
+      2: Orange/Yellow/White
+      3: Orange/Yellow/Blue
+      4: Blue/Orange/Yellow
+      5: White/Orange
+      6: White
+      7: Cyan
+      8: Blue/White
+      9: Green/White
+    on_value:
+      - lambda: |-
+          // Turn off flame light when "Off" is selected, turn on otherwise
+          auto call = x == "Off" ? id(flame_light).turn_off() : id(flame_light).turn_on();
+          call.perform();
+  - platform: tuya
+    id: fp_heat_mode
+    name: Heat mode
+    icon: mdi:radiator
+    enum_datapoint: 4
+    options:
+      0: Low
+      1: High
+
+sensor:
+  - platform: tuya
+    id: fp_auto_off_time_remaining
+    name: Auto-off time remaining
+    icon: mdi:timer
+    sensor_datapoint: 14
+    unit_of_measurement: s
+
+switch:
+  - platform: tuya
+    id: fp_flame
+    # name: Flame
+    icon: mdi:fire
+    switch_datapoint: 105
+  - platform: tuya
+    id: fp_my_Flame
+    # name: My Flame
+    switch_datapoint: 108
+  - platform: tuya
+    id: fp_power
+    name: Power
+    icon: mdi:power
+    switch_datapoint: 1

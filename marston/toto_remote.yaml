@@ -34,19 +34,19 @@ script:
     - number.set:
         id: toto_dryer_temperature_number
         value: !lambda "return id(toto_user_1_dryer_temperature_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_seat_temperature_number
         value: !lambda "return id(toto_user_1_seat_temperature_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_water_temperature_number
         value: !lambda "return id(toto_user_1_water_temperature_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_water_position_number
         value: !lambda "return id(toto_user_1_water_position_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_water_pressure_number
         value: !lambda "return id(toto_user_1_water_pressure_number).state;"
@@ -56,19 +56,19 @@ script:
     - number.set:
         id: toto_dryer_temperature_number
         value: !lambda "return id(toto_user_2_dryer_temperature_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_seat_temperature_number
         value: !lambda "return id(toto_user_2_seat_temperature_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_water_temperature_number
         value: !lambda "return id(toto_user_2_water_temperature_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_water_position_number
         value: !lambda "return id(toto_user_2_water_position_number).state;"
-    - delay: 250ms
+    - delay: 500ms
     - number.set:
         id: toto_water_pressure_number
         value: !lambda "return id(toto_user_2_water_pressure_number).state;"
@@ -167,7 +167,7 @@ button:
             command: 0x91
             rc_code_1: !lambda "return id(toto_water_pressure);"
             rc_code_2: !lambda "return id(toto_water_position);"
-        - delay: 200ms
+        - delay: 500ms
         - button.press: toto_oscillating_btn
   - platform: template
     id: toto_front_wash_btn
@@ -195,7 +195,7 @@ button:
             command: 0x40
             rc_code_1: !lambda "return id(toto_water_pressure);"
             rc_code_2: !lambda "return id(toto_water_position);"
-        - delay: 200ms
+        - delay: 500ms
         - button.press: toto_oscillating_btn
   - platform: template
     id: toto_rear_jet_btn
@@ -223,7 +223,7 @@ button:
             command: 0x80
             rc_code_1: !lambda "return id(toto_water_pressure);"
             rc_code_2: !lambda "return id(toto_water_position);"
-        - delay: 200ms
+        - delay: 500ms
         - button.press: toto_oscillating_btn
   - platform: template
     id: toto_rear_spray_btn
@@ -251,7 +251,7 @@ button:
             command: 0xA8
             rc_code_1: !lambda "return id(toto_water_pressure);"
             rc_code_2: !lambda "return id(toto_water_position);"
-        - delay: 200ms
+        - delay: 500ms
         - button.press: toto_oscillating_btn
   - platform: template
     id: toto_oscillating_btn
@@ -646,7 +646,7 @@ number:
     restore_value: true
     on_value:
       then:
-        - delay: 50ms
+        - delay: 100ms
         - button.press: toto_set_dryer_temperature_btn
   - platform: template
     id: toto_seat_temperature_number
@@ -661,7 +661,7 @@ number:
     restore_value: true
     on_value:
       then:
-        - delay: 50ms
+        - delay: 100ms
         - button.press: toto_set_seat_temperature_btn
   - platform: template
     id: toto_water_temperature_number
@@ -676,7 +676,7 @@ number:
     restore_value: true
     on_value:
       then:
-        - delay: 50ms
+        - delay: 100ms
         - button.press: toto_set_water_temperature_btn
   - platform: template
     id: toto_water_pressure_number
@@ -691,7 +691,7 @@ number:
     restore_value: true
     on_value:
       then:
-        - delay: 50ms
+        - delay: 100ms
         - button.press: toto_set_pressure_btn
   - platform: template
     id: toto_water_position_number
@@ -706,7 +706,7 @@ number:
     restore_value: true
     on_value:
       then:
-        - delay: 50ms
+        - delay: 100ms
         - button.press: toto_set_position_btn
   # User 1 Settings
   - platform: template

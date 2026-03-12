@@ -89,6 +89,23 @@ globals:
     initial_value: "false"
 
 script:
+  # humidifier rundown timer (used when action goes from heating to idle)
+  - id: humidifier_rundown
+    mode: restart
+    then:
+      - delay: !lambda 'return id(esp_thermostat_auto_humidity_control_rundown_delay).state * 1000;'
+      - script.stop: humidifier_start_if_required
+      - switch.turn_off: esp_thermostat_humidify
+  # switch on humidifier if required
+  - id: humidifier_start_if_required
+    mode: restart
+    then:
+      - delay: !lambda 'return id(esp_thermostat_auto_humidity_control_runup_delay).state * 1000;'
+      - if:
+          condition:
+            binary_sensor.is_on: humidification_required
+          then:
+            - switch.turn_on: esp_thermostat_humidify
   # display power management
   - id: motion_sense
     mode: restart
@@ -129,7 +146,7 @@ script:
       - lambda: |-
           id(nextionCurrentSetLower).set_state(roundf((celsius_to_fahrenheit(id(esp_thermostat).target_temperature_low)) * 10), false, true);
           id(nextionCurrentSetUpper).set_state(roundf((celsius_to_fahrenheit(id(esp_thermostat).target_temperature_high)) * 10), false, true);
-          id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);
+          id(nextionCurrentSetHum).set_state(id(esp_thermostat).target_humidity * 10, false, true);
           if (id(nextionCurrentSetMin).state != (celsius_to_fahrenheit(id(esp_thermostat).get_traits().get_visual_min_temperature())) * 10) {
             id(nextionCurrentSetMin).set_state((celsius_to_fahrenheit(id(esp_thermostat).get_traits().get_visual_min_temperature())) * 10, true, true);
           }
@@ -283,13 +300,13 @@ climate:
     cool_overrun: 1°F
     min_cooling_off_time: 300s
     min_cooling_run_time: 300s
-    max_cooling_run_time: 1800s
+    max_cooling_run_time: 2700s
     supplemental_heating_delta: 4°F
     heat_deadband: 1°F
     heat_overrun: 1°F
     min_heating_off_time: 300s
     min_heating_run_time: 300s
-    max_heating_run_time: 1800s
+    max_heating_run_time: 2700s
     min_fan_mode_switching_time: 30s
     # min_fanning_off_time: 30s
     # min_fanning_run_time: 30s
@@ -301,8 +318,8 @@ climate:
     # fan_with_heating: true
     humidity_hysteresis: 1.0
     visual:
-      min_humidity: 20%
-      max_humidity: 70%
+      min_humidity: 10%
+      max_humidity: 80%
       min_temperature: 60°F
       max_temperature: 90°F
       temperature_step: 0.1
@@ -343,6 +360,7 @@ climate:
       - delay: 250ms
       - script.execute: refresh_display_climate_action
     supplemental_cooling_action:
+      - switch.turn_on: esp_thermostat_cool_1   # ensure stage 2 is not on without stage 1
       - switch.turn_on: esp_thermostat_cool_2
       - delay: 250ms
       - script.execute: refresh_display_climate_action
@@ -350,9 +368,11 @@ climate:
       - switch.turn_off: esp_thermostat_cool_2
       - switch.turn_off: esp_thermostat_cool_1
       - switch.turn_on: esp_thermostat_heat_1
+      - script.execute: humidifier_start_if_required
       - delay: 250ms
       - script.execute: refresh_display_climate_action
     supplemental_heating_action:
+      - switch.turn_on: esp_thermostat_heat_1   # ensure stage 2 is not on without stage 1
       - switch.turn_on: esp_thermostat_heat_2
       - delay: 250ms
       - script.execute: refresh_display_climate_action
@@ -361,35 +381,57 @@ climate:
       - switch.turn_off: esp_thermostat_cool_1
       - switch.turn_off: esp_thermostat_heat_2
       - switch.turn_off: esp_thermostat_heat_1
-      - switch.turn_off: esp_thermostat_humidify
-      - lambda: |-
-          if (id(esp_thermostat).fan_mode == climate::CLIMATE_FAN_AUTO)
-            id(esp_thermostat_fan).turn_off();
+      - if:
+          condition:
+            lambda: 'return id(esp_thermostat).fan_mode != climate::CLIMATE_FAN_ON;'
+          then:
+            - switch.turn_off: esp_thermostat_fan
+            - script.execute: humidifier_rundown
       - delay: 250ms
       - script.execute: refresh_display_climate_action
     fan_only_action:
       - switch.turn_on: esp_thermostat_fan
+      - script.execute: humidifier_start_if_required
       - delay: 250ms
       - script.execute: refresh_display_climate_action
     fan_mode_auto_action:
-      - lambda: |-
-          if ((id(esp_thermostat).action != climate::CLIMATE_ACTION_COOLING)
-           && (id(esp_thermostat).action != climate::CLIMATE_ACTION_FAN))
-            id(esp_thermostat_fan).turn_off();
+      - if:
+          condition:
+            lambda: 'return (id(esp_thermostat).action != climate::CLIMATE_ACTION_COOLING) && (id(esp_thermostat).action != climate::CLIMATE_ACTION_FAN);'
+          then:
+            - switch.turn_off: esp_thermostat_fan
+      - if:
+          condition:
+            lambda: 'return (id(esp_thermostat).action == climate::CLIMATE_ACTION_OFF) || (id(esp_thermostat).action == climate::CLIMATE_ACTION_IDLE) || (id(esp_thermostat).action == climate::CLIMATE_ACTION_DRYING);'
+          then:
+            - switch.turn_off: esp_thermostat_humidify
       - delay: 250ms
       - script.execute: refresh_display_climate_fan_mode
     fan_mode_on_action:
       - switch.turn_on: esp_thermostat_fan
+      - script.execute: humidifier_start_if_required
       - delay: 250ms
       - script.execute: refresh_display_climate_fan_mode
+    humidity_control_humidify_action:
+      - if:
+          condition:
+            lambda: 'return (id(esp_thermostat).action == CLIMATE_ACTION_HEATING) || (id(esp_thermostat).fan_mode == CLIMATE_FAN_ON);'
+          then:
+            - switch.turn_on: esp_thermostat_humidify
+      - binary_sensor.template.publish:
+          id: humidification_required
+          state: True
+    humidity_control_off_action:
+      - switch.turn_off: esp_thermostat_humidify
+      - binary_sensor.template.publish:
+          id: humidification_required
+          state: False
+    target_humidity_change_action:
+      - script.execute: refresh_display_set_points
     target_temperature_change_action:
       - script.execute: refresh_display_set_points
       - delay: 250ms
       - script.execute: refresh_display_climate_action
-    humidification_action:
-      - logger.log: "humidification_action"
-    humidification_off_action:
-      - logger.log: "humidification_off_action"
 
 binary_sensor:
   - platform: status
@@ -453,6 +495,9 @@ binary_sensor:
             id: esp_thermostat
             mode: "off"
             fan_mode: "auto"
+  - platform: template
+    id: humidification_required
+    name: Humidification Required
 
 # BME680 BSEC2 sensor
 bme68x_bsec2_i2c:
@@ -526,7 +571,7 @@ sensor:
         } else {
           // if the hardware sensor is NOT "ready" (not NaN), we return a (fake) neutral value.
           // not ideal but this should be only very rarely used
-          sensor_value = id(esp_thermostat_target_humidity).state;
+          sensor_value = id(esp_thermostat).target_humidity;
         }
       } else {
         // if the on-board sensor is NOT flagged as active and the template sensor's value (aka current_humidity)
@@ -534,14 +579,6 @@ sensor:
         id(sensor_ready) = true;
         sensor_value = id(current_humidity);
       }
-      // switch humidifier on/off as required
-      if ((sensor_value >= id(esp_thermostat_target_humidity).state + 1) ||
-          (id(esp_thermostat).action != CLIMATE_ACTION_HEATING)) {
-        id(esp_thermostat_humidify).turn_off();
-      } else if (sensor_value <= id(esp_thermostat_target_humidity).state - 1) {
-        id(esp_thermostat_humidify).turn_on();
-      }
-
       return sensor_value;
     update_interval: 15s
     on_value:
@@ -628,6 +665,20 @@ sensor:
         - lambda: |-
             id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);
             id(nextionRoom8Temp).set_state(roundf(x * 10), false, true);
+        - if:
+            condition:
+              switch.is_on: esp_thermostat_auto_humidity_control
+            then:
+              - climate.control:
+                  id: esp_thermostat
+                  target_humidity: !lambda |-
+                    if (id(weather_temperature) > id(esp_thermostat_auto_humidity_control_max_temperature).state) {
+                      return id(esp_thermostat_auto_humidity_control_max_humidity).state;
+                    }
+                    float temperature_delta = id(esp_thermostat_auto_humidity_control_max_temperature).state - id(weather_temperature);
+                    float humidity_adjustment = temperature_delta / id(esp_thermostat_auto_humidity_control_ratio).state;
+                    float adjusted_humidity = id(esp_thermostat_auto_humidity_control_max_humidity).state - humidity_adjustment;
+                    return adjusted_humidity > 1.0f ? adjusted_humidity : 1.0f;   // minimum 1.0% humidity
   - platform: homeassistant
     id: weather_forecasted_high_ha
     entity_id: sensor.weather_forecasted_high
@@ -991,6 +1042,14 @@ sensor:
     nextion_id: main_lcd
     id: nextionCurrentSetHum
     variable_name: currentSetHum
+    on_value:
+      then:
+        - climate.control:
+            id: esp_thermostat
+            target_humidity: !lambda "return id(nextionCurrentSetHum).state / 10;"
+        - lambda: |-
+            if (id(nextionCurrentSetHum).state != (id(esp_thermostat).target_humidity) * 10)
+              id(nextionCurrentSetHum).set_state(id(esp_thermostat).target_humidity * 10, false, true);
   - platform: nextion
     nextion_id: main_lcd
     id: nextionCurrentSetLower
@@ -1350,6 +1409,13 @@ text_sensor:
     component_name: ${sensors_page_name}.txtSensor8d
 
 switch:
+  # automatic humidity control
+  - platform: template
+    id: esp_thermostat_auto_humidity_control
+    name: Automatic Humidity Control
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
   # display power (hard/physical)
   - platform: gpio
     id: esp_thermostat_display_power
@@ -1432,20 +1498,6 @@ switch:
           id(nextionUiColorIconOnAction).set_state(1, true, true);
 
 number:
-  - platform: template
-    id: esp_thermostat_target_humidity
-    name: Target Humidity
-    optimistic: true
-    mode: box
-    min_value: 0
-    max_value: 100
-    step: 0.1
-    initial_value: 30
-    restore_value: true
-    unit_of_measurement: "%"
-    on_value:
-      then:
-        lambda: "id(nextionCurrentSetHum).set_state(id(esp_thermostat_target_humidity).state * 10, false, true);"
   # for determining sensor weights when used as a part of climate control system average
   - platform: template
     id: esp_thermostat_humidity_weight
@@ -1466,6 +1518,67 @@ number:
     max_value: 10
     step: 1
     initial_value: 5
+    restore_value: true
+  # automatic humidity control
+  - platform: template
+    id: esp_thermostat_auto_humidity_control_max_humidity
+    name: Auto Humidity Control Max Humidity
+    entity_category: config
+    mode: box
+    unit_of_measurement: "%"
+    optimistic: true
+    min_value: 0
+    max_value: 60
+    step: 1
+    initial_value: 45
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_auto_humidity_control_max_temperature
+    name: Auto Humidity Control Max Temperature
+    entity_category: config
+    mode: box
+    unit_of_measurement: "°F"
+    optimistic: true
+    min_value: 0
+    max_value: 60
+    step: 1
+    initial_value: 40
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_auto_humidity_control_ratio
+    name: Auto Humidity Control Percent-to-degrees Ratio
+    entity_category: config
+    mode: box
+    unit_of_measurement: "°F"
+    optimistic: true
+    min_value: 1
+    max_value: 10
+    step: 0.1
+    initial_value: 2
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_auto_humidity_control_rundown_delay
+    name: Auto Humidity Control Run-down Delay
+    entity_category: config
+    mode: box
+    unit_of_measurement: "s"
+    optimistic: true
+    min_value: 1
+    max_value: 120
+    step: 1
+    initial_value: 30
+    restore_value: true
+  - platform: template
+    id: esp_thermostat_auto_humidity_control_runup_delay
+    name: Auto Humidity Control Run-up Delay
+    entity_category: config
+    mode: box
+    unit_of_measurement: "s"
+    optimistic: true
+    min_value: 1
+    max_value: 120
+    step: 1
+    initial_value: 30
     restore_value: true
   # display brightness controls
   - platform: template
