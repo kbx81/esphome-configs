@@ -1,0 +1,713 @@
+substitutions:
+  project_name: kbxRGBBinaryClock
+  project_version: v1
+
+external_components:
+  - source:
+      # type: git
+      # url: https://github.com/kbx81/esphome_external_components
+      type: local
+      path: ../esphome_external_components/components
+    components:
+      - rgb_binary_clock
+    refresh: always
+
+esp32:
+  board: esp32-c6-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+    advanced:
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+api:
+  actions:
+    - action: play_rtttl
+      variables:
+        rtttl_song: string
+      then:
+        - logger.log:
+            format: "song: %s"
+            args: ["rtttl_song.c_str()"]
+        - rgb_binary_clock.play_rtttl:
+            id: kbx_rgb_binary_clock
+            rtttl: !lambda 'return rtttl_song;'
+
+web_server:
+  port: 80
+  version: 3
+
+uart:
+  - id: uart_rgb_binary_clock
+    tx_pin: 1
+    rx_pin: 0
+    baud_rate: 230400
+
+globals:
+  - id: clock_time_synced
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+interval:
+  - interval: 47h
+    then:
+      - if:
+          condition:
+            lambda: 'return id(esptime).now().is_valid();'
+          then:
+            - button.press: clock_update_time_btn
+
+time:
+  - platform: homeassistant
+    id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
+    on_time_sync:
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(clock_time_synced);'
+            then:
+              - lambda: 'id(clock_time_synced) = true;'
+              - button.press: clock_update_time_btn
+
+rgb_binary_clock:
+  - id: kbx_rgb_binary_clock
+    uart_id: uart_rgb_binary_clock
+    boot_0_pin: 3
+    reset_pin: 5
+    # on_message:
+    #   - logger.log:
+    #       format: "Received message: %s"
+    #       args: ["message.c_str()"]
+
+binary_sensor:
+  - platform: rgb_binary_clock
+    type: timer_alarm_active
+    id: alarm_active_bs
+    name: Alarm Active
+
+  - platform: rgb_binary_clock
+    type: key
+    id: key_up_bs
+    name: Key Up
+    keys: [key_up]
+
+  - platform: rgb_binary_clock
+    type: key
+    id: key_down_bs
+    name: Key Down
+    keys: [key_down]
+
+  - platform: rgb_binary_clock
+    type: key
+    id: key_enter_bs
+    name: Key Enter
+    keys: [key_enter]
+
+  - platform: rgb_binary_clock
+    type: key
+    id: key_c_bs
+    name: Key C
+    keys: [key_c]
+
+  - platform: rgb_binary_clock
+    type: key
+    id: key_b_bs
+    name: Key B
+    keys: [key_b]
+
+  - platform: rgb_binary_clock
+    type: key
+    id: key_a_bs
+    name: Key A
+    keys: [key_a]
+
+  - platform: rgb_binary_clock
+    type: rtttl_playing
+    id: rtttl_playing_bs
+    name: RTTTL Playing
+
+button:
+  - platform: template
+    id: clear_alarm_btn
+    name: Clear Alarm
+    icon: mdi:alarm-check
+    on_press:
+      - rgb_binary_clock.timer_clear_alarm:
+
+  - platform: template
+    id: timer_run_down_btn
+    name: Timer Run Down
+    icon: mdi:timer-play
+    on_press:
+      - rgb_binary_clock.timer_run_down:
+
+  - platform: template
+    id: timer_run_up_btn
+    name: Timer Run Up
+    icon: mdi:timer-play
+    on_press:
+      - rgb_binary_clock.timer_run_up:
+
+  - platform: template
+    id: timer_stop_btn
+    name: Timer Stop
+    icon: mdi:timer-stop
+    on_press:
+      - rgb_binary_clock.timer_stop:
+
+  - platform: template
+    id: timer_reset_btn
+    name: Timer Reset
+    icon: mdi:timer-refresh
+    on_press:
+      - rgb_binary_clock.timer_reset:
+
+  - platform: template
+    id: play_hourly_chime_btn
+    name: Play Hourly Chime
+    entity_category: config
+    icon: mdi:bell-ring
+    on_press:
+      - rgb_binary_clock.play_chime:
+
+  - platform: template
+    id: save_settings_btn
+    name: Save Settings
+    entity_category: config
+    icon: mdi:content-save
+    on_press:
+      - rgb_binary_clock.save_settings:
+
+  - platform: template
+    id: clock_update_time_btn
+    name: Clock Update Time
+    entity_category: config
+    icon: mdi:timer-sync
+    on_press:
+      - rgb_binary_clock.set_time:
+          time: !lambda 'return id(esptime).now();'
+
+  - platform: template
+    id: stop_rtttl_btn
+    name: Stop RTTTL
+    icon: mdi:stop-circle-outline
+    on_press:
+      - rgb_binary_clock.stop_rtttl:
+
+  - platform: template
+    id: clock_factory_reset_btn
+    name: Clock Factory Reset
+    entity_category: diagnostic
+    icon: mdi:delete-forever
+    on_press:
+      - rgb_binary_clock.factory_reset:
+
+  - platform: template
+    id: clock_reset_btn
+    name: Clock Reset
+    entity_category: diagnostic
+    icon: mdi:power-cycle
+    on_press:
+      - rgb_binary_clock.reset:
+
+  - platform: template
+    id: clock_update_firmware_btn
+    name: Clock Update Firmware
+    entity_category: diagnostic
+    icon: mdi:update
+    on_press:
+      - rgb_binary_clock.update_firmware:
+          url: https://www.kbx81.net/download/public/kbx_rgb_binary_clock/v4/RGBBinaryClock.bin
+
+  # - platform: template
+  #   id: clock_enter_bootloader_btn
+  #   name: Clock Enter Bootloader
+  #   entity_category: diagnostic
+  #   icon: mdi:bootstrap
+  #   on_press:
+  #     - rgb_binary_clock.enter_bootloader:
+
+datetime:
+  - platform: rgb_binary_clock
+    name: Alarm 1 Time
+    slot: 1
+
+  - platform: rgb_binary_clock
+    name: Alarm 2 Time
+    slot: 2
+
+  - platform: rgb_binary_clock
+    name: Alarm 3 Time
+    slot: 3
+
+  - platform: rgb_binary_clock
+    name: Alarm 4 Time
+    slot: 4
+
+  - platform: rgb_binary_clock
+    name: Alarm 5 Time
+    slot: 5
+
+  - platform: rgb_binary_clock
+    name: Alarm 6 Time
+    slot: 6
+
+  - platform: rgb_binary_clock
+    name: Alarm 7 Time
+    slot: 7
+
+  - platform: rgb_binary_clock
+    name: Alarm 8 Time
+    slot: 8
+
+light:
+  - platform: rgb_binary_clock
+    type: intensity
+    id: display_intensity_light
+    name: Display Intensity
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 0 Off Color
+    icon: mdi:palette
+    slot: 0
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 0 On Color
+    icon: mdi:palette
+    slot: 0
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 1 Off Color
+    icon: mdi:palette
+    slot: 1
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 1 On Color
+    icon: mdi:palette
+    slot: 1
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 2 Off Color
+    icon: mdi:palette
+    slot: 2
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 2 On Color
+    icon: mdi:palette
+    slot: 2
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 3 Off Color
+    icon: mdi:palette
+    slot: 3
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 3 On Color
+    icon: mdi:palette
+    slot: 3
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 4 Off Color
+    icon: mdi:palette
+    slot: 4
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 4 On Color
+    icon: mdi:palette
+    slot: 4
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 5 Off Color
+    icon: mdi:palette
+    slot: 5
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 5 On Color
+    icon: mdi:palette
+    slot: 5
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 6 Off Color
+    icon: mdi:palette
+    slot: 6
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 6 On Color
+    icon: mdi:palette
+    slot: 6
+    color_index: 1
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 7 Off Color
+    icon: mdi:palette
+    slot: 7
+    color_index: 0
+
+  - platform: rgb_binary_clock
+    type: slot_color
+    name: Slot 7 On Color
+    icon: mdi:palette
+    slot: 7
+    color_index: 1
+
+number:
+  - platform: rgb_binary_clock
+    type: time_display_duration
+    id: time_display_duration_num
+    name: Time Display Duration
+
+  - platform: rgb_binary_clock
+    type: date_display_duration
+    id: date_display_duration_num
+    name: Date Display Duration
+
+  - platform: rgb_binary_clock
+    type: temp_display_duration
+    id: temperature_display_duration_num
+    name: Temperature Display Duration
+
+  - platform: rgb_binary_clock
+    type: timer_reset_value
+    id: timer_reset_value_num
+    name: Timer Reset Value
+
+  - platform: rgb_binary_clock
+    type: idle_timeout
+    id: idle_timeout_num
+    name: Idle Timeout
+
+  - platform: rgb_binary_clock
+    type: fade_duration
+    id: fade_duration_num
+    name: Fade Duration
+
+  - platform: rgb_binary_clock
+    type: minimum_intensity
+    id: minimum_intensity_num
+    name: Minimum Intensity
+
+  - platform: rgb_binary_clock
+    type: beeper_volume
+    id: beeper_volume_num
+    name: Beeper Volume
+
+  - platform: rgb_binary_clock
+    type: lux_calibration
+    id: lux_calibration_num
+    name: Lux Calibration
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_stm32
+    id: temperature_calibration_stm32_num
+    name: Temperature Calibration STM32
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_ds3231
+    id: temperature_calibration_ds3231_num
+    name: Temperature Calibration DS3231
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_ds3234
+    id: temperature_calibration_ds3234_num
+    name: Temperature Calibration DS3234
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_ds1722
+    id: temperature_calibration_ds1722_num
+    name: Temperature Calibration DS1722
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_lm74
+    id: temperature_calibration_lm74_num
+    name: Temperature Calibration LM74
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_lm75
+    id: temperature_calibration_lm75_num
+    name: Temperature Calibration LM75
+    mode: box
+
+  - platform: rgb_binary_clock
+    type: temp_cal_mcp9808
+    id: temperature_calibration_mcp9808_num
+    name: Temperature Calibration MCP9808
+    mode: box
+
+select:
+  - platform: rgb_binary_clock
+    type: operating_mode
+    id: operating_mode_sel
+    name: Operating Mode
+
+  - platform: rgb_binary_clock
+    type: display_mode
+    id: display_mode_sel
+    name: Display Mode
+
+  - platform: rgb_binary_clock
+    type: temperature_source
+    id: temperature_source_sel
+    name: Temperature Source
+
+  - platform: rgb_binary_clock
+    type: binary_bcd
+    id: binary_bcd_sel
+    name: Binary/BCD Mode
+
+  - platform: rgb_binary_clock
+    type: date_format
+    id: date_format_sel
+    name: Date Format
+
+  - platform: rgb_binary_clock
+    type: time_display_mode
+    id: time_display_mode_sel
+    name: Time Display Mode
+
+  - platform: rgb_binary_clock
+    type: temperature_display_units
+    id: temperature_display_units_sel
+    name: Temperature Display Units
+
+sensor:
+  - platform: rgb_binary_clock
+    type: adc_light
+    id: light_level_sen
+    name: Light Level
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.25
+          send_every: 1
+
+  - platform: rgb_binary_clock
+    type: adc_vdda
+    id: vdda_sen
+    name: VddA
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.01
+
+  - platform: rgb_binary_clock
+    type: adc_vbatt
+    id: vbatt_sen
+    name: VBatt
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.01
+
+  - platform: rgb_binary_clock
+    type: temp_stm32
+    id: temperature_stm32_sen
+    name: Temperature STM32
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.1
+
+  - platform: rgb_binary_clock
+    type: temp_ds3231
+    id: temperature_ds3231_sen
+    name: Temperature DS3231
+    device_class: temperature
+
+  - platform: rgb_binary_clock
+    type: temp_ds3234
+    id: temperature_ds3234_sen
+    name: Temperature DS3234
+    device_class: temperature
+
+  - platform: rgb_binary_clock
+    type: temp_ds1722
+    id: temperature_ds1722_sen
+    name: Temperature DS1722
+    device_class: temperature
+
+  - platform: rgb_binary_clock
+    type: temp_lm74
+    id: temperature_lm74_sen
+    name: Temperature LM74
+    device_class: temperature
+
+  - platform: rgb_binary_clock
+    type: temp_lm75
+    id: temperature_lm75_sen
+    name: Temperature LM75
+    device_class: temperature
+
+  - platform: rgb_binary_clock
+    type: temp_mcp9808
+    id: temperature_mcp9808_sen
+    name: Temperature MCP9808
+    device_class: temperature
+
+switch:
+  - platform: rgb_binary_clock
+    type: auto_adjust_intensity
+    id: auto_adjust_intensity_sw
+    name: Auto Brightness
+
+  - platform: rgb_binary_clock
+    type: hourly_chime
+    id: hourly_chime_sw
+    name: Hourly Chime
+
+  - platform: rgb_binary_clock
+    type: status_led_as_am_pm
+    id: am_pm_indication_sw
+    name: AM/PM Indication
+
+  - platform: rgb_binary_clock
+    type: show_msbs
+    id: show_msbs_sw
+    name: Show MSbs
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 1 Beep
+    slot: 1
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 2 Beep
+    slot: 2
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 3 Beep
+    slot: 3
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 4 Beep
+    slot: 4
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 5 Beep
+    slot: 5
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 6 Beep
+    slot: 6
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 7 Beep
+    slot: 7
+
+  - platform: rgb_binary_clock
+    type: alarm_beep
+    name: Alarm 8 Beep
+    slot: 8
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 1 Blink
+    slot: 1
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 2 Blink
+    slot: 2
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 3 Blink
+    slot: 3
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 4 Blink
+    slot: 4
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 5 Blink
+    slot: 5
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 6 Blink
+    slot: 6
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 7 Blink
+    slot: 7
+
+  - platform: rgb_binary_clock
+    type: alarm_blink
+    name: Alarm 8 Blink
+    slot: 8
+
+text_sensor:
+  - platform: rgb_binary_clock
+    type: firmware_version
+    id: clock_firmware_version_ts
+    name: Clock Firmware Version
+    icon: mdi:information-outline

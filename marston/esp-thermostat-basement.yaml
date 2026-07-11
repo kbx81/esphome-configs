@@ -12,7 +12,7 @@ substitutions:
   # weather entity name
   weather_entity: "weather.home_marston"
   # temperature sensor offsets
-  ntc_reference_voltage: "0.89V"
+  ntc_reference_voltage: "0.9V"
   ntc_temperature_offset: "0.0"
   bme280_temperature_offset: "-2.2"
   bme680_temperature_offset: "-2.5"
@@ -53,19 +53,28 @@ sensor:
     entity_id: sensor.esp_thermostat_main_bme680_temperature
     on_value:
       then:
-        - lambda: "id(nextionRoom2Temp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionRoom2Temp).set_state(roundf(display_temp * 10), false, true);
   - platform: homeassistant
     id: room_bedroom_temperature_ha
     entity_id: sensor.esp_thermostat_bedroom_bme680_temperature
     on_value:
       then:
-        - lambda: "id(nextionRoom3Temp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionRoom3Temp).set_state(roundf(display_temp * 10), false, true);
   - platform: homeassistant
     id: room_garage_temperature_ha
     entity_id: sensor.garage_sensor_temperature
     on_value:
       then:
-        - lambda: "id(nextionRoom4Temp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionRoom4Temp).set_state(roundf(display_temp * 10), false, true);
 
 display:
   - platform: nextion

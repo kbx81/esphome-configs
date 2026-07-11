@@ -1,0 +1,596 @@
+substitutions:
+  project_name: kbxTubeClock
+  project_version: v1
+
+external_components:
+  - source:
+      # type: git
+      # url: https://github.com/kbx81/esphome_external_components
+      type: local
+      path: ../esphome_external_components/components
+    components:
+      - tube_clock
+    refresh: always
+
+esp32:
+  board: esp32-c6-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+    advanced:
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+api:
+  actions:
+    - action: play_rtttl
+      variables:
+        rtttl_song: string
+      then:
+        - logger.log:
+            format: "song: %s"
+            args: ["rtttl_song.c_str()"]
+        - tube_clock.play_rtttl:
+            id: kbx_tube_clock
+            rtttl: !lambda 'return rtttl_song;'
+
+web_server:
+  port: 80
+  version: 3
+
+remote_receiver:
+  id: ir_rx
+  dump: [nec]
+  pin:
+    inverted: true
+    number: 2
+
+uart:
+  - id: uart_tube_clock
+    baud_rate: 230400
+    rx_pin: 7
+    tx_pin: 20
+
+tube_clock:
+  - id: kbx_tube_clock
+    uart_id: uart_tube_clock
+    dfu_uart_config:
+      tx_pin: 4
+      rx_pin: 9
+      baud_rate: 460800
+      parity: EVEN
+    boot_0_pin: 3
+    reset_pin:
+      number: 5
+      allow_other_uses: ${reset_pin_allow_other_uses}
+    # on_message:
+    #   - logger.log:
+    #       format: "Received message: %s"
+    #       args: ["message.c_str()"]
+
+binary_sensor:
+  - platform: tube_clock
+    type: timer_alarm_active
+    id: alarm_active_bs
+    name: Alarm Active
+
+  - platform: tube_clock
+    type: key
+    id: key_up_bs
+    name: Key Up
+    keys: [key_up]
+
+  - platform: tube_clock
+    type: key
+    id: key_down_bs
+    name: Key Down
+    keys: [key_down]
+
+  - platform: tube_clock
+    type: key
+    id: key_enter_bs
+    name: Key Enter
+    keys: [key_enter]
+
+  - platform: tube_clock
+    type: key
+    id: key_c_bs
+    name: Key C
+    keys: [key_c]
+
+  - platform: tube_clock
+    type: key
+    id: key_b_bs
+    name: Key B
+    keys: [key_b]
+
+  - platform: tube_clock
+    type: key
+    id: key_a_bs
+    name: Key A
+    keys: [key_a]
+
+  - platform: tube_clock
+    type: gps_fix_valid
+    id: gps_fix_valid_bs
+    name: GPS Fix Valid
+
+  - platform: tube_clock
+    type: rtttl_playing
+    id: rtttl_playing_bs
+    name: RTTTL Playing
+
+button:
+  - platform: template
+    id: clear_alarm_btn
+    name: Clear Alarm
+    icon: mdi:alarm-check
+    on_press:
+      - tube_clock.timer_clear_alarm:
+
+  - platform: template
+    id: timer_run_down_btn
+    name: Timer Run Down
+    icon: mdi:timer-play
+    on_press:
+      - tube_clock.timer_run_down:
+
+  - platform: template
+    id: timer_run_up_btn
+    name: Timer Run Up
+    icon: mdi:timer-play
+    on_press:
+      - tube_clock.timer_run_up:
+
+  - platform: template
+    id: timer_stop_btn
+    name: Timer Stop
+    icon: mdi:timer-stop
+    on_press:
+      - tube_clock.timer_stop:
+
+  - platform: template
+    id: timer_reset_btn
+    name: Timer Reset
+    icon: mdi:timer-refresh
+    on_press:
+      - tube_clock.timer_reset:
+
+  - platform: template
+    id: play_hourly_chime_btn
+    name: Play Hourly Chime
+    entity_category: config
+    icon: mdi:bell-ring
+    on_press:
+      - tube_clock.play_chime:
+
+  - platform: template
+    id: save_settings_btn
+    name: Save Settings
+    entity_category: config
+    icon: mdi:content-save
+    on_press:
+      - tube_clock.save_settings:
+
+  - platform: template
+    id: stop_rtttl_btn
+    name: Stop RTTTL
+    icon: mdi:stop-circle-outline
+    on_press:
+      - tube_clock.stop_rtttl:
+
+  - platform: template
+    id: clock_factory_reset_btn
+    name: Wipe Clock Preferences
+    entity_category: diagnostic
+    icon: mdi:delete-forever
+    on_press:
+      - tube_clock.factory_reset:
+
+  - platform: template
+    id: clock_reset_btn
+    name: Restart Clock
+    entity_category: diagnostic
+    icon: mdi:power-cycle
+    on_press:
+      - tube_clock.reset:
+
+  - platform: template
+    id: clock_update_firmware_btn
+    name: Update Clock Firmware
+    entity_category: diagnostic
+    icon: mdi:update
+    on_press:
+      - tube_clock.update_firmware:
+          url: https://www.kbx81.net/download/public/kbx_tube_clock/v1/TubeClock.bin
+
+  # - platform: template
+  #   id: clock_enter_bootloader_btn
+  #   name: Clock Enter Bootloader
+  #   entity_category: diagnostic
+  #   icon: mdi:bootstrap
+  #   on_press:
+  #     - tube_clock.enter_bootloader:
+
+datetime:
+  - platform: tube_clock
+    name: Alarm 1 Time
+    slot: 1
+
+  - platform: tube_clock
+    name: Alarm 2 Time
+    slot: 2
+
+  - platform: tube_clock
+    name: Alarm 3 Time
+    slot: 3
+
+  - platform: tube_clock
+    name: Alarm 4 Time
+    slot: 4
+
+  - platform: tube_clock
+    name: Alarm 5 Time
+    slot: 5
+
+  - platform: tube_clock
+    name: Alarm 6 Time
+    slot: 6
+
+  - platform: tube_clock
+    name: Alarm 7 Time
+    slot: 7
+
+  - platform: tube_clock
+    name: Alarm 8 Time
+    slot: 8
+
+light:
+  - platform: tube_clock
+    type: nixie
+    id: display_intensity_light
+    name: Display Intensity
+
+  - platform: tube_clock
+    type: rgb
+    id: status_light
+    name: Status
+    icon: mdi:led-on
+
+number:
+  - platform: tube_clock
+    type: time_display_duration
+    id: time_display_duration_num
+    name: Time Display Duration
+
+  - platform: tube_clock
+    type: date_display_duration
+    id: date_display_duration_num
+    name: Date Display Duration
+
+  - platform: tube_clock
+    type: temp_display_duration
+    id: temperature_display_duration_num
+    name: Temperature Display Duration
+
+  - platform: tube_clock
+    type: timer_reset_value
+    id: timer_reset_value_num
+    name: Timer Reset Value
+
+  - platform: tube_clock
+    type: idle_timeout
+    id: idle_timeout_num
+    name: Idle Timeout
+
+  - platform: tube_clock
+    type: fade_duration
+    id: fade_duration_num
+    name: Fade Duration
+
+  - platform: tube_clock
+    type: effect_duration
+    id: effect_duration_num
+    name: Effect Duration
+
+  - platform: tube_clock
+    type: effect_frequency
+    id: effect_frequency_num
+    name: Effect Frequency
+
+  - platform: tube_clock
+    type: minimum_intensity
+    id: minimum_intensity_num
+    name: Minimum Intensity
+
+  - platform: tube_clock
+    type: beeper_volume
+    id: beeper_volume_num
+    name: Beeper Volume
+
+  - platform: tube_clock
+    type: lux_calibration
+    id: lux_calibration_num
+    name: Lux Calibration
+    mode: box
+
+  - platform: tube_clock
+    type: temp_cal_stm32
+    id: temperature_calibration_stm32_num
+    name: Temperature Calibration STM32
+    mode: box
+
+  - platform: tube_clock
+    type: temp_cal_ds3234
+    id: temperature_calibration_ds3234_num
+    name: Temperature Calibration DS3234
+    mode: box
+
+  - platform: tube_clock
+    type: temp_cal_ds1722
+    id: temperature_calibration_ds1722_num
+    name: Temperature Calibration DS1722
+    mode: box
+
+  - platform: tube_clock
+    type: temp_cal_lm74
+    id: temperature_calibration_lm74_num
+    name: Temperature Calibration LM74
+    mode: box
+
+select:
+  - platform: tube_clock
+    type: operating_mode
+    id: operating_mode_sel
+    name: Operating Mode
+
+  - platform: tube_clock
+    type: display_mode
+    id: display_mode_sel
+    name: Display Mode
+
+  - platform: tube_clock
+    type: temperature_source
+    id: temperature_source_sel
+    name: Temperature Source
+
+  - platform: tube_clock
+    type: colon_behavior
+    id: colon_behavior_sel
+    name: Colon Behavior
+
+  - platform: tube_clock
+    type: date_format
+    id: date_format_sel
+    name: Date Format
+
+  - platform: tube_clock
+    type: time_display_mode
+    id: time_display_mode_sel
+    name: Time Display Mode
+
+  - platform: tube_clock
+    type: temperature_display_units
+    id: temperature_display_units_sel
+    name: Temperature Display Units
+
+sensor:
+  - platform: tube_clock
+    type: adc_light
+    id: light_level_sen
+    name: Light Level
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.25
+          send_every: 1
+
+  - platform: tube_clock
+    type: adc_vdda
+    id: vdda_sen
+    name: VddA
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.01
+
+  - platform: tube_clock
+    type: adc_vbatt
+    id: vbatt_sen
+    name: VBatt
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.01
+
+  - platform: tube_clock
+    type: temp_stm32
+    id: temperature_stm32_sen
+    name: Temperature STM32
+    filters:
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
+      - delta: 0.1
+
+  - platform: tube_clock
+    type: temp_ds3234
+    id: temperature_ds3234_sen
+    name: Temperature DS3234
+
+  - platform: tube_clock
+    type: temp_ds1722
+    id: temperature_ds1722_sen
+    name: Temperature DS1722
+
+  - platform: tube_clock
+    type: temp_lm74
+    id: temperature_lm74_sen
+    name: Temperature LM74
+
+switch:
+  - platform: tube_clock
+    type: hv_power
+    id: hv_power_sw
+    name: HV Power
+
+  - platform: tube_clock
+    type: auto_brightness_rgb
+    id: led_auto_brightness_sw
+    name: LED Auto Brightness
+
+  - platform: tube_clock
+    type: auto_brightness_nixie
+    id: nixie_tube_auto_brightness_sw
+    name: Nixie tube Auto Brightness
+
+  - platform: tube_clock
+    type: hourly_chime
+    id: hourly_chime_sw
+    name: Hourly Chime
+
+  - platform: tube_clock
+    type: status_led_as_am_pm
+    id: am_pm_indication_sw
+    name: AM/PM Indication
+
+  - platform: tube_clock
+    type: show_leading_zeros
+    id: show_leading_zeros_sw
+    name: Show Leading Zeros
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_1_beep_sw
+    name: Alarm 1 Beep
+    slot: 1
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_2_beep_sw
+    name: Alarm 2 Beep
+    slot: 2
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_3_beep_sw
+    name: Alarm 3 Beep
+    slot: 3
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_4_beep_sw
+    name: Alarm 4 Beep
+    slot: 4
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_5_beep_sw
+    name: Alarm 5 Beep
+    slot: 5
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_6_beep_sw
+    name: Alarm 6 Beep
+    slot: 6
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_7_beep_sw
+    name: Alarm 7 Beep
+    slot: 7
+
+  - platform: tube_clock
+    type: alarm_beep
+    id: alarm_8_beep_sw
+    name: Alarm 8 Beep
+    slot: 8
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_1_blink_sw
+    name: Alarm 1 Blink
+    slot: 1
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_2_blink_sw
+    name: Alarm 2 Blink
+    slot: 2
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_3_blink_sw
+    name: Alarm 3 Blink
+    slot: 3
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_4_blink_sw
+    name: Alarm 4 Blink
+    slot: 4
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_5_blink_sw
+    name: Alarm 5 Blink
+    slot: 5
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_6_blink_sw
+    name: Alarm 6 Blink
+    slot: 6
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_7_blink_sw
+    name: Alarm 7 Blink
+    slot: 7
+
+  - platform: tube_clock
+    type: alarm_blink
+    id: alarm_8_blink_sw
+    name: Alarm 8 Blink
+    slot: 8
+
+  - platform: tube_clock
+    type: serial_remote_usart1
+    id: serial_remote_usart1_sw
+    # name: Serial Remote USART1
+
+  - platform: tube_clock
+    type: serial_remote_usart4
+    id: serial_remote_usart4_sw
+    # name: Serial Remote USART4
+
+text_sensor:
+  - platform: tube_clock
+    type: firmware_version
+    id: clock_firmware_version_ts
+    name: Clock Firmware Version
+    icon: mdi:information-outline

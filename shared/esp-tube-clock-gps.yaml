@@ -1,0 +1,77 @@
+external_components:
+  - source:
+      # type: git
+      # url: https://github.com/kbx81/esphome_external_components
+      type: local
+      path: ../esphome_external_components/components
+    components:
+      - liv3f
+    refresh: always
+
+tube_clock:
+  - id: !extend kbx_tube_clock
+    on_connect:
+      - if:
+          condition:
+            lambda: return id(liv3f_bin_img_version_ts).state.empty();
+          then:
+          - delay: 1s
+          - switch.turn_off: serial_remote_usart1_sw
+
+uart:
+  - id: uart_tube_clock_gps
+    baud_rate: 9600
+    rx_pin: 1
+    tx_pin:
+      number: 0
+      mode:
+        output: true
+        pullup: true
+        open_drain: true
+
+liv3f:
+  id: liv3f_module
+  uart_id: uart_tube_clock_gps
+  module_baud_rate: 115200
+  reset_pin:
+    number: 5
+    allow_other_uses: true
+  proxy_id: liv3f_gps_proxy
+  firmware_url: https://www.kbx81.net/download/public/gps/liv3f/STA8090_4_6_8_2_UPG26.bin
+  bin_img_version:
+    id: liv3f_bin_img_version_ts
+    name: LIV3F Binary Image Version
+    on_value:
+      then:
+        - delay: 1s
+        - switch.turn_on: serial_remote_usart1_sw
+
+gps:
+  uart_id: liv3f_gps_proxy
+  update_interval: 1s
+  latitude:
+    name: Latitude
+  longitude:
+    name: Longitude
+  altitude:
+    name: Altitude
+  satellites:
+    name: Satellites
+  hdop:
+    name: HDOP
+
+time:
+  - platform: gps
+
+button:
+  - platform: template
+    id: liv3f_start_firmware_update_btn
+    name: Update LIV3F Firmware
+    entity_category: diagnostic
+    icon: mdi:update
+    on_press:
+      - switch.turn_off: serial_remote_usart1_sw
+      - delay: 2s
+      - liv3f.start_firmware_update:
+      - delay: 10s
+      - switch.turn_on: serial_remote_usart1_sw

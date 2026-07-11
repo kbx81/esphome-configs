@@ -15,8 +15,12 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
-    # version: 5.4.2
-    # platform_version: 54.03.21
+    advanced:
+      minimum_chip_revision: "3.0"
+      sram1_as_iram: true
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
 
 status_led:
   pin:

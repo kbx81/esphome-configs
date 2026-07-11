@@ -1,0 +1,9 @@
+substitutions:
+  node_name: esp-tube-clock-desk
+  node_friendly_name: Desk Tube Clock
+  reset_pin_allow_other_uses: false
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+  esp-tube-clock-base: !include shared/esp-tube-clock-base.yaml
+  esp-tube-clock-non-gps: !include shared/esp-tube-clock-non-gps.yaml

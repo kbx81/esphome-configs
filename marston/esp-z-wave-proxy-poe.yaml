@@ -9,6 +9,10 @@ esp32:
   flash_size: 16MB
   framework:
     type: esp-idf
+    advanced:
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
 
 psram:
   # mode: octal

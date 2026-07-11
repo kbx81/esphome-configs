@@ -1,0 +1,7 @@
+substitutions:
+  node_name: esp-binary-clock-southwest-bdrm
+  node_friendly_name: Southwest Bedroom Binary Clock
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+  esp-binary-clock-base: !include shared/esp-binary-clock-base.yaml

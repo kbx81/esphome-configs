@@ -12,7 +12,7 @@ substitutions:
   # weather entity name
   weather_entity: "weather.home_marston"
   # temperature sensor offsets
-  ntc_reference_voltage: "0.93V"
+  ntc_reference_voltage: "0.94V"
   ntc_temperature_offset: "0.0"
   dht22_temperature_offset: "-1.5"
   bme280_temperature_offset: "-1.2"
@@ -54,19 +54,28 @@ sensor:
     entity_id: sensor.esp_thermostat_bedroom_bme680_temperature
     on_value:
       then:
-        - lambda: "id(nextionRoom2Temp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionRoom2Temp).set_state(roundf(display_temp * 10), false, true);
   - platform: homeassistant
     id: room_basement_temperature_ha
     entity_id: sensor.esp_thermostat_basement_bme680_temperature
     on_value:
       then:
-        - lambda: "id(nextionRoom3Temp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionRoom3Temp).set_state(roundf(display_temp * 10), false, true);
   - platform: homeassistant
     id: room_garage_temperature_ha
     entity_id: sensor.garage_sensor_temperature
     on_value:
       then:
-        - lambda: "id(nextionRoom4Temp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionRoom4Temp).set_state(roundf(display_temp * 10), false, true);
   # DHT22 sensor
   - platform: dht
     pin: 23
@@ -79,7 +88,10 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_thermostat_dht22_temperature).state)) + "\xB0";
+              float display_temp = id(temperature_unit_fahrenheit)
+                  ? celsius_to_fahrenheit(id(esp_thermostat_dht22_temperature).state)
+                  : id(esp_thermostat_dht22_temperature).state;
+              auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
               id(nextionTextSensor5a).set_state(temperature_string, false, true);
     humidity:
       id: esp_thermostat_dht22_humidity

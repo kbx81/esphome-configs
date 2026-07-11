@@ -62,6 +62,12 @@ esp32:
     type: esp-idf
     # version: 5.4.2
     # platform_version: 54.03.21
+    advanced:
+      minimum_chip_revision: "3.0"
+      sram1_as_iram: true
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
 
 psram:
 
@@ -169,6 +175,16 @@ globals:
     type: float
     restore_value: no
     initial_value: "-100"
+  # temperature display unit preference
+  - id: temperature_unit_fahrenheit
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+  # unit that Home Assistant is currently providing for temperature sensors
+  - id: ha_temperature_unit_fahrenheit
+    type: bool
+    restore_value: no
+    initial_value: "true"
 
 script:
   # display power management
@@ -878,6 +894,30 @@ sprinkler:
         valve_switch_id: esp_sprinkler_controller_triac_zone_5
 
 number:
+  # phototransistor lux calibration/scaling
+  - platform: template
+    id: esp_sprinkler_controller_lux_calibration
+    name: Lux Calibration Factor
+    entity_category: config
+    mode: box
+    optimistic: true
+    min_value: 0.1
+    max_value: 10.0
+    step: 0.05
+    initial_value: 1.0
+    restore_value: true
+  - platform: template
+    id: esp_sprinkler_controller_full_brightness_lux
+    name: Display Full Brightness Lux
+    entity_category: config
+    mode: box
+    optimistic: true
+    unit_of_measurement: lx
+    min_value: 1
+    max_value: 100
+    step: 1
+    initial_value: 52
+    restore_value: true
   - platform: template
     id: esp_sprinkler_controller_display_brightness
     name: Display Brightness
@@ -1389,7 +1429,10 @@ sensor:
         - globals.set:
             id: weather_temperature
             value: !lambda "return x;"
-        - lambda: "id(nextionWeatherTemp).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionWeatherTemp).set_state(roundf(display_temp * 10), false, true);
   - platform: homeassistant
     id: weather_forecasted_high_ha
     entity_id: sensor.weather_forecasted_high
@@ -1398,7 +1441,10 @@ sensor:
         - globals.set:
             id: weather_temperature_high
             value: !lambda "return x;"
-        - lambda: "id(nextionWeatherTempHigh).set_state(roundf(x * 10), false, true);"
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionWeatherTempHigh).set_state(roundf(display_temp * 10), false, true);
   - platform: homeassistant
     id: weather_forecasted_low_ha
     entity_id: sensor.weather_forecasted_low
@@ -1407,34 +1453,58 @@ sensor:
         - globals.set:
             id: weather_temperature_low
             value: !lambda "return x;"
-        - lambda: "id(nextionWeatherTempLow).set_state(roundf(x * 10), false, true);"
-  # Phototransistor ADC sensor
+        - lambda: |-
+            float temp_c = id(ha_temperature_unit_fahrenheit) ? fahrenheit_to_celsius(x) : x;
+            float display_temp = id(temperature_unit_fahrenheit) ? celsius_to_fahrenheit(temp_c) : temp_c;
+            id(nextionWeatherTempLow).set_state(roundf(display_temp * 10), false, true);
+  # Phototransistor ADC sensor (internal; lux value is derived and published separately)
   - platform: adc
     id: adc_sensor_phototransistor
-    name: Phototransistor ADC
     pin: 32
     attenuation: 12db
     update_interval: 1s
     filters:
-      - sliding_window_moving_average:
-          window_size: 5
-          send_every: 3
-          send_first_at: 1
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.25
+          send_every: 1
+      - calibrate_linear:
+          - 0.142 -> 0.0   # ADC dark floor (1.89333 lx × 0.075 V/lx, cal=1.0, Vcc=3.29 V)
+          - 3.29 -> 3.29   # full scale at actual Vcc
+      - clamp:
+          min_value: 0.0
     on_value:
       then:
         - lambda: |-
+            // TEPT5700, 100kΩ emitter-to-GND: S_typ = 0.75 µA/lx → V = lux × 0.075 V/lx
+            // Calibration factor corrects for bin-to-bin sensitivity variation (1.0 = datasheet typical).
+            auto lux = id(adc_sensor_phototransistor).state / 0.075f * id(esp_sprinkler_controller_lux_calibration).state;
+            id(sensor_lux).publish_state(lux);
             if (id(esp_sprinkler_controller_display).state) {
-              auto brightness_mult_max = 100.0;
-              auto brightness_mult_min = 100.0 - id(esp_sprinkler_controller_display_brightness_idle_reduction).state;
-              auto brightness_max = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_max), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
-              auto brightness_min = clamp<float>(roundf(id(adc_sensor_phototransistor).state / 3.9 * brightness_mult_min), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
-              // ESP_LOGD("display_brightness", "Max: %f - Min: %f", brightness_max, brightness_min);
+              auto ref_lux = id(esp_sprinkler_controller_full_brightness_lux).state;
+              auto brightness_mult_max = 100.0f;
+              auto brightness_mult_min = 100.0f - id(esp_sprinkler_controller_display_brightness_idle_reduction).state;
+              auto brightness_max = clamp<float>(roundf(lux / ref_lux * brightness_mult_max), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
+              auto brightness_min = clamp<float>(roundf(lux / ref_lux * brightness_mult_min), id(esp_sprinkler_controller_display_minimum_brightness).state, id(esp_sprinkler_controller_display_maximum_brightness).state);
+              // ESP_LOGD("display_brightness", "Lux: %f - Max: %f - Min: %f", lux, brightness_max, brightness_min);
               id(nextionMaxBrightness).set_state(brightness_max, true, true);
               id(nextionMinBrightness).set_state(brightness_min, true, true);
             } else {
               id(nextionMaxBrightness).set_state(0, true, true);
               id(nextionMinBrightness).set_state(0, true, true);
             }
+  # Illuminance derived from phototransistor ADC (published by adc_sensor_phototransistor on_value)
+  - platform: template
+    id: sensor_lux
+    name: Illuminance
+    device_class: illuminance
+    state_class: measurement
+    unit_of_measurement: lx
+    accuracy_decimals: 1
+    update_interval: never
   # NTC thermistor ADC sensor
   - platform: adc
     id: adc_sensor_thermistor
@@ -1442,6 +1512,11 @@ sensor:
     pin: 34
     internal: true
     update_interval: 1s
+    filters:
+      - median:
+          window_size: 5
+          send_every: 1
+          send_first_at: 1
   # NTC thermistor resistance sensor
   - platform: resistance
     id: thermistor_sensor
@@ -1462,14 +1537,20 @@ sensor:
       reference_resistance: 10kOhm
     filters:
       - offset: ${ntc_temperature_offset}
-      - sliding_window_moving_average:
-          window_size: 60
-          send_every: 15
-          send_first_at: 15
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 4
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 1
     on_value:
       then:
         - lambda: |-
-            auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_thermistor_temperature).state)) + "\xB0";
+            float display_temp = id(temperature_unit_fahrenheit)
+                ? celsius_to_fahrenheit(id(esp_sprinkler_controller_thermistor_temperature).state)
+                : id(esp_sprinkler_controller_thermistor_temperature).state;
+            auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
             id(nextionTextSensor6a).set_state(temperature_string, false, true);
   # DHT22 sensor
   - platform: dht
@@ -1483,7 +1564,10 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_dht22_temperature).state)) + "\xB0";
+              float display_temp = id(temperature_unit_fahrenheit)
+                  ? celsius_to_fahrenheit(id(esp_sprinkler_controller_dht22_temperature).state)
+                  : id(esp_sprinkler_controller_dht22_temperature).state;
+              auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
               id(nextionTextSensor5a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_dht22_humidity
@@ -1506,7 +1590,10 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_bme280_temperature).state)) + "\xB0";
+              float display_temp = id(temperature_unit_fahrenheit)
+                  ? celsius_to_fahrenheit(id(esp_sprinkler_controller_bme280_temperature).state)
+                  : id(esp_sprinkler_controller_bme280_temperature).state;
+              auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
               id(nextionTextSensor2a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_bme280_humidity
@@ -1535,7 +1622,10 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_bme680_temperature).state)) + "\xB0";
+              float display_temp = id(temperature_unit_fahrenheit)
+                  ? celsius_to_fahrenheit(id(esp_sprinkler_controller_bme680_temperature).state)
+                  : id(esp_sprinkler_controller_bme680_temperature).state;
+              auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
               id(nextionTextSensor1a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_bme680_humidity
@@ -1624,7 +1714,10 @@ sensor:
       on_value:
         then:
           - lambda: |-
-              auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_shtcx_temperature).state)) + "\xB0";
+              float display_temp = id(temperature_unit_fahrenheit)
+                  ? celsius_to_fahrenheit(id(esp_sprinkler_controller_shtcx_temperature).state)
+                  : id(esp_sprinkler_controller_shtcx_temperature).state;
+              auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
               id(nextionTextSensor3a).set_state(temperature_string, false, true);
     humidity:
       id: esp_sprinkler_controller_shtcx_humidity
@@ -1644,7 +1737,10 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            auto temperature_string = str_sprintf("%.1f", celsius_to_fahrenheit(id(esp_sprinkler_controller_tmp117_temperature).state)) + "\xB0";
+            float display_temp = id(temperature_unit_fahrenheit)
+                ? celsius_to_fahrenheit(id(esp_sprinkler_controller_tmp117_temperature).state)
+                : id(esp_sprinkler_controller_tmp117_temperature).state;
+            auto temperature_string = str_sprintf("%.1f", display_temp) + "\xB0";
             id(nextionTextSensor4a).set_state(temperature_string, false, true);
     update_interval: 15s
   # SGP40 sensor
@@ -1663,6 +1759,15 @@ sensor:
       temperature_source: esp_sprinkler_controller_shtcx_temperature
 
 text_sensor:
+  - platform: homeassistant
+    id: ha_temperature_unit_detector
+    entity_id: sensor.gw2000b_outdoor_temperature
+    attribute: unit_of_measurement
+    on_value:
+      then:
+        - globals.set:
+            id: ha_temperature_unit_fahrenheit
+            value: !lambda 'return x == "°F";'
   - platform: bme68x_bsec2
     iaq_accuracy:
       id: esp_sprinkler_controller_bme680_accuracy
@@ -1917,3 +2022,21 @@ display:
             id(nextionTextSensor6).set_state("Thermistor 1:", false, true);
             id(nextionTextSensor7).set_state("Thermistor 2:", false, true);
             id(nextionTextSensor8).set_state("SGP40:", false, true);
+
+select:
+  - platform: template
+    id: esp_sprinkler_controller_temperature_unit
+    name: Temperature Unit
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "Celsius"
+      - "Fahrenheit"
+    initial_option: "Fahrenheit"
+    on_value:
+      then:
+        - globals.set:
+            id: temperature_unit_fahrenheit
+            value: !lambda "return i == 1;"
+        - component.update: esp_sprinkler_controller_tmp117_temperature

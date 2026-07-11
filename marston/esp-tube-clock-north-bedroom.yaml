@@ -1,0 +1,9 @@
+substitutions:
+  node_name: esp-tube-clock-north-bedroom
+  node_friendly_name: North Bedroom Tube Clock
+  reset_pin_allow_other_uses: true
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+  esp-tube-clock-base: !include shared/esp-tube-clock-base.yaml
+  esp-tube-clock-gps: !include shared/esp-tube-clock-gps.yaml

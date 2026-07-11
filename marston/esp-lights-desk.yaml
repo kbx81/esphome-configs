@@ -1,0 +1,65 @@
+substitutions:
+  node_name: esp-lights-desk
+  node_friendly_name: Southwest Bedroom Desk Lights
+  project_name: kbxLEDController-5ch
+  project_version: v1
+
+packages:
+  esp_common: !include shared/esp__common_core.yaml
+
+wifi:
+  enable_btm: true
+  enable_rrm: true
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    # version: 5.4.2
+    # platform_version: 54.03.21
+    advanced:
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
+
+status_led:
+  pin:
+    number: 5
+    inverted: true
+
+light:
+  - platform: rgbww
+    id: desk_lights
+    name: None
+    restore_mode: RESTORE_DEFAULT_OFF
+    red: pwm_red_s1
+    green: pwm_green_s1
+    blue: pwm_blue_s1
+    cold_white: pwm_cw_s1
+    warm_white: pwm_ww_s1
+    cold_white_color_temperature: 6536 K
+    warm_white_color_temperature: 2000 K
+    effects:
+      - flicker:
+      - pulse:
+      - random:
+          transition_length: 500ms
+          update_interval: 1s
+      - strobe:
+
+output:
+  - platform: ledc
+    id: pwm_green_s1
+    pin: 1
+  - platform: ledc
+    id: pwm_ww_s1
+    pin: 4
+  - platform: ledc
+    id: pwm_red_s1
+    pin: 0
+  - platform: ledc
+    id: pwm_blue_s1
+    pin: 3
+  - platform: ledc
+    id: pwm_cw_s1
+    pin: 2

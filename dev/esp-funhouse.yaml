@@ -11,6 +11,10 @@ esp32:
     type: esp-idf
     # version: 5.4.2
     # platform_version: 54.03.21
+    advanced:
+      signed_ota_verification:
+        signing_key: shared/kbx_signing_key_rsa3072.pem
+        signing_scheme: rsa3072
 
 esphome:
   on_boot:

@@ -1,0 +1,37 @@
+globals:
+  - id: clock_time_synced
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+interval:
+  - interval: 47h
+    then:
+      - if:
+          condition:
+            lambda: 'return id(esptime).now().is_valid();'
+          then:
+            - button.press: clock_update_time_btn
+
+time:
+  - platform: homeassistant
+    id: esptime
+    timezone: CST+6CDT,M3.2.0/2,M11.1.0/2
+    on_time_sync:
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(clock_time_synced);'
+            then:
+              - lambda: 'id(clock_time_synced) = true;'
+              - button.press: clock_update_time_btn
+
+button:
+  - platform: template
+    id: clock_update_time_btn
+    name: Sync Clock Time
+    entity_category: config
+    icon: mdi:timer-sync
+    on_press:
+      - tube_clock.set_time:
+          time: !lambda 'return id(esptime).now();'
